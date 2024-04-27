@@ -1,0 +1,28 @@
+{
+  "name": "app",
+  "scripts": {
+    "lint": "eslint src",
+    "dev": "nodemon src/main.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.1.1",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "@typescript-eslint/parser": "^7.7.1",
+    "eslint": "^9.1.1",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^7.7.1"
+  },
+  "version": "0.0.1",
+  "description": "discord bot",
+  "main": "index.js",
+  "author": "Hung Nguyen",
+  "license": "ISC"
+}
