@@ -1,24 +1,23 @@
 import 'dotenv/config'
-import { Client, Events, GatewayIntentBits } from 'discord.js';
 import app from './app'
+import { login } from './client'
 
 const { TOKEN } = process.env
 const port: number = 3001
 
-const client = new Client({
+const main = async () => {
+  if (TOKEN === undefined) {
+    console.error('Missing TOKEN in environment variable!')
+    return
+  }
 
-  intents: [GatewayIntentBits.Guilds]
-});
+  // Log the bot to Discord
+  await login(TOKEN)
 
-client.once(Events.ClientReady, readyClient => {
-  console.log(`Ready! Logged in as ${readyClient.user.tag}`);
-});
+  // Run express app
+  app.listen(port, function () {
+    console.log(`App is listening on port ${port} !`)
+  })
+}
 
-
-
-client.login(TOKEN);
-
-// Run express app
-app.listen(port, function () {
-  console.log(`App is listening on port ${port} !`)
-})
+main()

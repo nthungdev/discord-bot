@@ -2,9 +2,11 @@
   "name": "app",
   "scripts": {
     "lint": "eslint src",
-    "dev": "nodemon src/main.ts"
+    "dev": "nodemon src/main.ts",
+    "start": "ts-node src/main.ts"
   },
   "dependencies": {
+    "body-parser": "^1.20.2",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
