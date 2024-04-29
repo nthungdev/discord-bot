@@ -6,9 +6,12 @@ import { getRandomSleepReminderMessage } from './utils'
 
 const app: Application = express()
 
+// Google Cloud setting
+app.set('trust proxy', true);
+
 app.use(bodyParser.json());
 
-app.get('/helloworld', (_: Request, res: Response) => {
+app.get('/', (_, res: Response) => {
   res.send('Hello world!')
 })
 
@@ -17,6 +20,7 @@ app.post('/message', async (req: Request, res: Response) => {
 
   const channel = client.channels.cache.get(channelId) as (TextChannel | undefined)
   if (channel === undefined) {
+    res.status(400) // bad request
     res.send({ ok: false, message: 'channel not found' })
     return
   }
@@ -31,24 +35,35 @@ app.post('/message', async (req: Request, res: Response) => {
   })
 })
 
-app.post('/test', async (req: Request, res: Response) => {
-  const { textChannelId, voiceChannelId } = req.body
+app.post('/sleepreminder', async (req: Request, res: Response) => {
+  const { channelId } = req.body
 
-  const voiceChannel = client.channels.cache.get(voiceChannelId) as (VoiceChannel | undefined)
-  if (voiceChannel === undefined) {
-    res.send({ ok: false, message: `channel ${voiceChannelId} not found` })
+  // Channel type that is a voice channel
+  const VOICE_CHANNEL_TYPE = 2
+
+  const { SLEEP_REMINDER_SERVER_ID } = process.env
+
+  const guild = client.guilds.cache.get(SLEEP_REMINDER_SERVER_ID as string)
+  if (guild === undefined) {
+    res.json({ ok: false, message: `guild ${SLEEP_REMINDER_SERVER_ID} not found.` })
     return
   }
 
-  const memberIds = voiceChannel.members.map(m => m.user.id)
+  // ids of members currently in a voice channel excluding bots)
+  const memberIds = guild.channels.cache.toJSON()
+    .filter(c => c.type === VOICE_CHANNEL_TYPE)
+    .flatMap(c => (c as VoiceChannel).members.toJSON())
+    .filter(m => !m.user.bot)
+    .map(m => m.id)
+
   if (memberIds.length === 0) {
     res.send({ ok: true, message: 'there is no one in the voice channel' })
     return;
   }
 
-  const textChannel = client.channels.cache.get(textChannelId) as (TextChannel | undefined)
+  const textChannel = client.channels.cache.get(channelId) as (TextChannel | undefined)
   if (textChannel === undefined) {
-    res.send({ ok: false, message: `channel ${textChannelId} not found` })
+    res.send({ ok: false, message: `channel ${channelId} not found.` })
     return
   }
 

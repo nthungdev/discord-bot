@@ -1,18 +1,25 @@
-import 'dotenv/config'
+import { config } from 'dotenv'
 import app from './app'
 import { login } from './client'
 
-const { TOKEN } = process.env
-const port: number = 3001
+config({
+  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development'
+})
+
+const { TOKEN, PORT } = process.env
+const port: number | string = PORT || 3001
 
 const main = async () => {
-  if (TOKEN === undefined) {
-    console.error('Missing TOKEN in environment variable!')
-    return
+  // Validate environment variables
+  const requiredEnvs = ['TOKEN', 'SLEEP_REMINDER_SERVER_ID']
+  const missingEnvs = requiredEnvs.filter(env => !(env in process.env))
+  if (missingEnvs.length !== 0) {
+    console.error(`Missing ${missingEnvs.map(env => `'${env}'`).join(' ')} environment variables!`)
+    process.exit(1)
   }
 
   // Log the bot to Discord
-  await login(TOKEN)
+  await login(TOKEN as string)
 
   // Run express app
   app.listen(port, function () {

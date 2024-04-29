@@ -1,9 +1,14 @@
 {
   "name": "app",
   "scripts": {
+    "build": "tsc",
     "lint": "eslint src",
     "dev": "nodemon src/main.ts",
-    "start": "ts-node src/main.ts"
+    "start": "node build/main.js",
+    "gcp-build": "tsc"
+  },
+  "engines": {
+    "node": "20"
   },
   "dependencies": {
     "body-parser": "^1.20.2",

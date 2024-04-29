@@ -2,7 +2,7 @@ const formatMemberIds = (memberIds: string[]): string =>
   memberIds.reduce(
     (acc, curr) => [...acc, `<@${curr}>`],
     [] as string[]
-  ).join(', ')
+  ).join(' ')
 
 const message1 = (memberIds: string[]): string => {
   const members = formatMemberIds(memberIds)
@@ -20,14 +20,18 @@ const message3 = (memberIds: string[]): string => {
   return `${members} có biết bây giờ là mấy giờ rồi không?`
 }
 
-
 const message4 = (memberIds: string[]): string => {
   const members = formatMemberIds(memberIds)
-  return `${members} it's sleep time!`
+  return `${members} it's bed time!`
+}
+
+const message5 = (memberIds: string[]): string => {
+  const members = formatMemberIds(memberIds)
+  return `${members} lên giường với em đi mà!`
 }
 
 const getRandomSleepReminderMessage = (memberIds: string[]): string => {
-  const messageEngines = [message1, message2, message3, message4]
+  const messageEngines = [message1, message2, message3, message4, message5]
   const randomIndex = Math.floor(Math.random() * messageEngines.length);
   return messageEngines[randomIndex](memberIds)
 }
