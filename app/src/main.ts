@@ -59,9 +59,11 @@ const handleMessageTimeout = async (channelId: string) => {
 
     messageBuffer[channelId] = [] // clear buffer
 
-    if (content !== '') {
-      await messages[0].channel.send(content)
+    if (content === '') {
+      return
     }
+
+    await messages[0].channel.send(content)
 
     // save conversation into history
     if (channelId in history) {
