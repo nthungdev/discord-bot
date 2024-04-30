@@ -4,6 +4,7 @@ import client, { login } from './client'
 import { clearTimeout, setTimeout } from 'timers'
 import { Message } from 'discord.js'
 import { generateContent } from './utils/ai'
+import { history, messageBuffer, messageTimeout } from './store'
 
 config({
   path:
@@ -15,14 +16,6 @@ config({
 const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
 
-export type HistoryMessage = {
-  author: 'bot' | 'user'
-  content: string
-}
-
-let messageBuffer: Record<string, Message<boolean>[]> = {}
-let messageTimeout: Record<string, NodeJS.Timeout> = {}
-let history: Record<string, HistoryMessage[]> = {}
 
 const handleMessageTimeout = async (channelId: string) => {
   // get the recent messages by the user who last messaged

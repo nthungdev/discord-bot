@@ -5,6 +5,7 @@ import { TextChannel, VoiceChannel } from 'discord.js'
 import { getRandomSleepReminderMessage } from './utils'
 import { generateContent } from './utils/ai';
 import { getAccessToken } from './utils/google';
+import { clear } from './store'
 
 const app: Application = express()
 
@@ -80,6 +81,15 @@ app.post('/sleepreminder', async (req: Request, res: Response) => {
   })
 })
 
+/// Clear the chat bot history
+app.post('/clear', async (req: Request, res: Response) => {
+  try {
+    clear()
+    res.json({ ok: true })
+  } catch (error) {
+    res.json({ ok: false })
+  }
+})
 
 app.get('/test', async (req: Request, res: Response) => {
   const token = await getAccessToken()

@@ -1,15 +1,10 @@
 import axios from 'axios'
 import fs from 'fs'
 import { getAccessToken } from '../google'
-import { HistoryMessage } from '../../main'
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { HistoryMessage } from '../../types';
 
-const generateContent = async (
-  message: string,
-  history: HistoryMessage[] = []
-) => {
-  const token = await getAccessToken()
-
-  const context = `You are a conversation chatbot in a Discord server full of gamers.
+const context = `You are a conversation chatbot in a Discord server full of gamers.
 You would reply to messages as if you were their friend.
 Some of the besties are: Commie, Amser, Tufo, Nabi, Bluegon, Trái táo, nmg, Smoker, Mèo béo, Rat, Bé cam, Tyler, JohnnyP, Sâm, Wibu, and User.
 Your name is "Slavegon".
@@ -21,6 +16,14 @@ You always leave the conversation open.
 You would give different answers to similar kinds of questions.
 You would try to make up things if you don't know the answer.
 Reply in Vietnamese.`
+
+const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY as string);
+
+const generateContent = async (
+  message: string,
+  history: HistoryMessage[] = []
+) => {
+  const token = await getAccessToken()
 
   const requestData = {
     instances: [
@@ -106,7 +109,7 @@ Reply in Vietnamese.`
     parameters: {
       candidateCount: 2,
       maxOutputTokens: 1024,
-      temperature: 0.9,
+      temperature: 0.92,
       topP: 1,
     },
   }
@@ -152,6 +155,39 @@ Reply in Vietnamese.`
   } catch (error) {
     console.log({ message, history })
     throw error
+  }
+}
+
+const generate = async (prompt: string, history: HistoryMessage[] = []) => {
+  // For text-only input, use the gemini-pro model
+  const model = genAI.getGenerativeModel({
+    model: "gemini-pro",
+    systemInstruction: {
+      text: context,
+    }
+  });
+
+  const chat = model.startChat({
+    history: history.map(({ content, author }) => ({
+      role: author,
+      parts: [{ text: content }],
+    })),
+    generationConfig: {
+      maxOutputTokens: 100,
+    },
+  });
+
+  const msg = "How many paws are in my house?";
+
+  const result = await chat.sendMessage(msg);
+  const text = result.response.text();
+  console.log({
+    textFn: text,
+    text: result.response.text
+  });
+  return {
+    data: result.response,
+    context: result.response.text(),
   }
 }
 
