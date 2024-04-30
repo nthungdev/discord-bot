@@ -27,3 +27,7 @@ SLEEP_REMINDER_SERVER_ID=<id of server to check for online voice channel users>
 ### Deploy to GCP App Engine
 
 Run `gcloud app deploy`
+
+## TODOs
+
+- [ ] document service account
