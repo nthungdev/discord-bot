@@ -1,3 +1,5 @@
 node_modules
 .env*
 build
+service-account.json
+predict-request.json

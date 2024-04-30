@@ -2,5 +2,5 @@
   "eslint.workingDirectories": [
     "./app",
     "./functions",
-  ]
+  ],
 }
