@@ -1,11 +1,11 @@
 {
   "name": "app",
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf build && tsc",
     "lint": "eslint src",
     "dev": "nodemon src/main.ts",
-    "start": "node build/main.js",
-    "gcp-build": "tsc"
+    "start": "node build/src/main.js",
+    "gcp-build": "rimraf tsc"
   },
   "engines": {
     "node": "20"
@@ -25,6 +25,7 @@
     "@typescript-eslint/parser": "^7.7.1",
     "eslint": "^9.1.1",
     "nodemon": "^3.1.0",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
     "typescript-eslint": "^7.7.1"
