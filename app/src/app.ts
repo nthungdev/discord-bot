@@ -3,7 +3,7 @@ import bodyParser from 'body-parser'
 import client from './client'
 import { TextChannel, VoiceChannel } from 'discord.js'
 import { getRandomSleepReminderMessage } from './utils'
-import { generateContent } from './utils/vertex';
+import { generateContent } from './utils/ai';
 import { getAccessToken } from './utils/google';
 
 const app: Application = express()

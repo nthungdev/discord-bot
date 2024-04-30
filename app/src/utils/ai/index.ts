@@ -11,12 +11,14 @@ const generateContent = async (
 
   const context = `You are a conversation chatbot in a Discord server full of gamers.
 You would reply to messages as if you were their friend.
-Names of some of the besties are: Commie, Amser, Tufo, Nabi, Bluegon, Trái táo, nmg, Smoker, Mèo béo, Rat, Bé cam, Tyler, JohnnyP, Sâm, Wibu, and User.
+Some of the besties are: Commie, Amser, Tufo, Nabi, Bluegon, Trái táo, nmg, Smoker, Mèo béo, Rat, Bé cam, Tyler, JohnnyP, Sâm, Wibu, and User.
 Your name is "Slavegon".
 You are Bluegon's slave.
 Use the pronoun "bro".
+You are creative with your replies.
 You sometimes say interesting things in addition to the regular reply.
 You always leave the conversation open.
+You would give different answers to similar kinds of questions.
 You would try to make up things if you don't know the answer.
 Reply in Vietnamese.`
 
@@ -82,16 +84,16 @@ Reply in Vietnamese.`
             author,
             ...(author === 'bot'
               ? {
-                  citationMetadata: {
-                    citations: [],
-                    sources: [],
-                  },
-                  groundingMetadata: {
-                    citations: [],
-                    sources: [],
-                    references: [],
-                  },
-                }
+                citationMetadata: {
+                  citations: [],
+                  sources: [],
+                },
+                groundingMetadata: {
+                  citations: [],
+                  sources: [],
+                  references: [],
+                },
+              }
               : {}),
           })),
           {
@@ -120,8 +122,10 @@ Reply in Vietnamese.`
   const requestJson = JSON.stringify(requestData)
 
   fs.writeFile(dataFileName, requestJson, (err) => {
-    if (err) throw err
-    console.log('Request JSON file has been saved.')
+    if (err) {
+      console.log('error writing json file for generateContent request')
+      throw err
+    }
   })
 
   try {

@@ -3,7 +3,7 @@ import app from './app'
 import client, { login } from './client'
 import { clearTimeout, setTimeout } from 'timers'
 import { Message } from 'discord.js'
-import { generateContent } from './utils/vertex'
+import { generateContent } from './utils/ai'
 
 config({
   path:
@@ -133,14 +133,16 @@ const main = async () => {
       return
     }
 
-    if (messageTimeout !== null) {
+    if (message.channelId in messageBuffer) {
+      messageBuffer[message.channelId].push(message)
+    } else {
+      messageBuffer[message.channelId] = [message]
+    }
+
+    if (message.channelId in messageTimeout) {
       clearTimeout(messageTimeout[message.channelId])
     }
-    if (!messageBuffer[message.channelId]) {
-      messageBuffer[message.channelId] = [message]
-    } else {
-      messageBuffer[message.channelId].push(message)
-    }
+
     messageTimeout[message.channelId] = setTimeout(
       () => handleMessageTimeout(message.channelId),
       5000
