@@ -5,10 +5,11 @@
     "lint": "eslint src",
     "dev": "nodemon src/main.ts",
     "start": "node build/src/main.js",
-    "gcp-build": "rimraf tsc"
+    "gcp-build": "rimraf build && tsc"
   },
   "engines": {
-    "node": "20"
+    "node": "20",
+    "yarn": ">=1.0.0 <2.0.0"
   },
   "dependencies": {
     "axios": "^1.6.8",
