@@ -3,6 +3,8 @@ import bodyParser from 'body-parser'
 import client from './client'
 import { TextChannel, VoiceChannel } from 'discord.js'
 import { getRandomSleepReminderMessage } from './utils'
+import { generateContent } from './utils/vertex';
+import { getAccessToken } from './utils/google';
 
 const app: Application = express()
 
@@ -76,6 +78,30 @@ app.post('/sleepreminder', async (req: Request, res: Response) => {
     memberIds,
     message
   })
+})
+
+
+app.get('/test', async (req: Request, res: Response) => {
+  const token = await getAccessToken()
+
+  console.log({ token })
+
+  const { message } = req.query
+
+  // TODO store messages
+
+  try {
+    const content = await generateContent(message?.toString() ?? '')
+    res.json({
+      ok: true,
+      content
+    })
+  } catch (error) {
+    res.status(500)
+    res.json({
+      ok: false
+    })
+  }
 })
 
 
