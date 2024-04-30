@@ -19,3 +19,4 @@ node_modules/
 # Ignore files specified in the gitignore file
 #!include:.gitignore
 !.env.production
+!service-account.json
