@@ -5,7 +5,8 @@
     "lint": "eslint src",
     "dev": "nodemon src/main.ts",
     "start": "node build/src/main.js",
-    "gcp-build": "rimraf build && tsc"
+    "gcp-build": "rimraf build && tsc",
+    "logs": "gcloud app logs tail -s default"
   },
   "engines": {
     "node": "20",

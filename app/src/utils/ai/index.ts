@@ -177,9 +177,7 @@ const generate = async (prompt: string, history: HistoryMessage[] = []) => {
     },
   });
 
-  const msg = "How many paws are in my house?";
-
-  const result = await chat.sendMessage(msg);
+  const result = await chat.sendMessage(prompt);
   const text = result.response.text();
   console.log({
     textFn: text,
