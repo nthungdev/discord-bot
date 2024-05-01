@@ -1,4 +1,5 @@
 import { GuildTextBasedChannel, TextBasedChannel } from 'discord.js'
+import { AxiosError } from 'axios'
 import client from '.'
 import {
   addMessageBuffer,
@@ -88,7 +89,14 @@ const handleMessageTimeout = async (
       history: selectMessageHistory(store.getState())[channel.id].length,
     })
   } catch (error) {
-    console.error('Error generateContent ', error)
+    console.error('Error generateContent')
+    if (error instanceof AxiosError) {
+      console.error({
+        message: error.message,
+        name: error.name,
+        error: error.toJSON(),
+      })
+    }
   }
 }
 
