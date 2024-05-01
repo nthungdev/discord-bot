@@ -28,14 +28,14 @@ const main = async () => {// Validate environment variables
   // Log the bot to Discord
   await login(TOKEN as string)
 
-  registerChatbot({
-    allowedServers: ['1233630823496814593'],
-    freeChannels: ['1234931286062272512']
-  })
   // registerChatbot({
-  //   allowedServers: (process.env.ALLOWED_SERVERS ?? '').split(','),
-  //   freeChannels: (process.env.FREE_CHANNELS ?? '').split(',')
+  //   allowedServers: ['1233630823496814593'],
+  //   freeChannels: ['1234931286062272512']
   // })
+  registerChatbot({
+    allowedServers: (process.env.ALLOWED_SERVERS ?? '').split(','),
+    freeChannels: (process.env.FREE_CHANNELS ?? '').split(',')
+  })
 
   // Run express app
   app.listen(port, function () {
