@@ -1,11 +1,11 @@
 import express, { Application, Request, Response } from 'express'
 import bodyParser from 'body-parser'
-import client from './client'
+import client from './discord'
 import { TextChannel, VoiceChannel } from 'discord.js'
 import { getRandomSleepReminderMessage } from './utils'
 import { generateContent } from './utils/ai';
 import { getAccessToken } from './utils/google';
-import { clear } from './store'
+import { clearAll } from './features/chatbot'
 
 const app: Application = express()
 
@@ -84,7 +84,7 @@ app.post('/sleepreminder', async (req: Request, res: Response) => {
 /// Clear the chat bot history
 app.post('/clear', async (req: Request, res: Response) => {
   try {
-    clear()
+    clearAll()
     res.json({ ok: true })
   } catch (error) {
     res.json({ ok: false })

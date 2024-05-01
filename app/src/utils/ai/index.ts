@@ -2,7 +2,7 @@ import axios from 'axios'
 import fs from 'fs'
 import { getAccessToken } from '../google'
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { HistoryMessage } from '../../types';
+import { AiChatMessage } from '../../types';
 
 const context = `You are a conversation chatbot in a Discord server full of gamers.
 You would reply to messages as if you were their friend.
@@ -21,7 +21,7 @@ const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY as string);
 
 const generateContent = async (
   message: string,
-  history: HistoryMessage[] = []
+  history: AiChatMessage[] = []
 ) => {
   const token = await getAccessToken()
 
@@ -158,7 +158,7 @@ const generateContent = async (
   }
 }
 
-const generate = async (prompt: string, history: HistoryMessage[] = []) => {
+const generate = async (prompt: string, history: AiChatMessage[] = []) => {
   // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({
     model: "gemini-pro",

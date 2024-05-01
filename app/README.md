@@ -31,3 +31,4 @@ Run `gcloud app deploy`
 ## TODOs
 
 - [ ] document service account
+- [ ] allow bot to mention others
