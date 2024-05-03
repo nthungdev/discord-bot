@@ -45,7 +45,7 @@ const handleMessageTimeout = async (
   }
 
   const formattedMessages = messages.map((m) =>
-    `${m.authorDisplayName}: ${m.cleanContent}`.replace('@Slavegon', '')
+    `${m.authorDisplayName} says: ${m.cleanContent}`.replace('@Slavegon', '')
   )
   const formattedMessage = formattedMessages.join(' ')
 
