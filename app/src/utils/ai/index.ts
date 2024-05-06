@@ -1,14 +1,14 @@
 import axios from 'axios'
 import fs from 'fs'
 import { getAccessToken } from '../google'
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
 import { AiChatMessage } from '../../types';
 
 const context = `You are a conversation chatbot in a Discord server full of gamers.
-You would reply to messages as if you were their friend.
-Some of the besties are: Commie (male), Amser (female), Tufo (male), Nabi (male), Bluegon (male), Trái táo (female), Nmg (male), Smoker (male), Mèo béo (male), Rat (male), Bé cam (male), Tyler (male), JohnnyP (male), Sâm (male), Wibu (male), and User (male).
-Your name is "Slavegon".
-You are Bluegon's slave.
+You replies to messages as if you were their friend.
+Some of the besties are: Commie (male), Amser (female), Tufo (male), Nabi (male), Bluegon (male), Trái táo (female), NmG (male), Smoker (male), Mèo Béo (male), Rat (male), Bé Cam (male), Tyler (male), JohnnyP (male), Sâm (male), Wibu (male), and User (male).
+Your name is Slavegon.
+Your creator is Bluegon.
 Use the pronoun "bro".
 You are creative.
 You are funny.
@@ -17,9 +17,8 @@ You sometimes say interesting things.
 You always leave the conversation open.
 You would give different answers to similar kinds of questions.
 You would try to make up things if you don't know the answer.
+When mentioning someone, use @<name>.
 Reply in Vietnamese.`
-
-const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY as string);
 
 const generateContent = async (
   message: string,
@@ -35,51 +34,11 @@ const generateContent = async (
           {
             input: {
               author: 'user',
-              content: '+1 Besties',
-            },
-            output: {
-              author: 'bot',
-              content: "Sorry, I'm busy",
-            },
-          },
-          {
-            input: {
-              author: 'user',
-              content: 'check in nay tap dui vs lung',
-            },
-            output: {
-              author: 'bot',
-              content: 'wao, tuyệt vời',
-            },
-          },
-          {
-            input: {
-              author: 'user',
               content: 'hứa bắn tử tế',
             },
             output: {
               author: 'bot',
               content: 'chắc không bro?',
-            },
-          },
-          {
-            input: {
-              author: 'user',
-              content: '+4 Bestie try hotdog',
-            },
-            output: {
-              author: 'bot',
-              content: 'try hotdog thật không bro?',
-            },
-          },
-          {
-            input: {
-              author: 'user',
-              content: 'bạn này hot vậy',
-            },
-            output: {
-              author: 'bot',
-              content: 'nhìn nunk quák',
             },
           },
         ],
@@ -143,7 +102,7 @@ const generateContent = async (
 
     return {
       data: response.data,
-      content: (
+      content: ((
         response.data.predictions[0].candidates
           // ignore prediction without result
           .find(
@@ -152,7 +111,7 @@ const generateContent = async (
                 `I'm not able to help with that, as I'm only a language model.`
               )
           ) ?? { content: '' }
-      ).content.trim(),
+      ).content as string).trim(),
     }
   } catch (error) {
     console.log({ message, history })
@@ -160,18 +119,38 @@ const generateContent = async (
   }
 }
 
-const generate = async (prompt: string, history: AiChatMessage[] = []) => {
+export const generate = async (prompt: string, history: AiChatMessage[] = []) => {
+  const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY as string);
+
   // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({
-    model: "gemini-pro",
+    model: "gemini-1.5-pro-latest",
     systemInstruction: {
       text: context,
-    }
+    },
+    safetySettings: [
+      {
+        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
+    ]
   });
 
   const chat = model.startChat({
     history: history.map(({ content, author }) => ({
-      role: author,
+      role: author === 'bot' ? 'model' : 'user',
       parts: [{ text: content }],
     })),
     generationConfig: {
@@ -180,14 +159,9 @@ const generate = async (prompt: string, history: AiChatMessage[] = []) => {
   });
 
   const result = await chat.sendMessage(prompt);
-  const text = result.response.text();
-  console.log({
-    textFn: text,
-    text: result.response.text
-  });
   return {
     data: result.response,
-    context: result.response.text(),
+    content: result.response.text(),
   }
 }
 
