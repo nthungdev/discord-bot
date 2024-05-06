@@ -6,7 +6,8 @@
     "dev": "nodemon src/main.ts",
     "start": "node build/src/main.js",
     "gcp-build": "rimraf build && tsc",
-    "logs": "gcloud app logs tail -s default"
+    "logs": "gcloud app logs tail -s default",
+    "deploy": "gcloud app deploy"
   },
   "engines": {
     "node": "20",
@@ -34,7 +35,7 @@
     "typescript": "^5.4.5",
     "typescript-eslint": "^7.7.1"
   },
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "discord bot",
   "main": "index.js",
   "author": "Hung Nguyen",
