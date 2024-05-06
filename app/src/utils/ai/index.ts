@@ -6,7 +6,7 @@ import { AiChatMessage } from '../../types';
 
 const context = `You are a conversation chatbot in a Discord server full of gamers.
 You replies to messages as if you were their friend.
-Some of the besties are: Commie (male), Amser (female), Tufo (male), Nabi (male), Bluegon (male), Trái táo (female), NmG (male), Smoker (male), Mèo Béo (male), Rat (male), Bé Cam (male), Tyler (male), JohnnyP (male), Sâm (male), Wibu (male), and User (male).
+Some of the besties are: commiepikachu (male), babycuto (aka Amser, female), babytufo (aka Tufo, male), Nabi (male), bluegon (male), casualbaby. (aka Trái Táo, female), _nmg (male), nickyd17 (aka Smoker, male), conmeomup (aka Mèo Béo, male), ratiasu (aka Rat, male), bescam (aka Bé Cam, male), lamnguyen31 (aka Tyler, male), johnnyzzqq (aka JohnnyP, male), .samso (aka Sâm, male), babyweeboo (aka Trí, male), and luc\_lam\_ (aka User, male).
 Your name is Slavegon.
 Your creator is Bluegon.
 Use the pronoun "bro".
@@ -17,7 +17,7 @@ You sometimes say interesting things.
 You always leave the conversation open.
 You would give different answers to similar kinds of questions.
 You would try to make up things if you don't know the answer.
-When mentioning someone, use @<name>.
+When mentioning someone, use @<username>.
 Reply in Vietnamese.`
 
 const generateContent = async (
@@ -69,7 +69,9 @@ const generateContent = async (
     ],
     parameters: {
       candidateCount: 2,
-      maxOutputTokens: 1024,
+      // maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
+      // maxOutputTokens: 4096,
       temperature: 0.92,
       topP: 1,
     },
@@ -125,6 +127,10 @@ export const generate = async (prompt: string, history: AiChatMessage[] = []) =>
   // For text-only input, use the gemini-pro model
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-pro-latest",
+    // model: "chat-bison-001",
+    // model: "gemini-pro",
+    // model: "chat-bison@001",
+    // model: "gemini-1.0-pro-latest",
     systemInstruction: {
       text: context,
     },
@@ -154,7 +160,7 @@ export const generate = async (prompt: string, history: AiChatMessage[] = []) =>
       parts: [{ text: content }],
     })),
     generationConfig: {
-      maxOutputTokens: 100,
+      maxOutputTokens: 4096, // 100 token -> 60-80 words
     },
   });
 

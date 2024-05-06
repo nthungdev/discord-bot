@@ -1,4 +1,4 @@
-import { Message } from 'discord.js'
+import { Message, userMention } from 'discord.js'
 import { AxiosError } from 'axios'
 import client from '.'
 import {
@@ -57,13 +57,13 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   }, prompt)
 
   try {
-    let { content } = await generateContent(
+    let { content, data } = await generateContent(
       promptWithUsername,
       messageHistory[channel.id]
     )
 
-    // const { content } = await generate(
-    //   formattedPrompt,
+    // let { content, data } = await generate(
+    //   promptWithUsername,
     //   messageHistory[channel.id]
     // )
 
@@ -75,7 +75,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       const serverMembers = message.guild?.members.cache.toJSON()
       contentWithMentions = mentionMatches.reduce((acc, mentionedUsername) => {
         const serverMember = serverMembers?.find(m => mentionedUsername.toLowerCase() === m.user.username.toLowerCase())
-        return serverMember ? acc.replace(`@${mentionedUsername}`, `<@${serverMember.id}>`) : acc
+        return serverMember ? acc.replace(`@${mentionedUsername}`, userMention(serverMember.id)) : acc
       }, content)
     }
 
@@ -92,6 +92,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     if (content === '') {
       // TODO is this a good answer when model doesn't have a reply?
       content = '?'
+      console.log({ data: JSON.stringify(data) })
     }
 
     await channel.send(contentWithMentions ?? content)
