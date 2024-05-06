@@ -1,4 +1,4 @@
-import { GuildTextBasedChannel, TextBasedChannel } from 'discord.js'
+import { GuildTextBasedChannel, Message, TextBasedChannel } from 'discord.js'
 import { AxiosError } from 'axios'
 import client from '.'
 import {
@@ -100,53 +100,51 @@ const handleMessageTimeout = async (
   }
 }
 
-export const registerChatbot = ({
+export const handleChatbot = ({
   allowedServers = [],
   freeChannels = [],
 }: {
   allowedServers?: string[]
   freeChannels?: string[]
-} = {}) => {
-  client.on('messageCreate', (message) => {
-    // skip this message when:
-    if (
-      // incoming message not coming from allowed channels
-      !allowedServers.includes(message.guildId || '') ||
-      // message from the bot itself
-      message.author.id === client.user!.id ||
-      // has attachment (haven't supported yet)
-      message.attachments.size !== 0 ||
-      // has sticker (haven't supported image)
-      message.stickers.size !== 0 ||
-      // message type not text message
-      ![0, 19].includes(Number(message.type.toString())) ||
-      // channel requires the bot being mentioned and it's not
-      (!freeChannels.includes(message.channelId) &&
-        !message.mentions.members?.has(client.user!.id))
-    ) {
-      return
-    }
-
-    const discordMessage: DiscordMessage = {
-      authorId: message.author.id,
-      content: message.content,
-      authorDisplayName: message.author.displayName,
-      cleanContent: message.cleanContent,
-    }
-
-    store.dispatch(
-      addMessageBuffer({
-        message: discordMessage,
-        channelId: message.channelId,
-      })
-    )
-
-    clearMessageTimeout(message.channelId)
-    setMessageTimeout({
-      channelId: message.channelId,
-      timeout: setTimeout(() => handleMessageTimeout(message.channel), 5000),
-    })
-
+} = {}) => (message: Message<boolean>) => {
+  // skip handling this message when:
+  if (
+    // incoming message not coming from allowed channels
+    !allowedServers.includes(message.guildId || '') ||
+    // message from the bot itself
+    message.author.id === client.user!.id ||
+    // has attachment (haven't supported yet)
+    message.attachments.size !== 0 ||
+    // has sticker (haven't supported image)
+    message.stickers.size !== 0 ||
+    // message type not text message
+    ![0, 19].includes(Number(message.type.toString())) ||
+    // channel requires the bot being mentioned and it's not
+    (!freeChannels.includes(message.channelId) &&
+      !message.mentions.members?.has(client.user!.id))
+  ) {
     return
+  }
+
+  const discordMessage: DiscordMessage = {
+    authorId: message.author.id,
+    content: message.content,
+    authorDisplayName: message.author.displayName,
+    cleanContent: message.cleanContent,
+  }
+
+  store.dispatch(
+    addMessageBuffer({
+      message: discordMessage,
+      channelId: message.channelId,
+    })
+  )
+
+  clearMessageTimeout(message.channelId)
+  setMessageTimeout({
+    channelId: message.channelId,
+    timeout: setTimeout(() => handleMessageTimeout(message.channel), 5000),
   })
+
+  return
 }

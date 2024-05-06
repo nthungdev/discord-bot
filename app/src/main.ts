@@ -1,7 +1,6 @@
 import { config } from 'dotenv'
 import app from './app'
-import { login } from './discord'
-import { registerChatbot } from './discord/chatbot'
+import { login, registerChatbot } from './discord'
 
 config({
   path:
@@ -28,14 +27,7 @@ const main = async () => {// Validate environment variables
   // Log the bot to Discord
   await login(TOKEN as string)
 
-  // registerChatbot({
-  //   allowedServers: ['1233630823496814593'],
-  //   freeChannels: ['1234931286062272512']
-  // })
-  registerChatbot({
-    allowedServers: (process.env.ALLOWED_SERVERS ?? '').split(','),
-    freeChannels: (process.env.FREE_CHANNELS ?? '').split(',')
-  })
+  registerChatbot()
 
   // Run express app
   app.listen(port, function () {

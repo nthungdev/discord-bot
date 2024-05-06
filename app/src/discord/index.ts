@@ -1,4 +1,5 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js'
+import { handleChatbot } from './chatbot'
 
 const client = new Client({
   // Specify what kind of data the client receives
@@ -22,6 +23,17 @@ export const login = async (token: string) => {
     })
     client.login(token)
   })
+}
+
+export const registerChatbot = () => {
+  // handleChatbot({
+  //   allowedServers: ['1233630823496814593'],
+  //   freeChannels: ['1234931286062272512']
+  // })
+  client.on('messageCreate', handleChatbot({
+    allowedServers: (process.env.ALLOWED_SERVERS ?? '').split(','),
+    freeChannels: (process.env.FREE_CHANNELS ?? '').split(',')
+  }))
 }
 
 export default client
