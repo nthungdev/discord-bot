@@ -171,7 +171,7 @@ export const handleChatbot =
         mentions: message.mentions.users.toJSON().map((u) => ({
           id: u.id,
           nickname: message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
-          username: message.author.username,
+          username: u.username,
         })),
       }
 
