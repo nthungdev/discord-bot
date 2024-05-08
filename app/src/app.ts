@@ -92,26 +92,15 @@ app.post('/clear', async (req: Request, res: Response) => {
 })
 
 app.get('/test', async (req: Request, res: Response) => {
-  const token = await getAccessToken()
-
-  console.log({ token })
-
-  const { message } = req.query
-
-  // TODO store messages
-
-  try {
-    const content = await generateContent(message?.toString() ?? '')
-    res.json({
-      ok: true,
-      content
-    })
-  } catch (error) {
-    res.status(500)
-    res.json({
-      ok: false
-    })
-  }
+  const guild = client.guilds.cache.get('657812180565229568')
+  const members = (await guild?.members.fetch())?.toJSON()
+  console.log({ l: (await guild?.members.list())?.size, lm: members?.length })
+  const serverMembers = guild?.members.cache.toJSON()
+  console.log({ l: serverMembers?.length })
+  const serverMember = serverMembers?.find(m => m.user.username.toLowerCase() === 'conmeomup')
+  console.log(serverMember)
+  res.json({ user: { ...serverMember?.user }, serverMembers })
+  res.status(200)
 })
 
 

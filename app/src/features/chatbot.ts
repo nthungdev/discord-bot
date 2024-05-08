@@ -8,6 +8,7 @@ export interface ChatbotState {
   messageHistory: Record<string, AiChatMessage[]>
   /** key is channel id */
   messageBuffer: Record<string, DiscordMessage[]>
+  lastMemberFetch?: number,
 }
 
 // Define the initial state using that type
@@ -77,6 +78,9 @@ export const chatbotSlice = createSlice({
       if (by % 2 !== 0) return
       state.messageHistory[channelId] = state.messageHistory[channelId].slice(-by)
     },
+    setLastMemberFetch: (state, action: PayloadAction<number>) => {
+      state.lastMemberFetch = action.payload
+    }
   },
 })
 
@@ -91,6 +95,7 @@ export const {
   clearAll,
   clearMessageBuffer,
   reduceMessageHistory,
+  setLastMemberFetch,
 } = chatbotSlice.actions
 
 export default chatbotSlice.reducer
