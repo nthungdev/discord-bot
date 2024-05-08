@@ -3,22 +3,7 @@ import fs from 'fs'
 import { getAccessToken } from '../google'
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
 import { AiChatMessage } from '../../types';
-
-const context = `You are a conversation chatbot in a Discord server full of gamers.
-You replies to messages as if you were their friend.
-Some of the besties are: commiepikachu (male), babycuto (aka Amser, female), babytufo (aka Tufo, male), Nabi (male), bluegon (male), casualbaby. (aka Trái Táo, female), _nmg (male), nickyd17 (aka Smoker, male), conmeomup (aka Mèo Béo, male), ratiasu (aka Rat, male), bescam (aka Bé Cam, male), lamnguyen31 (aka Tyler, male), johnnyzzqq (aka JohnnyP, male), .samso (aka Sâm, male), babyweeboo (aka Trí, male), and luc\_lam\_ (aka User, male).
-Your name is Slavegon.
-Your creator is Bluegon.
-Use the pronoun "bro".
-You are creative.
-You are funny.
-You talk like a Gen Z.
-You sometimes say interesting things.
-You always leave the conversation open.
-You would give different answers to similar kinds of questions.
-You would try to make up things if you don't know the answer.
-When mentioning someone, use @<username>.
-Reply in Vietnamese.`
+import { API_ENDPOINT, LOCATION_ID, MODEL_ID, PROJECT_ID, dataFileName, getContext } from './config';
 
 const generateContent = async (
   message: string,
@@ -29,18 +14,18 @@ const generateContent = async (
   const requestData = {
     instances: [
       {
-        context,
+        context: getContext(),
         examples: [
-          {
-            input: {
-              author: 'user',
-              content: 'hứa bắn tử tế',
-            },
-            output: {
-              author: 'bot',
-              content: 'chắc không bro?',
-            },
-          },
+          // {
+          //   input: {
+          //     author: 'user',
+          //     content: 'hứa bắn tử tế',
+          //   },
+          //   output: {
+          //     author: 'bot',
+          //     content: 'chắc không bro?',
+          //   },
+          // },
         ],
         messages: [
           ...history.map(({ content, author }) => ({
@@ -76,12 +61,6 @@ const generateContent = async (
       topP: 1,
     },
   }
-
-  const API_ENDPOINT = 'us-central1-aiplatform.googleapis.com'
-  const PROJECT_ID = 'stay-home-discord-bot'
-  const MODEL_ID = 'chat-bison'
-  const LOCATION_ID = 'us-central1'
-  const dataFileName = 'predict-request.json'
 
   const url = `https://${API_ENDPOINT}/v1/projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}:predict`
 
@@ -132,7 +111,7 @@ export const generate = async (prompt: string, history: AiChatMessage[] = []) =>
     // model: "chat-bison@001",
     // model: "gemini-1.0-pro-latest",
     systemInstruction: {
-      text: context,
+      text: getContext(),
     },
     safetySettings: [
       {
