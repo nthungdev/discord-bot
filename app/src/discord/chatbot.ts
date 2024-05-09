@@ -1,4 +1,4 @@
-import { Message } from 'discord.js'
+import { Guild, Message, userMention } from 'discord.js'
 import { AxiosError } from 'axios'
 import client from '.'
 import {
@@ -8,12 +8,23 @@ import {
   reduceMessageHistory,
   selectChatbotState,
   selectMessageHistory,
+  setLastMemberFetch,
 } from '../features/chatbot'
 import { store } from '../store'
 import { generate, generateContent } from '../utils/ai'
 import { DiscordMessage } from '../types'
 
 const BOT_REPLY_DELAY = 5000 // 5s
+const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
+
+/** Fetch up-to-date member list to cache */
+const validateServerMembersCache = async (guild: Guild) => {
+  const { lastMemberFetch } = selectChatbotState(store.getState())
+  if (!lastMemberFetch || (lastMemberFetch + MEMBER_FETCH_AGE) < Date.now()) {
+    await guild.members.fetch()
+    setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE)
+  }
+}
 
 // not recommended to store non-serialized objects in redux store,
 // hence this is what we have
@@ -57,13 +68,13 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   }, prompt)
 
   try {
-    let { content } = await generateContent(
+    let { content, data } = await generateContent(
       promptWithUsername,
       messageHistory[channel.id]
     )
 
-    // const { content } = await generate(
-    //   formattedPrompt,
+    // let { content, data } = await generate(
+    //   promptWithUsername,
     //   messageHistory[channel.id]
     // )
 
@@ -75,7 +86,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       const serverMembers = message.guild?.members.cache.toJSON()
       contentWithMentions = mentionMatches.reduce((acc, mentionedUsername) => {
         const serverMember = serverMembers?.find(m => mentionedUsername.toLowerCase() === m.user.username.toLowerCase())
-        return serverMember ? acc.replace(`@${mentionedUsername}`, `<@${serverMember.id}>`) : acc
+        return serverMember ? acc.replaceAll(`@${mentionedUsername}`, userMention(serverMember.id)) : acc
       }, content)
     }
 
@@ -92,6 +103,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     if (content === '') {
       // TODO is this a good answer when model doesn't have a reply?
       content = '?'
+      console.log({ data: JSON.stringify(data) })
     }
 
     await channel.send(contentWithMentions ?? content)
@@ -140,7 +152,7 @@ export const handleChatbot =
     allowedServers?: string[]
     freeChannels?: string[]
   } = {}) =>
-    (message: Message<boolean>) => {
+    async (message: Message<boolean>) => {
       // skip handling this message when:
       if (
         // incoming message not coming from allowed channels
@@ -160,7 +172,13 @@ export const handleChatbot =
         return
       }
 
-      const guildMember = message.guild?.members.cache.get(message.author.id)
+      if (message.guild === null) {
+        // DM message is not supported
+        return
+      }
+
+      await validateServerMembersCache(message.guild)
+      const guildMember = message.guild.members.cache.get(message.author.id)
       const discordMessage: DiscordMessage = {
         authorId: message.author.id,
         content: message.content,
@@ -170,19 +188,9 @@ export const handleChatbot =
         mentions: message.mentions.users.toJSON().map((u) => ({
           id: u.id,
           nickname: message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
-          username: message.author.username,
+          username: u.username,
         })),
       }
-
-      // // guildMember?.nickname
-      // console.log({
-      //   username: message.author.username,
-      //   globalName: message.author.globalName,
-      //   nickname: guildMember?.nickname,
-      //   authorDisplayName: message.author.displayName,
-      //   author: message.author,
-      //   guildMember: message.guild?.members.cache.get(message.author.id)?.user,
-      // })
 
       store.dispatch(
         addMessageBuffer({
