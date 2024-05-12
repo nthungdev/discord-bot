@@ -1,7 +1,7 @@
-import { JWT } from "google-auth-library"
+import { JWT, GoogleAuth } from "google-auth-library"
 import serviceAccount from '../../service-account.json'
 
-async function getAccessToken() {
+export const getAccessToken = async () => {
   const client = new JWT({
     email: serviceAccount.client_email,
     key: serviceAccount.private_key,
@@ -11,5 +11,10 @@ async function getAccessToken() {
   return res.token
 }
 
-
-export { getAccessToken }
+export const getCredentials = async () => {
+  const auth = new GoogleAuth({
+    scopes: 'https://www.googleapis.com/auth/cloud-platform',
+    credentials: serviceAccount
+  });
+  return await auth.getCredentials()
+}

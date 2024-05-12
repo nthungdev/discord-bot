@@ -7,7 +7,10 @@
     "start": "node build/src/main.js",
     "gcp-build": "rimraf build && tsc",
     "logs": "gcloud app logs tail -s default",
-    "deploy": "gcloud app deploy"
+    "deploy": "gcloud app deploy",
+    "docker-build": "docker-compose build",
+    "docker-development": "docker-compose -f compose.yaml -f compose.development.yaml up",
+    "docker-production": "docker-compose -f compose.yaml -f compose.production.yaml up"
   },
   "engines": {
     "node": "20",

@@ -1,0 +1,7 @@
+services:
+  server:
+    environment:
+      NODE_ENV: production
+    env_file: ./.env.production
+    ports:
+      - 3001:3001

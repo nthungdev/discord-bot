@@ -9,11 +9,9 @@
 # https://github.com/docker/awesome-compose
 services:
   server:
+    image: stay-home:latest
     build:
       context: .
-    environment:
-      NODE_ENV: production
-    env_file: ./.env.development
     ports:
       - 3001:3001
 

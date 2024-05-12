@@ -1,0 +1,7 @@
+services:
+  server:
+    environment:
+      NODE_ENV: development
+    env_file: ./.env.development
+    ports:
+      - 3001:3001

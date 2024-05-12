@@ -15,7 +15,6 @@ FROM node:${NODE_VERSION}-alpine as base
 # Set working directory for all build stages.
 WORKDIR /usr/src/app
 
-
 ################################################################################
 # Create a stage for installing production dependecies.
 FROM base as deps
@@ -50,8 +49,8 @@ RUN yarn run build
 # where the necessary files are copied from the build stage.
 FROM base as final
 
-# Use production node environment by default.
-ENV NODE_ENV production
+# # Use production node environment by default.
+# ENV NODE_ENV production
 
 # Run the application as a non-root user.
 USER node
@@ -67,6 +66,8 @@ COPY --from=build /usr/src/app/build ./build
 
 # Expose the port that the application listens on.
 EXPOSE 3001
+
+ENTRYPOINT ["/usr/bin/env"]
 
 # Run the application.
 CMD yarn start

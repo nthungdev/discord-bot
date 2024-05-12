@@ -13,7 +13,11 @@ const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
 
 const main = async () => {// Validate environment variables
-  const requiredEnvs = ['TOKEN', 'SLEEP_REMINDER_SERVER_ID']
+  const requiredEnvs = [
+    'TOKEN',
+    'SLEEP_REMINDER_SERVER_ID',
+    'AI_API_KEY',
+  ]
   const missingEnvs = requiredEnvs.filter((env) => !(env in process.env))
   if (missingEnvs.length !== 0) {
     console.error(

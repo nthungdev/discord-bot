@@ -1,6 +1,5 @@
 import axios from 'axios'
-import fs from 'fs'
-import { getAccessToken } from '../google'
+import { getAccessToken, getCredentials } from '../google'
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
 import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform'
 import { AiChatMessage } from '../../types';
@@ -15,6 +14,8 @@ export const generateContentREST = async (
   history: AiChatMessage[] = []
 ) => {
   const token = await getAccessToken()
+
+  const url = `https://${API_ENDPOINT}/v1/projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}:predict`
 
   const requestData = {
     instances: [
@@ -55,20 +56,10 @@ export const generateContentREST = async (
       topP: 1,
     },
   }
-
-  const url = `https://${API_ENDPOINT}/v1/projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}:predict`
-
   const requestJson = JSON.stringify(requestData)
 
-  fs.writeFile(dataFileName, requestJson, (err) => {
-    if (err) {
-      console.log('error writing json file for generateContent request')
-      throw err
-    }
-  })
-
   try {
-    const response = await axios.post(url, fs.createReadStream(dataFileName), {
+    const response = await axios.post(url, requestJson, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -151,8 +142,13 @@ export const generate = async (prompt: string, history: AiChatMessage[] = []) =>
  * Uses @google-cloud/aiplatform API
  */
 export const generateContent = async (prompt: string, history: AiChatMessage[] = []) => {
+  const credentials = await getCredentials()
   const predictionServiceClient = new PredictionServiceClient({
     apiEndpoint: 'us-central1-aiplatform.googleapis.com',
+    credentials: {
+      client_email: credentials.client_email,
+      private_key: credentials.private_key,
+    },
   });
 
   const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}`;
