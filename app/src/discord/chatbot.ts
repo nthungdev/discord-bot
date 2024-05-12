@@ -11,7 +11,7 @@ import {
   setLastMemberFetch,
 } from '../features/chatbot'
 import { store } from '../store'
-import { generate, generateContent } from '../utils/ai'
+import { generate, generateContentREST, generateContent } from '../utils/ai'
 import { DiscordMessage } from '../types'
 
 const BOT_REPLY_DELAY = 5000 // 5s
@@ -67,21 +67,26 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`)
   }, prompt)
 
+
   try {
-    let { content, data } = await generateContent(
-      promptWithUsername,
-      messageHistory[channel.id]
-    )
+    // let { content, data } = await generateContentREST(
+    //   promptWithUsername,
+    //   messageHistory[channel.id]
+    // )
 
     // let { content, data } = await generate(
     //   promptWithUsername,
     //   messageHistory[channel.id]
     // )
 
+    let { content, data } = await generateContent(
+      promptWithUsername,
+      messageHistory[channel.id],
+    )
+
     // replace @<username> in message with @<user id>
     let contentWithMentions
     const mentionMatches = content.match(/(?<=\@)([\w\.]+)/g)
-    console.log({ mentionMatches })
     if (mentionMatches !== null) {
       const serverMembers = message.guild?.members.cache.toJSON()
       contentWithMentions = mentionMatches.reduce((acc, mentionedUsername) => {
@@ -94,6 +99,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       user: promptWithUsername,
       content,
       contentWithMentions,
+      mentionMatches
     })
 
     store.dispatch(clearMessageBuffer(channel.id))

@@ -3,8 +3,6 @@ import bodyParser from 'body-parser'
 import client from './discord'
 import { TextChannel, VoiceChannel } from 'discord.js'
 import { getRandomSleepReminderMessage } from './utils'
-import { generateContent } from './utils/ai';
-import { getAccessToken } from './utils/google';
 import { clearAll } from './features/chatbot'
 
 const app: Application = express()
@@ -91,17 +89,17 @@ app.post('/clear', async (req: Request, res: Response) => {
   }
 })
 
-app.get('/test', async (req: Request, res: Response) => {
-  const guild = client.guilds.cache.get('657812180565229568')
-  const members = (await guild?.members.fetch())?.toJSON()
-  console.log({ l: (await guild?.members.list())?.size, lm: members?.length })
-  const serverMembers = guild?.members.cache.toJSON()
-  console.log({ l: serverMembers?.length })
-  const serverMember = serverMembers?.find(m => m.user.username.toLowerCase() === 'conmeomup')
-  console.log(serverMember)
-  res.json({ user: { ...serverMember?.user }, serverMembers })
-  res.status(200)
-})
+// app.get('/test', async (req: Request, res: Response) => {
+//   const guild = client.guilds.cache.get('657812180565229568')
+//   const members = (await guild?.members.fetch())?.toJSON()
+//   console.log({ l: (await guild?.members.list())?.size, lm: members?.length })
+//   const serverMembers = guild?.members.cache.toJSON()
+//   console.log({ l: serverMembers?.length })
+//   const serverMember = serverMembers?.find(m => m.user.username.toLowerCase() === 'conmeomup')
+//   console.log(serverMember)
+//   res.json({ user: { ...serverMember?.user }, serverMembers })
+//   res.status(200)
+// })
 
 
 export default app
