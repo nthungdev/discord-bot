@@ -2,10 +2,15 @@ import axios from 'axios'
 import fs from 'fs'
 import { getAccessToken } from '../google'
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
+import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform'
 import { AiChatMessage } from '../../types';
 import { API_ENDPOINT, LOCATION_ID, MODEL_ID, PROJECT_ID, dataFileName, getContext } from './config';
+import { google } from '@google-cloud/aiplatform/build/protos/protos';
 
-const generateContent = async (
+/**
+ * Uses VertexAI RestAPI
+ */
+export const generateContentREST = async (
   message: string,
   history: AiChatMessage[] = []
 ) => {
@@ -15,18 +20,7 @@ const generateContent = async (
     instances: [
       {
         context: getContext(),
-        examples: [
-          // {
-          //   input: {
-          //     author: 'user',
-          //     content: 'hứa bắn tử tế',
-          //   },
-          //   output: {
-          //     author: 'bot',
-          //     content: 'chắc không bro?',
-          //   },
-          // },
-        ],
+        examples: [],
         messages: [
           ...history.map(({ content, author }) => ({
             content,
@@ -100,6 +94,9 @@ const generateContent = async (
   }
 }
 
+/**
+ * Uses @google/generative-ai API
+ */
 export const generate = async (prompt: string, history: AiChatMessage[] = []) => {
   const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY as string);
 
@@ -150,4 +147,54 @@ export const generate = async (prompt: string, history: AiChatMessage[] = []) =>
   }
 }
 
-export { generateContent }
+/**
+ * Uses @google-cloud/aiplatform API
+ */
+export const generateContent = async (prompt: string, history: AiChatMessage[] = []) => {
+  const predictionServiceClient = new PredictionServiceClient({
+    apiEndpoint: 'us-central1-aiplatform.googleapis.com',
+  });
+
+  const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}`;
+
+  const instances = [helpers.toValue({
+    context: getContext(),
+    example: [],
+    messages: [
+      ...history,
+      {
+        author: 'user',
+        content: prompt,
+      },
+    ]
+  })]
+
+  const parameters = helpers.toValue({
+    candidateCount: 2,
+    // maxOutputTokens: 1024,
+    maxOutputTokens: 2048,
+    // maxOutputTokens: 4096,
+    temperature: 0.92,
+    topP: 1,
+  })
+
+  const request = {
+    endpoint,
+    instances,
+    parameters
+  } as google.cloud.aiplatform.v1.IPredictRequest
+
+  try {
+    // Predict request
+    const [response] = await predictionServiceClient.predict(request);
+    const predictions = response.predictions;
+
+    return {
+      content: predictions?.[0].structValue?.fields?.candidates?.listValue?.values?.[0].structValue?.fields?.content.stringValue?.trim() ?? '',
+      data: predictions,
+    }
+  } catch (error) {
+    console.log('error generateContent', { error })
+    throw error
+  }
+}
