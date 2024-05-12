@@ -5,7 +5,7 @@ import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/ge
 import { AiChatMessage } from '../../types';
 import { API_ENDPOINT, LOCATION_ID, MODEL_ID, PROJECT_ID, dataFileName, getContext } from './config';
 
-const generateContent = async (
+export const generateContent = async (
   message: string,
   history: AiChatMessage[] = []
 ) => {
@@ -150,4 +150,3 @@ export const generate = async (prompt: string, history: AiChatMessage[] = []) =>
   }
 }
 
-export { generateContent }
