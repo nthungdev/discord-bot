@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "chat-bot-app",
   "scripts": {
     "build": "rimraf build && tsc",
     "lint": "eslint src",
@@ -9,8 +9,8 @@
     "logs": "gcloud app logs tail -s default",
     "deploy": "gcloud app deploy",
     "docker-build": "docker-compose build",
-    "docker-development": "docker-compose -f compose.yaml -f compose.development.yaml up",
-    "docker-production": "docker-compose -f compose.yaml -f compose.production.yaml up"
+    "docker-dev": "docker-compose -f compose.yaml -f compose.development.yaml up -d",
+    "docker-prod": "docker-compose -f compose.yaml -f compose.production.yaml up -d"
   },
   "engines": {
     "node": "20",

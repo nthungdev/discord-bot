@@ -1,5 +1,8 @@
+name: chat-bot-dev
+
 services:
   server:
+    container_name: service
     environment:
       NODE_ENV: development
     env_file: ./.env.development

@@ -1,5 +1,8 @@
+name: chat-bot-prod
+
 services:
   server:
+    container_name: service
     environment:
       NODE_ENV: production
     env_file: ./.env.production

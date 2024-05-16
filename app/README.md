@@ -1,4 +1,4 @@
-# Discord Bot
+# Discord Chat Bot
 
 ## Setup
 
@@ -30,6 +30,7 @@ Run `gcloud app deploy`
 
 ## TODOs
 
-- [ ] document service account.
+- [ ] document how to use service account.
+- [ ] document setup.
 - [ ] handle message with images.
 - [x] allow bot to mention others.

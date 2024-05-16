@@ -9,11 +9,9 @@
 # https://github.com/docker/awesome-compose
 services:
   server:
-    image: stay-home:latest
+    image: chat-bot-image:latest
     build:
       context: .
-    ports:
-      - 3001:3001
 
 # The commented out section below is an example of how to define a PostgreSQL
 # database that your application can use. `depends_on` tells Docker Compose to
