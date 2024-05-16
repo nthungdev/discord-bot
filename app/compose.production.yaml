@@ -2,7 +2,7 @@ name: chat-bot-prod
 
 services:
   server:
-    container_name: service
+    container_name: server
     environment:
       NODE_ENV: production
     env_file: ./.env.production
