@@ -13,6 +13,7 @@ import {
 import { store } from '../store'
 import { generate, generateContentREST, generateContent } from '../utils/ai'
 import { DiscordMessage } from '../types'
+import { replaceWithUserMentions } from './helpers'
 
 const BOT_REPLY_DELAY = 5000 // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
@@ -85,21 +86,15 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     )
 
     // replace @<username> in message with @<user id>
-    let contentWithMentions
-    const mentionMatches = content.match(/(?<=\@)([\w\.]+)/g)
-    if (mentionMatches !== null) {
-      const serverMembers = message.guild?.members.cache.toJSON()
-      contentWithMentions = mentionMatches.reduce((acc, mentionedUsername) => {
-        const serverMember = serverMembers?.find(m => mentionedUsername.toLowerCase() === m.user.username.toLowerCase())
-        return serverMember ? acc.replaceAll(`@${mentionedUsername}`, userMention(serverMember.id)) : acc
-      }, content)
-    }
+    let contentWithMentions = replaceWithUserMentions(
+      content,
+      message.guild?.members.cache.toJSON() ?? []
+    )
 
     console.log({
       user: promptWithUsername,
       content,
-      contentWithMentions,
-      mentionMatches
+      contentWithMentions
     })
 
     store.dispatch(clearMessageBuffer(channel.id))
