@@ -12,7 +12,8 @@ config({
 const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
 
-const main = async () => {// Validate environment variables
+const main = async () => {
+  // Validate environment variables
   const requiredEnvs = [
     'TOKEN',
     'SLEEP_REMINDER_SERVER_ID',
@@ -28,7 +29,7 @@ const main = async () => {// Validate environment variables
     process.exit(1)
   }
 
-  // Log the bot to Discord
+  // Log the bot into Discord
   await login(TOKEN as string)
 
   registerChatbot()
