@@ -1,6 +1,7 @@
 import { config } from 'dotenv'
 import app from './app'
 import { login, registerChatbot } from './discord'
+import { CronJob } from 'cron'
 
 config({
   path:
@@ -31,8 +32,19 @@ const main = async () => {
 
   // Log the bot into Discord
   await login(TOKEN as string)
-
   registerChatbot()
+
+
+  const job = new CronJob(
+    '1 0 0 1 * *', // on 00:01 AM of the first of every month
+    () => {
+      console.log('You will see this message every second');
+      // TODO check in counter
+    }, // onTick
+    null, // onComplete
+    true, // start
+    'America/New_York' // timeZone
+  );
 
   // Run express app
   app.listen(port, function () {

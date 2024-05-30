@@ -1,4 +1,4 @@
-import { Guild, Message, userMention } from 'discord.js'
+import { Guild, Message } from 'discord.js'
 import { AxiosError } from 'axios'
 import client from '.'
 import {
