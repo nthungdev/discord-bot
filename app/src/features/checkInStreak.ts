@@ -1,6 +1,18 @@
 
-import { ChannelType, Message } from 'discord.js';
+import { ChannelType, Message, userMention } from 'discord.js';
 import client from '../discord';
+
+export const getPreviousMonthStart = () => {
+  const currentDate = new Date();
+  const previousMonth = currentDate.getMonth() - 1;
+  return new Date(currentDate.getFullYear(), previousMonth, 1);
+}
+
+export const getPreviousMonthEnd = () => {
+  const currentDate = new Date();
+  const previousMonth = currentDate.getMonth() - 1;
+  return new Date(currentDate.getFullYear(), previousMonth + 1, 1);
+}
 
 const isWithinPreviousMonth = (time: Date) => {
   const currentDate = new Date();
@@ -23,14 +35,16 @@ const checkStreak = (messageDate: Date, streakLastDate: Date | undefined) => {
   else return 'reset'
 }
 
+const formatPeriod = (date: Date) => {
+  return `Tháng ${date.getMonth() + 1} Năm ${date.getFullYear()}`
+}
+
 export async function countCheckInsInChannel(channelId: string) {
   const channel = client.channels.cache.get(channelId);
   if (!channel) {
-    console.error(`Channel not found ${channelId}`);
-    return;
+    throw Error(`Channel not found ${channelId}`)
   } else if (channel.type !== ChannelType.GuildText) {
-    console.error(`Not a text channel ${channelId}`);
-    return
+    throw Error(`Not a text channel ${channelId}`)
   }
 
   let count = 0
@@ -80,7 +94,48 @@ export async function countCheckInsInChannel(channelId: string) {
 
   const longestStreakLeaderboard = Object.entries(tracker).sort((a, b) => b[1].longestStreak - a[1].longestStreak)
 
-  console.log({ count })
-  console.log(tracker)
+  // console.log({ count })
+  // console.log(tracker)
   return longestStreakLeaderboard
+}
+
+export function formatCheckInLeaderboard(startDate: Date, endDate: Date, leaderboard: [string, {
+  count: number,
+  messages: string[],
+  longestStreak: number,
+  lastCheckIn: Date,
+  currentStreak: number
+}][]) {
+  if (leaderboard.length === 0) return ''
+
+  const totalCount = leaderboard.reduce((acc, [_, { count }]) => acc + count, 0)
+
+  const streaks = leaderboard.slice(0, 5).map(([userId, { longestStreak }]) => `${userMention(userId)} (${longestStreak} ngày)`).join('\n')
+  const counts = leaderboard.slice(0, 5).map(([userId, { count }]) => `${userMention(userId)} (${count})`).join('\n')
+
+  const report = `📢 Báo Cáo Điểm Danh ${formatPeriod(startDate)} 📢
+
+  Tổng Số Lượt Điểm Danh Trong Tháng ${startDate.getMonth() + 1}: ${totalCount}
+
+  🔥 Chuỗi Điểm Danh Nóng 🔥
+
+  Xin chúc mừng ${userMention(leaderboard[0][0])} đã duy trì chuỗi điểm danh dài nhất với ${leaderboard[0][1].longestStreak} ngày điểm danh liên tiếp!
+
+  👑 Quán Quân Điểm Danh 👑
+
+  Một tràng pháo tay thật lớn dành cho ${userMention(leaderboard[1][0])} với tổng số ${leaderboard[0][1].longestStreak} điểm danh liên tiếp tính đến nay!
+
+  Tiếp tục phát huy nhé mọi người! Hãy cùng nhau nâng cao số ngày và số lượt điểm danh nào! 🚀
+
+  Bảng Xếp Hạng:
+
+  Chuỗi Điểm Danh:
+
+  ${streaks}
+
+  Tổng Số Lượt Điểm Danh:
+
+  ${counts}`
+
+  return report
 }

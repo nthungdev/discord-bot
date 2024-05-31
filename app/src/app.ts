@@ -4,7 +4,7 @@ import client from './discord'
 import { TextChannel, VoiceChannel } from 'discord.js'
 import { getRandomSleepReminderMessage } from './utils'
 import { clearAll } from './features/chatbot'
-import { countCheckInsInChannel } from './features/checkInStreak'
+import { countCheckInsInChannel, formatCheckInLeaderboard, getPreviousMonthEnd, getPreviousMonthStart } from './features/checkInStreak'
 
 const app: Application = express()
 
@@ -91,10 +91,20 @@ app.post('/clear', async (req: Request, res: Response) => {
 })
 
 app.get('/test', async (req: Request, res: Response) => {
-  await countCheckInsInChannel('1209742982987776030')
-  res.json({ ok: true })
-  res.status(200)
-})
+  const start = getPreviousMonthStart()
+  const end = getPreviousMonthEnd()
 
+  try {
+
+    const leaderboard = await countCheckInsInChannel('1209742982987776030')
+    const report = formatCheckInLeaderboard(start, end, leaderboard)
+
+    res.json({ ok: true, report })
+    res.status(200)
+  } catch (error: any) {
+    res.json({ ok: false, message: error?.message || 'Unknown Error' })
+    res.status(500)
+  }
+})
 
 export default app
