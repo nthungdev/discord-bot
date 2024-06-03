@@ -45,7 +45,7 @@ export const parseCommands = () => {
   for (const folder of commandFolders) {
     // Grab all the command files from the commands directory
     const commandsPath = path.join(foldersPath, folder);
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.ts'));
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.ts') || file.endsWith('.js'));
     // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);

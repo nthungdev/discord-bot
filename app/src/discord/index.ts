@@ -51,6 +51,7 @@ export const loadCommands = async () => {
   commandsToReg.forEach((command) => {
     commands.set(command.data.name, command);
   })
+  console.log(`Loaded ${commands.size} commands.`)
 }
 
 export default client
