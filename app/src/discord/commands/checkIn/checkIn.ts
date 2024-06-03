@@ -75,7 +75,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       })
     )
   } catch (error: any) {
-    console.error(`Failed to include Slavegon's comment`)
+    console.error(`Failed to include Slavegon's comment`, error)
     await interaction.editReply(
       `*${interaction.user.displayName} checked in ${purpose}*`
     )
