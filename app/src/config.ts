@@ -4,6 +4,7 @@ export default {
     'SLEEP_REMINDER_SERVER_ID',
     'AI_API_KEY',
     'CLIENT_ID',
+    'BEARER_TOKEN',
   ],
   checkInReportTemplate: `📢 Báo Cáo Điểm Danh (beta) {date} 📢
 

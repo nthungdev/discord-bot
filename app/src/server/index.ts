@@ -1,16 +1,11 @@
 import express, { Application, Request, Response } from 'express'
 import bodyParser from 'body-parser'
-import { ChannelType, Message, TextChannel, VoiceChannel } from 'discord.js'
+import { TextChannel, VoiceChannel } from 'discord.js'
 import client from '../discord'
 import { getRandomSleepReminderMessage } from '../utils'
-import { clearAll } from '../features/chatbot'
-import {
-  countCheckInsInChannel,
-  formatCheckInLeaderboard,
-  getPreviousMonthEnd,
-  getPreviousMonthStart,
-} from '../discord/checkIn/checkinStreak'
-import { deployGuildCommands } from '../discord/deployCommands'
+import testRouter from './routes/testRouter'
+import utilityRouter from './routes/utilityRouter'
+import auth from './middlewares/auth'
 
 const app: Application = express()
 
@@ -22,6 +17,11 @@ app.use(bodyParser.json())
 app.get('/', (_, res: Response) => {
   res.send('Hello world!')
 })
+
+app.use(auth)
+
+app.use('/tests', testRouter)
+app.use('/utility', utilityRouter)
 
 app.post('/message', async (req: Request, res: Response) => {
   const { message, channelId } = req.body
@@ -92,96 +92,6 @@ app.post('/sleepreminder', async (req: Request, res: Response) => {
     memberIds,
     message,
   })
-})
-
-/// Clear the chat bot history
-app.post('/clear', async (req: Request, res: Response) => {
-  try {
-    clearAll()
-    res.json({ ok: true })
-  } catch (error) {
-    res.json({ ok: false })
-  }
-})
-
-app.post('/test1', async (req: Request, res: Response) => {
-  const start = getPreviousMonthStart()
-  const end = getPreviousMonthEnd()
-
-  console.log({ start, end })
-
-  try {
-    const channel = client.channels.cache.get('1233630882791952495')
-    if (!channel) {
-      res.json({ ok: false })
-      return
-    }
-
-    const leaderboard = await countCheckInsInChannel('1209742982987776030', start, end)
-    console.log({ leaderboard })
-    const report = formatCheckInLeaderboard(start, end, leaderboard)
-
-    // if (channel.isTextBased()) {
-    //   await channel.send(report)
-    // }
-    console.log(report)
-
-    res.json({ ok: true, report, leaderboard })
-    res.status(200)
-  } catch (error: any) {
-    res.json({ ok: false, message: error?.message || 'Unknown Error' })
-    res.status(500)
-  }
-})
-
-app.post('/test2', async (req: Request, res: Response) => {
-  const start = getPreviousMonthStart()
-  const end = getPreviousMonthEnd()
-
-  console.log({ start, end })
-
-  const channelId = '1233630882791952495'
-
-  try {
-    const channel = client.channels.cache.get(channelId)
-    if (!channel) {
-      res.json({ ok: false })
-      return
-    } else if (channel.type !== ChannelType.GuildText) {
-      throw Error(`Not a text channel ${channelId}`)
-    }
-
-    const messages = await channel.messages.fetch({ limit: 20, })
-    if( messages.size !== 0) {
-      console.log(messages.first())
-      const firstMessage = messages.first() as Message<true>
-      console.log(firstMessage)
-    }
-
-    res.json({ ok: true })
-    res.status(200)
-  } catch (error: any) {
-    res.json({ ok: false, message: error?.message || 'Unknown Error' })
-    res.status(500)
-  }
-})
-
-app.post('/commands/deploy', async (req: Request, res: Response) => {
-  const { token, clientId, guildId } = req.body
-
-  if (token === undefined || clientId === undefined || guildId === undefined) {
-    res.status(400) // bad request
-    res.send({ ok: false, message: 'missing required fields' })
-    return
-  }
-
-  try {
-    await deployGuildCommands(token, clientId, guildId)
-    res.json({ ok: true, message: 'commands deployed' })
-  } catch (error: any) {
-    res.status(500)
-    res.send({ ok: false, message: error?.message })
-  }
 })
 
 export default app

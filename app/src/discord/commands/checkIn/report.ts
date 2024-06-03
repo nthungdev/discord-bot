@@ -7,9 +7,10 @@ import {
   DiscordjsErrorCodes
 } from 'discord.js'
 import { countCheckInsInChannel, formatCheckInLeaderboard, getCurrentMonthStart, getPreviousMonthEnd, getPreviousMonthStart } from '../../checkIn/checkinStreak'
+import { DiscordCommand } from '../../constants'
 
 export const data = new SlashCommandBuilder()
-  .setName('checkin-report')
+  .setName(DiscordCommand.CheckInReport)
   .setDescription('Tạo báo cáo điểm danh')
 
 export async function execute(interaction: ChatInputCommandInteraction) {
