@@ -17,6 +17,12 @@ export type DiscordMessage = {
   authorUsername: string,
   content: string,
   cleanContent: string,
+  /** store message reference (when replying to a message) */
+  reference?: {
+    authorUsername: string,
+    content: string,
+    cleanContent: string,
+  },
   mentions: DiscordMessageMention[],
 }
 

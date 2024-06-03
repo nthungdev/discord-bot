@@ -56,8 +56,21 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     }
   }
 
-  const promptList = messages.map((m) => m.cleanContent)
-  const prompt = `${messages[0].authorUsername} says: ${promptList.join(' ')}`
+  const prompt = messages
+    .reduce((acc, message) => {
+      if (message.reference) {
+        return [
+          ...acc,
+          `In reply to ${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${message.authorUsername} says "${message.cleanContent}"`,
+        ]
+      } else {
+        return [
+          ...acc,
+          `${message.authorUsername} says ${message.cleanContent}`,
+        ]
+      }
+    }, [] as string[])
+    .join('\n')
 
   const messageMentions = messages.flatMap((m) => m.mentions)
   // replace nicknames in prompt with username so that the model returns back with references to username
@@ -164,7 +177,7 @@ export const handleChatbot =
       message.stickers.size !== 0 ||
       // message type not text message
       ![0, 19].includes(Number(message.type.toString())) ||
-      // channel requires the bot being mentioned and it's not
+      // the bot is not being mentioned when channel requires so
       (!freeChannels.includes(message.channelId) &&
         !message.mentions.members?.has(client.user!.id))
     ) {
@@ -176,6 +189,14 @@ export const handleChatbot =
       return
     }
 
+    // let ref
+    let refMessage: Message<boolean> | null = null
+    if (message.reference !== null) {
+      refMessage = await message.channel.messages.fetch(
+        message.reference.messageId!
+      )
+    }
+
     await validateServerMembersCache(message.guild)
     const guildMember = message.guild.members.cache.get(message.author.id)
     const discordMessage: DiscordMessage = {
@@ -184,6 +205,15 @@ export const handleChatbot =
       authorUsername: message.author.username,
       authorDisplayName: guildMember?.nickname ?? message.author.displayName,
       cleanContent: message.cleanContent,
+      reference: !refMessage
+        ? undefined
+        : {
+            authorUsername: refMessage.author.username,
+            content: refMessage.content,
+            cleanContent: refMessage.cleanContent,
+          },
+      // referenceContent: refMessage || refMessage?.content,
+      // referenceCleanContent: refMessage?.cleanContent,
       mentions: message.mentions.users.toJSON().map((u) => ({
         id: u.id,
         nickname:
