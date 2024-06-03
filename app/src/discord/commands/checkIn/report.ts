@@ -62,7 +62,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       end = new Date()
     }
 
-    const leaderboard = await countCheckInsInChannel(interaction.channelId, start, end)
+    // const leaderboard = await countCheckInsInChannel(interaction.channelId, start, end)
+    const leaderboard = await countCheckInsInChannel(`1209742982987776030`, start, end)
 
     const report = formatCheckInLeaderboard(start, end, leaderboard)
     if (!report) {

@@ -127,11 +127,13 @@ export async function countCheckInsInChannel(
   // process messages
   messageBuffer.forEach((message) => {
     if (
+      message.type !== MessageType.ChatInputCommand ||
       // (message.type !== MessageType.ChatInputCommand &&
       //   !message.cleanContent.match(/(?<!(?:ch[uư]a|kh[oô]ng).*)(?:check\s*-?in)/i)) ||
       (message.type === MessageType.ChatInputCommand &&
         message.interaction?.commandName !== DiscordCommand.CheckIn)
     ) {
+      console.log(`skipping ${message.type}: ${message.cleanContent}`)
       return
     }
 
