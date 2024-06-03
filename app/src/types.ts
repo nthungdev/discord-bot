@@ -1,3 +1,5 @@
+import { ChatInputCommandInteraction } from "discord.js"
+
 export type AiChatMessage = {
   author: 'bot' | 'user'
   content: string
@@ -16,4 +18,8 @@ export type DiscordMessage = {
   content: string,
   cleanContent: string,
   mentions: DiscordMessageMention[],
+}
+
+export type AppCommand = {
+  execute: (interaction: ChatInputCommandInteraction) => Promise<void>
 }

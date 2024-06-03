@@ -6,38 +6,27 @@ config({
       : '.env.development',
 })
 
-import client, { commands, login, registerChatbot, registerCommands } from './discord'
-import { CronJob } from 'cron'
-import app from './app'
 import { Events } from 'discord.js'
+import { CronJob } from 'cron'
+import client, { commands, login, registerChatbot, loadCommands } from './discord'
+import server from './server'
+import { validateEnvs } from './helpers'
+import { AppCommand } from './types'
 
-const { TOKEN, PORT, CLIENT_ID } = process.env
+const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
 
 const main = async () => {
-  // Validate environment variables
-  const requiredEnvs = [
-    'TOKEN',
-    'SLEEP_REMINDER_SERVER_ID',
-    'AI_API_KEY',
-    'CLIENT_ID'
-  ]
-  const missingEnvs = requiredEnvs.filter((env) => !(env in process.env))
-  if (missingEnvs.length !== 0) {
-    console.error(
-      `Missing ${missingEnvs
-        .map((env) => `'${env}'`)
-        .join(' ')} environment variables!`
-    )
+  const validEnvs = validateEnvs()
+  if (!validEnvs) {
     process.exit(1)
   }
 
   registerChatbot()
 
-
   // registerCommands('1233630823496814593')
   // Bluegon Land guild id
-  await registerCommands(TOKEN as string, CLIENT_ID as string, '1233630823496814593')
+  await loadCommands()
 
   // Log the bot into Discord
   await login(TOKEN as string)
@@ -53,7 +42,7 @@ const main = async () => {
     }
 
     try {
-      await (command as { execute: (interaction: any) => Promise<void> }).execute(interaction);
+      await (command as AppCommand).execute(interaction);
     } catch (error) {
       console.error(error);
       if (interaction.replied || interaction.deferred) {
@@ -77,9 +66,8 @@ const main = async () => {
     'America/New_York' // timeZone
   );
 
-  // Run express app
-  app.listen(port, function () {
-    console.log(`App is listening on port ${port} !`)
+  server.listen(port, function () {
+    console.log(`Express app is listening on port ${port} !`)
   })
 }
 
