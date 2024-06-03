@@ -60,7 +60,6 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   const promptList = messages.map((m) => m.cleanContent)
   const prompt = `${messages[0].authorUsername} says: ${promptList.join(' ')}`
 
-
   const messageMentions = messages.flatMap(m => m.mentions)
   // replace nicknames in prompt with username so that the model returns back with references to username
   // then username is replaced with
