@@ -8,11 +8,7 @@ export default {
   ],
   checkInReportTemplate: `📢 Báo Cáo Điểm Danh (beta) {date} 📢
 
-Tổng Số Lượt Điểm Danh Trong Tháng {month}: {totalCheckIns}
-
-🔥 Chuỗi Điểm Danh Nóng 🔥
-
-Xin chúc mừng {longestStreakUser} đã duy trì chuỗi điểm danh dài nhất với {longestStreakCount} ngày điểm danh liên tiếp!
+Tổng Số Lượt Điểm Danh: **{totalCheckIns}**
 
 👑 Quán Quân Điểm Danh 👑
 
@@ -20,13 +16,7 @@ Một tràng pháo tay thật lớn dành cho {topCheckInUser} với tổng số
 
 Tiếp tục phát huy nhé mọi người! Hãy cùng nhau nâng cao số ngày và số lượt điểm danh nào! 🚀
 
-Bảng Xếp Hạng:
-
-Chuỗi Điểm Danh:
-
-{streaks}
-
-Tổng Số Lượt Điểm Danh:
+🏆 Bảng Xếp Hạng 🏆
 
 {counts}`,
 }

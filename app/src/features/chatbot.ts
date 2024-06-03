@@ -65,6 +65,12 @@ export const chatbotSlice = createSlice({
           { author: 'bot', content: botMessage },
         ]
       }
+
+      // TODO verify the AI API limit, increase the 40 threshold if needed
+      // auto cut down message history
+      if (state.messageHistory[channelId].length > 40) {
+        state.messageHistory[channelId] = state.messageHistory[channelId].slice(-14)
+      }
     },
     reduceMessageHistory: (
       state,

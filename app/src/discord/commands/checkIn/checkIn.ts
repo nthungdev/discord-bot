@@ -5,23 +5,28 @@ import { store } from '../../../store'
 import { generateContent } from '../../../utils/ai'
 import { replaceWithUserMentions } from '../../helpers'
 
+enum CommandCheckInOption {
+  what = 'what',
+  slavegonComment = 'slavegon-comment'
+}
+
 export const data = new SlashCommandBuilder()
   .setName(DiscordCommand.CheckIn)
   .setDescription('Check in...')
   .addStringOption((option) =>
-    option.setName('for').setDescription('Tôi đã').setRequired(true)
+    option.setName(CommandCheckInOption.what).setDescription('Tôi đã làm gì').setRequired(true)
   )
   .addBooleanOption((option) =>
     option
-      .setName('slavegon-comment')
+      .setName(CommandCheckInOption.slavegonComment)
       .setDescription('Thêm comment của Slavegon')
       .setRequired(false)
   )
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const hasSlavegonComment =
-    interaction.options.getBoolean('slavegon-comment', false) ?? true
-  const purpose = interaction.options.getString('for', true)
+    interaction.options.getBoolean(CommandCheckInOption.slavegonComment, false) ?? true
+  const purpose = interaction.options.getString(CommandCheckInOption.what, true)
 
   if (!hasSlavegonComment) {
     await interaction.reply(

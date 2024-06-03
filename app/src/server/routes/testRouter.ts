@@ -1,7 +1,7 @@
 
 import { Router } from "express"
 import { ChannelType, Message } from "discord.js"
-import { countCheckInsInChannel, formatCheckInLeaderboard, getPreviousMonthEnd, getPreviousMonthStart } from "../../discord/checkIn/checkinStreak"
+import { countCheckInsInChannel, formatCheckInLeaderboard, getPreviousMonthEnd, getPreviousMonthStart } from "../../discord/checkIn"
 import client from "../../discord"
 
 const testRouter = Router()

@@ -1,7 +1,15 @@
-
 import { ChannelType, Message, MessageType, userMention } from 'discord.js';
 import client from '..';
 import config from '../../config';
+
+type CheckInTrackerData = {
+  count: number,
+  messages: string[],
+  longestStreak: number,
+  lastCheckIn: Date,
+  currentStreak: number,
+  username: string,
+}
 
 export const getPreviousMonthStart = () => {
   const currentDate = new Date();
@@ -65,13 +73,7 @@ export async function countCheckInsInChannel(channelId: string, start: Date, end
   let done = false
   let lastMessage: Message<true> | undefined = channel.messages.cache.last()
   const messageBuffer: Message<true>[] = []
-  const tracker: Record<string, {
-    count: number,
-    messages: string[],
-    longestStreak: number,
-    lastCheckIn: Date,
-    currentStreak: number
-  }> = {}
+  const tracker: Record<string, CheckInTrackerData> = {}
 
   // get messages within the period
   while (!done) {
@@ -98,6 +100,7 @@ export async function countCheckInsInChannel(channelId: string, start: Date, end
         messageBuffer.unshift(message)
       }
     })
+    done = true
   }
 
   // process messages
@@ -128,6 +131,7 @@ export async function countCheckInsInChannel(channelId: string, start: Date, end
       lastCheckIn: message.createdAt,
       currentStreak,
       longestStreak,
+      username: user.username
     }
 
   })
@@ -136,13 +140,7 @@ export async function countCheckInsInChannel(channelId: string, start: Date, end
   return longestStreakLeaderboard
 }
 
-export function formatCheckInLeaderboard(startDate: Date, endDate: Date, leaderboard: [string, {
-  count: number,
-  messages: string[],
-  longestStreak: number,
-  lastCheckIn: Date,
-  currentStreak: number
-}][]) {
+export function formatCheckInLeaderboard(startDate: Date, endDate: Date, leaderboard: [string, CheckInTrackerData][]) {
   if (leaderboard.length === 0) return ''
 
   const totalCount = leaderboard.reduce((acc, [_, { count }]) => acc + count, 0)
@@ -152,7 +150,6 @@ export function formatCheckInLeaderboard(startDate: Date, endDate: Date, leaderb
   const mostCountLeaderboard = leaderboard
     .toSorted((a, b) => b[1].count - a[1].count)
 
-
   const formattedStreaks = longestStreakLeaderboard
     .slice(0, 5)
     .map(([userId, { longestStreak }]) => `${userMention(userId)} (${longestStreak} ngày)`)
@@ -160,7 +157,7 @@ export function formatCheckInLeaderboard(startDate: Date, endDate: Date, leaderb
   // sorted in decreasing order
   const formattedCounts = mostCountLeaderboard
     .slice(0, 5)
-    .map(([userId, { count }]) => `${userMention(userId)} (${count})`)
+    .map(([userId, { count }]) => `${userMention(userId)}: ${count}`)
     .join('\n')
 
   const report = config.checkInReportTemplate

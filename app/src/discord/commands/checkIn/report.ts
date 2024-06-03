@@ -6,7 +6,7 @@ import {
   SlashCommandBuilder,
   DiscordjsErrorCodes
 } from 'discord.js'
-import { countCheckInsInChannel, formatCheckInLeaderboard, getCurrentMonthStart, getPreviousMonthEnd, getPreviousMonthStart } from '../../checkIn/checkinStreak'
+import { countCheckInsInChannel, formatCheckInLeaderboard, getCurrentMonthStart, getPreviousMonthEnd, getPreviousMonthStart } from '../../checkIn'
 import { DiscordCommand } from '../../constants'
 
 export const data = new SlashCommandBuilder()
@@ -35,7 +35,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const response = await interaction.reply({
     // content: 'Check-in Report...',
     components: [row],
-    // ephemeral: true,
   })
 
   const collectorFilter = (i: any) => i.user.id === interaction.user.id;
@@ -52,6 +51,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return
     }
 
+    await confirmation.deferUpdate()
+
     let start: Date, end: Date
     if (confirmation.customId === 'last-month') {
       start = getPreviousMonthStart()
@@ -62,26 +63,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const leaderboard = await countCheckInsInChannel(interaction.channelId, start, end)
+
     const report = formatCheckInLeaderboard(start, end, leaderboard)
     if (!report) {
       await interaction.editReply({ content: 'Chả có ai check in tháng trước', components: [] });
     } else {
       await interaction.editReply({ content: report, components: [] });
     }
-
   } catch (e: any) {
     console.error({ e });
     if (e?.code === DiscordjsErrorCodes.InteractionCollectorError) {
       await interaction.editReply({
-        content: `Confirmation not received within 3 minute, cancelling`,
+        content: `Đợi chọn option lâu quá, hủy`,
         components: []
       });
     } else {
       await interaction.editReply({
-        content: `Something went wrong, cancelling`,
+        content: `Something went wrong!`,
         components: []
       });
     }
-
   }
 }

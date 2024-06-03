@@ -5,7 +5,6 @@ import {
   addMessageBuffer,
   addMessageHistory,
   clearMessageBuffer,
-  reduceMessageHistory,
   selectChatbotState,
   selectMessageHistory,
   setLastMemberFetch,
@@ -21,7 +20,7 @@ const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
 /** Fetch up-to-date member list to cache */
 const validateServerMembersCache = async (guild: Guild) => {
   const { lastMemberFetch } = selectChatbotState(store.getState())
-  if (!lastMemberFetch || (lastMemberFetch + MEMBER_FETCH_AGE) < Date.now()) {
+  if (!lastMemberFetch || lastMemberFetch + MEMBER_FETCH_AGE < Date.now()) {
     await guild.members.fetch()
     setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE)
   }
@@ -60,13 +59,12 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   const promptList = messages.map((m) => m.cleanContent)
   const prompt = `${messages[0].authorUsername} says: ${promptList.join(' ')}`
 
-  const messageMentions = messages.flatMap(m => m.mentions)
+  const messageMentions = messages.flatMap((m) => m.mentions)
   // replace nicknames in prompt with username so that the model returns back with references to username
   // then username is replaced with
   const promptWithUsername = messageMentions.reduce((acc, mention) => {
     return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`)
   }, prompt)
-
 
   try {
     // let { content, data } = await generateContentREST(
@@ -81,7 +79,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
     let { content, data } = await generateContent(
       promptWithUsername,
-      messageHistory[channel.id],
+      messageHistory[channel.id]
     )
 
     // replace @<username> in message with @<user id>
@@ -93,7 +91,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     console.log({
       user: promptWithUsername,
       content,
-      contentWithMentions
+      contentWithMentions,
     })
 
     store.dispatch(clearMessageBuffer(channel.id))
@@ -117,14 +115,15 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       })
     )
 
-    // cut down message history if needed
-    if (selectMessageHistory(store.getState())[channel.id].length > 40)
-      store.dispatch(
-        reduceMessageHistory({
-          by: 14,
-          channelId: channel.id,
-        })
-      )
+    // // cut down message history if needed
+    // if (selectMessageHistory(store.getState())[channel.id].length > 40) {
+    //   store.dispatch(
+    //     reduceMessageHistory({
+    //       by: 14,
+    //       channelId: channel.id,
+    //     })
+    //   )
+    // }
 
     // debug
     console.log({
@@ -152,58 +151,59 @@ export const handleChatbot =
     allowedServers?: string[]
     freeChannels?: string[]
   } = {}) =>
-    async (message: Message<boolean>) => {
-      // skip handling this message when:
-      if (
-        // incoming message not coming from allowed channels
-        !allowedServers.includes(message.guildId || '') ||
-        // message from the bot itself
-        message.author.id === client.user!.id ||
-        // has attachment (haven't supported yet)
-        message.attachments.size !== 0 ||
-        // has sticker (haven't supported image)
-        message.stickers.size !== 0 ||
-        // message type not text message
-        ![0, 19].includes(Number(message.type.toString())) ||
-        // channel requires the bot being mentioned and it's not
-        (!freeChannels.includes(message.channelId) &&
-          !message.mentions.members?.has(client.user!.id))
-      ) {
-        return
-      }
-
-      if (message.guild === null) {
-        // DM message is not supported
-        return
-      }
-
-      await validateServerMembersCache(message.guild)
-      const guildMember = message.guild.members.cache.get(message.author.id)
-      const discordMessage: DiscordMessage = {
-        authorId: message.author.id,
-        content: message.content,
-        authorUsername: message.author.username,
-        authorDisplayName: guildMember?.nickname ?? message.author.displayName,
-        cleanContent: message.cleanContent,
-        mentions: message.mentions.users.toJSON().map((u) => ({
-          id: u.id,
-          nickname: message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
-          username: u.username,
-        })),
-      }
-
-      store.dispatch(
-        addMessageBuffer({
-          message: discordMessage,
-          channelId: message.channelId,
-        })
-      )
-
-      clearMessageTimeout(message.channelId)
-      setMessageTimeout({
-        channelId: message.channelId,
-        timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
-      })
-
+  async (message: Message<boolean>) => {
+    // skip handling this message when:
+    if (
+      // incoming message not coming from allowed channels
+      !allowedServers.includes(message.guildId || '') ||
+      // message from the bot itself
+      message.author.id === client.user!.id ||
+      // has attachment (haven't supported yet)
+      message.attachments.size !== 0 ||
+      // has sticker (haven't supported image)
+      message.stickers.size !== 0 ||
+      // message type not text message
+      ![0, 19].includes(Number(message.type.toString())) ||
+      // channel requires the bot being mentioned and it's not
+      (!freeChannels.includes(message.channelId) &&
+        !message.mentions.members?.has(client.user!.id))
+    ) {
       return
     }
+
+    if (message.guild === null) {
+      // DM message is not supported
+      return
+    }
+
+    await validateServerMembersCache(message.guild)
+    const guildMember = message.guild.members.cache.get(message.author.id)
+    const discordMessage: DiscordMessage = {
+      authorId: message.author.id,
+      content: message.content,
+      authorUsername: message.author.username,
+      authorDisplayName: guildMember?.nickname ?? message.author.displayName,
+      cleanContent: message.cleanContent,
+      mentions: message.mentions.users.toJSON().map((u) => ({
+        id: u.id,
+        nickname:
+          message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
+        username: u.username,
+      })),
+    }
+
+    store.dispatch(
+      addMessageBuffer({
+        message: discordMessage,
+        channelId: message.channelId,
+      })
+    )
+
+    clearMessageTimeout(message.channelId)
+    setMessageTimeout({
+      channelId: message.channelId,
+      timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
+    })
+
+    return
+  }
