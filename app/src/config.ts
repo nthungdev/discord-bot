@@ -6,7 +6,7 @@ export default {
     'CLIENT_ID',
     'BEARER_TOKEN',
   ],
-  checkInReportTemplate: `📢 Báo Cáo Điểm Danh (beta) {date} 📢
+  checkInReportTemplate: `📢 Báo Cáo Điểm Danh {date} 📢
 
 Tổng Số Lượt Điểm Danh: **{totalCheckIns}**
 

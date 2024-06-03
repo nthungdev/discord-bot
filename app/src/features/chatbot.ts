@@ -8,7 +8,7 @@ export interface ChatbotState {
   messageHistory: Record<string, AiChatMessage[]>
   /** key is channel id */
   messageBuffer: Record<string, DiscordMessage[]>
-  lastMemberFetch?: number,
+  lastMemberFetch?: number
 }
 
 // Define the initial state using that type
@@ -55,7 +55,9 @@ export const chatbotSlice = createSlice({
       const { channelId, botMessage, userMessage } = action.payload
 
       if (channelId in state.messageHistory) {
-        state.messageHistory[channelId] = state.messageHistory[channelId].concat([
+        state.messageHistory[channelId] = state.messageHistory[
+          channelId
+        ].concat([
           { author: 'user', content: userMessage },
           { author: 'bot', content: botMessage },
         ])
@@ -69,7 +71,8 @@ export const chatbotSlice = createSlice({
       // TODO verify the AI API limit, increase the 40 threshold if needed
       // auto cut down message history
       if (state.messageHistory[channelId].length > 40) {
-        state.messageHistory[channelId] = state.messageHistory[channelId].slice(-14)
+        state.messageHistory[channelId] =
+          state.messageHistory[channelId].slice(-14)
       }
     },
     reduceMessageHistory: (
@@ -82,15 +85,18 @@ export const chatbotSlice = createSlice({
     ) => {
       const { channelId, by } = action.payload
       if (by % 2 !== 0) return
-      state.messageHistory[channelId] = state.messageHistory[channelId].slice(-by)
+      state.messageHistory[channelId] = state.messageHistory[channelId].slice(
+        -by
+      )
     },
     setLastMemberFetch: (state, action: PayloadAction<number>) => {
       state.lastMemberFetch = action.payload
-    }
+    },
   },
 })
 
-export const selectMessageHistory = (state: RootState) => state.chatbot.messageHistory
+export const selectMessageHistory = (state: RootState) =>
+  state.chatbot.messageHistory
 export const selectMessageBuffer = (state: RootState) =>
   state.chatbot.messageBuffer
 export const selectChatbotState = (state: RootState) => state.chatbot

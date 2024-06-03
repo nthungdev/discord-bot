@@ -62,11 +62,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       end = new Date()
     }
 
-    const leaderboard = await countCheckInsInChannel(interaction.channelId, start, end)
+    // const leaderboard = await countCheckInsInChannel(interaction.channelId, start, end)
+    const leaderboard = await countCheckInsInChannel('1209742982987776030', start, end)
 
     const report = formatCheckInLeaderboard(start, end, leaderboard)
     if (!report) {
-      await interaction.editReply({ content: 'Chả có ai check in tháng trước', components: [] });
+      await interaction.editReply({ content: 'Chả có ai check in cả', components: [] });
     } else {
       await interaction.editReply({ content: report, components: [] });
     }
