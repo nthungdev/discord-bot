@@ -181,13 +181,14 @@ export const generateContent = async (prompt: string, history: AiChatMessage[] =
   } as google.cloud.aiplatform.v1.IPredictRequest
 
   try {
-    // Predict request
     const [response] = await predictionServiceClient.predict(request);
-    const predictions = response.predictions;
+    const prediction = (response.predictions?.[0].structValue?.fields?.candidates?.listValue?.values as any[])
+      ?.find(value => !value.structValue?.fields?.content.stringValue?.includes(`I'm not able to help with that, as I'm only a language model.`))
+      ?.structValue?.fields?.content.stringValue?.trim() ?? ''
 
     return {
-      content: predictions?.[0].structValue?.fields?.candidates?.listValue?.values?.[0].structValue?.fields?.content.stringValue?.trim() ?? '',
-      data: predictions,
+      content: prediction,
+      data: response,
     }
   } catch (error) {
     console.log('error generateContent', { error })
