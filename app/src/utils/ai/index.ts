@@ -254,6 +254,9 @@ export const generativeResponse = async (prompt: AiPrompt) : Promise<AiPromptRes
   const generativeVisionModel = vertexAI.getGenerativeModel({
     model,
     systemInstruction: getContext(),
+    generationConfig: {
+      maxOutputTokens: 8192,
+    },
     safetySettings: [
       {
         category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
