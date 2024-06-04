@@ -49,6 +49,8 @@ const clearMessageTimeout = (channelId: string) => {
 
 const handleMessageTimeout = async (message: Message<boolean>) => {
   try {
+    await message.channel.sendTyping()
+
     const { channel } = message
     const { messageHistory, messageBuffer } = selectChatbotState(
       store.getState()
