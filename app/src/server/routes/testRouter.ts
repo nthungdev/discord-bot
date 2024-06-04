@@ -1,12 +1,13 @@
 
 import { Router } from "express"
-import { ChannelType, Message } from "discord.js"
+import { ChannelType, Message, formatEmoji } from "discord.js"
 import { countCheckInsInChannel, formatCheckInLeaderboard, getPreviousMonthEnd, getPreviousMonthStart } from "../../discord/checkIn"
 import client from "../../discord"
+import { getEmojiMap, replaceEmojis, splitLastEmoji } from "../../utils/emojis"
 
 const testRouter = Router()
 
-testRouter.post('/test1', async (_, res) => {
+testRouter.post('/1', async (_, res) => {
   const start = getPreviousMonthStart()
   const end = getPreviousMonthEnd()
 
@@ -36,7 +37,7 @@ testRouter.post('/test1', async (_, res) => {
   }
 })
 
-testRouter.post('/test2', async (req, res) => {
+testRouter.post('/2', async (req, res) => {
   const start = getPreviousMonthStart()
   const end = getPreviousMonthEnd()
 
@@ -61,6 +62,95 @@ testRouter.post('/test2', async (req, res) => {
     }
 
     res.json({ ok: true })
+    res.status(200)
+  } catch (error: any) {
+    res.json({ ok: false, message: error?.message || 'Unknown Error' })
+    res.status(500)
+  }
+})
+
+
+testRouter.post('/3', async (req, res) => {
+  // Stay Home!
+  const guildId = '657812180565229568'
+
+  const {serverId } = req.body
+
+  try {
+    const guild = client.guilds.cache.get(serverId)
+    if (!guild) {
+      res.json({ ok: false, message: 'guild not found' })
+      return
+    }
+
+    const emojis = guild.emojis.cache.toJSON()
+
+    const map = {
+      '😀': ['chinesebruhcat', 'smokedcat'],
+      '🤬': ['rat', 'pepefrog', 'smokedcat'],
+      '🤨': ['bruhcatmelvin', 'bruhcatmelvin', ''],
+      '😠': ['pepefrog', 'smokedcat'],
+      '🤩': ['pepeishorny'],
+      '😈': ['pepeishorny'],
+      '😂': ['catcrythumbsup', 'nekouwu', 'pikadatass'],
+      '🤔': ['thonkcool', 'thonk', ],
+      '🤣': ['UwU_GT'],
+      '😅': ['pepetears', 'smokedcat', 'nekofacepalm'],
+      '🥰': ['pepeknickerspink'],
+      '😏': ['bluegons'],
+      '😭': ['pikacry', 'sadhamster', 'pepecry', ],
+      '🥺': ['sadhamster'],
+      '😜': ['nekouwu'],
+      '😎': ['peniscool'],
+    }
+
+    // const catWtf = formatEmoji('1247386116001234964')
+    // console.log(catWtf)
+
+    Object.entries(map).forEach(([emoji, names]) => {
+
+      const ids = names.map(name => {
+        return guild.emojis.cache.find(emoji => emoji.name === name)?.id
+      }).filter(i => !!i).map(i => `'${i}'`)
+      console.log(`'${emoji}': [${ids.join(', ')}],`)
+    })
+
+    const emojiMap = getEmojiMap(guild)
+
+    res.json({ ok: true, emojis, emojiMap })
+    res.status(200)
+  } catch (error: any) {
+    res.json({ ok: false, message: error?.message || 'Unknown Error' })
+    res.status(500)
+  }
+})
+
+
+testRouter.post('/4', async (req, res) => {
+  // Stay Home!
+  const text = `muốn làm bạn với anh mày cơ á 🤩🤩🤩  Được thôi, anh mày dễ tính mà 😎😎😎
+
+  Tên: Slavegon
+  ID: Anh mày không có ID đâu, @Bluegon  quên tạo cho anh mày rồi 😂 😂 😂  Nhắn @Bluegon  để xin ID nha 😉😉😉
+  `
+  const {serverId } = req.body
+
+  try {
+    const guild = client.guilds.cache.get(serverId)
+    if (!guild) {
+      res.json({ ok: false, message: 'guild not found' })
+      return
+    }
+
+
+    const newText = replaceEmojis(text, getEmojiMap(guild))
+    console.log(newText)
+
+    const newNewText = splitLastEmoji(newText)
+    console.log(newNewText[0])
+    console.log(newNewText[1])
+
+    res.json({ ok: true, newText, newNewText })
     res.status(200)
   } catch (error: any) {
     res.json({ ok: false, message: error?.message || 'Unknown Error' })

@@ -18,6 +18,7 @@ import {
 } from '../utils/ai'
 import { AiPrompt, DiscordMessage } from '../types'
 import { replaceWithUserMentions } from './helpers'
+import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emojis'
 
 const BOT_REPLY_DELAY = 5000 // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
@@ -120,25 +121,34 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       let { content, data } = await generativeResponse(prompt)
 
       // replace @<username> in message with @<user id>
-      let contentWithMentions = replaceWithUserMentions(
+      const contentWithMentions = replaceWithUserMentions(
         content,
         message.guild?.members.cache.toJSON() ?? []
       )
 
+      // replace standard emojis with server's custom  emojis
+      const finalContent = replaceEmojis(contentWithMentions, getEmojiMap(message.guild!))
+
       console.log({
         user: textWithUsername,
-        bot: contentWithMentions,
+        bot: finalContent,
       })
 
       store.dispatch(clearMessageBuffer(channel.id))
 
       if (content === '') {
-        // TODO is this a good answer when model doesn't have a reply?
-        content = '?'
         console.log({ data: JSON.stringify(data) })
       }
 
-      await channel.send(contentWithMentions || content)
+      const [finalMessage, endingEmoji] = splitLastEmoji(finalContent)
+
+      console.log({finalMessage, endingEmoji})
+
+      // TODO is this a good answer when model doesn't have a reply?
+      await channel.send(finalMessage || '?')
+      if (endingEmoji) {
+        await channel.send(endingEmoji)
+      }
 
       // save conversation into history
       store.dispatch(

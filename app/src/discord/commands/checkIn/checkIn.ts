@@ -7,14 +7,17 @@ import { replaceWithUserMentions } from '../../helpers'
 
 enum CommandCheckInOption {
   what = 'what',
-  slavegonComment = 'slavegon-comment'
+  slavegonComment = 'slavegon-comment',
 }
 
 export const data = new SlashCommandBuilder()
   .setName(DiscordCommand.CheckIn)
   .setDescription('Check in...')
   .addStringOption((option) =>
-    option.setName(CommandCheckInOption.what).setDescription('Tôi đã làm gì').setRequired(true)
+    option
+      .setName(CommandCheckInOption.what)
+      .setDescription('Tôi đã làm gì')
+      .setRequired(true)
   )
   .addBooleanOption((option) =>
     option
@@ -25,37 +28,40 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const hasSlavegonComment =
-    interaction.options.getBoolean(CommandCheckInOption.slavegonComment, false) ?? true
+    interaction.options.getBoolean(
+      CommandCheckInOption.slavegonComment,
+      false
+    ) ?? true
   const purpose = interaction.options.getString(CommandCheckInOption.what, true)
 
-  if (!hasSlavegonComment) {
-    await interaction.reply(
-      `*${interaction.user.displayName} checked in ${purpose}*`
-    )
-    return
-  }
-
-  await interaction.deferReply()
-
-  const mentionedIds = [...purpose.matchAll(/<@(\d+)>/g)].map(
-    (match) => match[1]
-  )
-
-  const mentionedUsers = Object.fromEntries(
-    mentionedIds.map((id) => [id, interaction.client.users.cache.get(id)])
-  )
-
-  const prompt = `${interaction.user.username} says: checked in ${purpose}`
-  const promptWithUsername = mentionedIds.reduce((acc, id) => {
-    return acc.replaceAll(`<@${id}>`, `@${mentionedUsers[id]?.username}`)
-  }, prompt)
-
   try {
+    if (!hasSlavegonComment) {
+      await interaction.reply(
+        `*${interaction.user.displayName} checked in ${purpose}*`
+      )
+      return
+    }
+
+    await interaction.deferReply()
+
+    const mentionedIds = [...purpose.matchAll(/<@(\d+)>/g)].map(
+      (match) => match[1]
+    )
+
+    const mentionedUsers = Object.fromEntries(
+      mentionedIds.map((id) => [id, interaction.client.users.cache.get(id)])
+    )
+
+    const prompt = `${interaction.user.username} says: checked in ${purpose}`
+    const promptWithUsername = mentionedIds.reduce((acc, id) => {
+      return acc.replaceAll(`<@${id}>`, `@${mentionedUsers[id]?.username}`)
+    }, prompt)
+
     let { content } = await generateContent(promptWithUsername, [])
 
     console.log({
       user: promptWithUsername,
-      bot: content
+      bot: content,
     })
 
     // replace @<username> in message with @<user id>

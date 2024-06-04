@@ -4,9 +4,15 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
-  DiscordjsErrorCodes
+  DiscordjsErrorCodes,
 } from 'discord.js'
-import { countCheckInsInChannel, formatCheckInLeaderboard, getCurrentMonthStart, getPreviousMonthEnd, getPreviousMonthStart } from '../../checkIn'
+import {
+  countCheckInsInChannel,
+  formatCheckInLeaderboard,
+  getCurrentMonthStart,
+  getPreviousMonthEnd,
+  getPreviousMonthStart,
+} from '../../checkIn'
 import { DiscordCommand } from '../../constants'
 
 export const data = new SlashCommandBuilder()
@@ -29,25 +35,27 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     .setLabel('Huỷ')
     .setStyle(ButtonStyle.Secondary)
 
-  const row = new ActionRowBuilder<ButtonBuilder>()
-    .addComponents(lastMonth, currentMonth, cancel)
-
-  const response = await interaction.reply({
-    // content: 'Check-in Report...',
-    components: [row],
-  })
-
-  const collectorFilter = (i: any) => i.user.id === interaction.user.id;
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    lastMonth,
+    currentMonth,
+    cancel
+  )
 
   try {
+    const response = await interaction.reply({
+      // content: 'Check-in Report...',
+      components: [row],
+    })
+
+    const collectorFilter = (i: any) => i.user.id === interaction.user.id
+
     const confirmation = await response.awaitMessageComponent({
       filter: collectorFilter,
-      time: 180_000
-    });
-
+      time: 180_000,
+    })
 
     if (confirmation.customId === 'cancel') {
-      await confirmation.update({ content: 'Huỷ tạo báo cáo', components: [] });
+      await confirmation.update({ content: 'Huỷ tạo báo cáo', components: [] })
       return
     }
 
@@ -62,26 +70,33 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       end = new Date()
     }
 
-    const leaderboard = await countCheckInsInChannel(interaction.channelId, start, end)
+    const leaderboard = await countCheckInsInChannel(
+      interaction.channelId,
+      start,
+      end
+    )
 
     const report = formatCheckInLeaderboard(start, end, leaderboard)
     if (!report) {
-      await interaction.editReply({ content: 'Chả có ai check in cả', components: [] });
+      await interaction.editReply({
+        content: 'Chả có ai check in cả',
+        components: [],
+      })
     } else {
-      await interaction.editReply({ content: report, components: [] });
+      await interaction.editReply({ content: report, components: [] })
     }
   } catch (e: any) {
-    console.error({ e });
+    console.error({ e })
     if (e?.code === DiscordjsErrorCodes.InteractionCollectorError) {
       await interaction.editReply({
         content: `Đợi chọn option lâu quá, hủy`,
-        components: []
-      });
+        components: [],
+      })
     } else {
       await interaction.editReply({
         content: `Something went wrong!`,
-        components: []
-      });
+        components: [],
+      })
     }
   }
 }

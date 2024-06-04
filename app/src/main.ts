@@ -31,8 +31,14 @@ const main = async () => {
   // Log the bot into Discord
   await login(TOKEN as string)
 
+  // TODO refactor this to a separate file
   client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
+
+    const allowedServers = (process.env.ALLOWED_SERVERS ?? '').split(',')
+    if (!allowedServers.includes(interaction.guildId || '')) {
+      return
+    }
 
     const command = commands.get(interaction.commandName);
 
