@@ -17,8 +17,8 @@ export type AiPromptFile = {
 
 export type AiPrompt = {
   text: string,
-  files: AiPromptFile[],
-  history: AiChatMessage[],
+  files?: AiPromptFile[],
+  history?: AiChatMessage[],
 }
 
 export type DiscordMessageMention = {

@@ -10,12 +10,7 @@ import {
   setLastMemberFetch,
 } from '../features/chatbot'
 import { store } from '../store'
-import {
-  generate,
-  generateContentREST,
-  generateContent,
-  generativeResponse,
-} from '../utils/ai'
+import { generateContent } from '../ai'
 import { AiPrompt, DiscordMessage } from '../types'
 import { replaceWithUserMentions } from './helpers'
 import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emojis'
@@ -103,22 +98,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     } as AiPrompt
 
     try {
-      // let { content, data } = await generateContentREST(
-      //   promptWithUsername,
-      //   messageHistory[channel.id]
-      // )
-
-      // let { content, data } = await generate(
-      //   promptWithUsername,
-      //   messageHistory[channel.id]
-      // )
-
-      // let { content, data } = await generateContent(
-      //   textWithUsername,
-      //   messageHistory[channel.id]
-      // )
-
-      let { content, data } = await generativeResponse(prompt)
+      let { content, data } = await generateContent(prompt)
 
       // replace @<username> in message with @<user id>
       const contentWithMentions = replaceWithUserMentions(
@@ -127,7 +107,10 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       )
 
       // replace standard emojis with server's custom  emojis
-      const finalContent = replaceEmojis(contentWithMentions, getEmojiMap(message.guild!))
+      const finalContent = replaceEmojis(
+        contentWithMentions,
+        getEmojiMap(message.guild!)
+      )
 
       console.log({
         user: textWithUsername,
@@ -142,10 +125,9 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
       const [finalMessage, endingEmoji] = splitLastEmoji(finalContent)
 
-      console.log({finalMessage, endingEmoji})
-
       // TODO is this a good answer when model doesn't have a reply?
       await channel.send(finalMessage || '?')
+      await channel.sendTyping()
       if (endingEmoji) {
         await channel.send(endingEmoji)
       }
@@ -202,7 +184,9 @@ export const handleChatbot =
       // has sticker (handling stickers not supported)
       message.stickers.size !== 0 ||
       // not a supported message type
-      ![MessageType.Default, MessageType.Reply].includes(Number(message.type.toString())) ||
+      ![MessageType.Default, MessageType.Reply].includes(
+        Number(message.type.toString())
+      ) ||
       // the bot is not being mentioned when channel requires so
       (!freeChannels.includes(message.channelId) &&
         !message.mentions.members?.has(client.user!.id)) ||

@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
 import { DiscordCommand } from '../../constants'
 import { addMessageHistory } from '../../../features/chatbot'
 import { store } from '../../../store'
-import { generateContent } from '../../../utils/ai'
+import { generateContent } from '../../../ai'
 import { replaceWithUserMentions } from '../../helpers'
 
 enum CommandCheckInOption {
@@ -57,7 +57,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return acc.replaceAll(`<@${id}>`, `@${mentionedUsers[id]?.username}`)
     }, prompt)
 
-    let { content } = await generateContent(promptWithUsername, [])
+    let { content } = await generateContent({ text: promptWithUsername })
 
     console.log({
       user: promptWithUsername,
