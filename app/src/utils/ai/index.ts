@@ -22,7 +22,7 @@ import {
   PROJECT_ID,
   getContext,
 } from './config'
-import { imageToBase64 } from '../../helpers'
+import { imageToBase64 } from '..'
 
 const IGNORED_CONTENT = `I'm not able to help with that, as I'm only a language model.`
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/gif']

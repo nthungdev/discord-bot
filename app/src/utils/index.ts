@@ -1,8 +1,9 @@
+import axios from 'axios'
+
 const formatMemberIds = (memberIds: string[]): string =>
-  memberIds.reduce(
-    (acc, curr) => [...acc, `<@${curr}>`],
-    [] as string[]
-  ).join(' ')
+  memberIds
+    .reduce((acc, curr) => [...acc, `<@${curr}>`], [] as string[])
+    .join(' ')
 
 const message1 = (memberIds: string[]): string => {
   const members = formatMemberIds(memberIds)
@@ -30,10 +31,14 @@ const message5 = (memberIds: string[]): string => {
   return `${members} lên giường với em đi mà!`
 }
 
-const getRandomSleepReminderMessage = (memberIds: string[]): string => {
+export const getRandomSleepReminderMessage = (memberIds: string[]): string => {
   const messageEngines = [message1, message2, message3, message4, message5]
-  const randomIndex = Math.floor(Math.random() * messageEngines.length);
+  const randomIndex = Math.floor(Math.random() * messageEngines.length)
   return messageEngines[randomIndex](memberIds)
 }
 
-export { getRandomSleepReminderMessage }
+export const imageToBase64 = async (url: string) => {
+  const response = await axios.get(url, { responseType: 'arraybuffer' })
+  const buffer = Buffer.from(response.data, 'binary')
+  return buffer.toString('base64')
+}
