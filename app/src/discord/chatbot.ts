@@ -1,4 +1,4 @@
-import { Guild, Message } from 'discord.js'
+import { Guild, Message, MessageType } from 'discord.js'
 import { AxiosError } from 'axios'
 import client from '.'
 import {
@@ -10,8 +10,13 @@ import {
   setLastMemberFetch,
 } from '../features/chatbot'
 import { store } from '../store'
-import { generate, generateContentREST, generateContent } from '../utils/ai'
-import { DiscordMessage } from '../types'
+import {
+  generate,
+  generateContentREST,
+  generateContent,
+  generativeResponse,
+} from '../utils/ai'
+import { AiPrompt, DiscordMessage } from '../types'
 import { replaceWithUserMentions } from './helpers'
 
 const BOT_REPLY_DELAY = 5000 // 5s
@@ -51,11 +56,16 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
     // get the messages from the user who last messaged
     const lastMessage = messageBuffer[channel.id].at(-1)
+    if (!lastMessage) {
+      console.log('No message in message buffer1')
+      return
+    }
+
     const messages: DiscordMessage[] = messageBuffer[channel.id]
-      .filter(m => m.authorId === lastMessage?.authorId)
+      .filter((m) => m.authorId === lastMessage.authorId)
       .toReversed()
 
-    const prompt = messages
+    const text = messages
       .reduce((acc, message) => {
         if (message.reference) {
           return [
@@ -73,10 +83,23 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
     const messageMentions = messages.flatMap((m) => m.mentions)
     // replace nicknames in prompt with username so that the model returns back with references to username
-    // then username is replaced with
-    const promptWithUsername = messageMentions.reduce((acc, mention) => {
+    // then username is replaced with formatted mentions in the final message
+    const textWithUsername = messageMentions.reduce((acc, mention) => {
       return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`)
-    }, prompt)
+    }, text)
+
+    const files = [
+      ...messages.flatMap((m) => m.attachments),
+      ...messages.flatMap((m) => m.reference?.attachments ?? []),
+    ]
+
+    console.log({ files })
+
+    const prompt = {
+      text: textWithUsername,
+      files,
+      history: messageHistory[channel.id] || [],
+    } as AiPrompt
 
     try {
       // let { content, data } = await generateContentREST(
@@ -89,10 +112,12 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       //   messageHistory[channel.id]
       // )
 
-      let { content, data } = await generateContent(
-        promptWithUsername,
-        messageHistory[channel.id]
-      )
+      // let { content, data } = await generateContent(
+      //   textWithUsername,
+      //   messageHistory[channel.id]
+      // )
+
+      let { content, data } = await generativeResponse(prompt)
 
       // replace @<username> in message with @<user id>
       let contentWithMentions = replaceWithUserMentions(
@@ -101,14 +126,11 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       )
 
       console.log({
-        user: promptWithUsername,
-        content,
-        contentWithMentions,
+        user: textWithUsername,
+        bot: contentWithMentions,
       })
 
       store.dispatch(clearMessageBuffer(channel.id))
-
-      // return // debug
 
       if (content === '') {
         // TODO is this a good answer when model doesn't have a reply?
@@ -116,31 +138,23 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         console.log({ data: JSON.stringify(data) })
       }
 
-      await channel.send(contentWithMentions ?? content)
+      await channel.send(contentWithMentions || content)
 
       // save conversation into history
       store.dispatch(
         addMessageHistory({
           channelId: channel.id,
-          userMessage: prompt,
+          userMessage: text,
           botMessage: content,
         })
       )
 
-      // // cut down message history if needed
-      // if (selectMessageHistory(store.getState())[channel.id].length > 40) {
-      //   store.dispatch(
-      //     reduceMessageHistory({
-      //       by: 14,
-      //       channelId: channel.id,
-      //     })
-      //   )
-      // }
-
       // debug
-      console.log({
-        history: selectMessageHistory(store.getState())[channel.id].length,
-      })
+      console.log(
+        `history size: ${
+          selectMessageHistory(store.getState())[channel.id].length
+        }`
+      )
     } catch (error) {
       console.error('Error generateContent ', typeof error)
       if (error instanceof AxiosError) {
@@ -166,76 +180,84 @@ export const handleChatbot =
     allowedServers?: string[]
     freeChannels?: string[]
   } = {}) =>
-    async (message: Message<boolean>) => {
-      // skip handling this message when:
-      if (
-        // incoming message not coming from allowed channels
-        !allowedServers.includes(message.guildId || '') ||
-        // message from the bot itself
-        message.author.id === client.user!.id ||
-        // has attachment (haven't supported yet)
-        message.attachments.size !== 0 ||
-        // has sticker (haven't supported image)
-        message.stickers.size !== 0 ||
-        // message type not text message
-        ![0, 19].includes(Number(message.type.toString())) ||
-        // the bot is not being mentioned when channel requires so
-        (!freeChannels.includes(message.channelId) &&
-          !message.mentions.members?.has(client.user!.id))
-      ) {
-        return
-      }
+  async (message: Message<boolean>) => {
+    // skip handling this message when:
+    if (
+      // incoming message not coming from allowed channels
+      !allowedServers.includes(message.guildId || '') ||
+      // message from the bot itself
+      message.author.id === client.user!.id ||
+      // // has attachment (haven't supported yet)
+      // message.attachments.size !== 0 ||
+      // has sticker (handling stickers not supported)
+      message.stickers.size !== 0 ||
+      // not a supported message type
+      ![MessageType.Default, MessageType.Reply].includes(Number(message.type.toString())) ||
+      // the bot is not being mentioned when channel requires so
+      (!freeChannels.includes(message.channelId) &&
+        !message.mentions.members?.has(client.user!.id)) ||
+      // is a DM message (DM not supported)
+      message.guild === null
+    ) {
+      return
+    }
 
-      if (message.guild === null) {
-        // DM message is not supported
-        return
-      }
+    let refMessage: Message<boolean> | null = null
+    if (message.reference !== null) {
+      refMessage = await message.channel.messages.fetch(
+        message.reference.messageId!
+      )
+    }
 
-      // let ref
-      let refMessage: Message<boolean> | null = null
-      if (message.reference !== null) {
-        refMessage = await message.channel.messages.fetch(
-          message.reference.messageId!
-        )
-      }
-
-      await validateServerMembersCache(message.guild)
-      const guildMember = message.guild.members.cache.get(message.author.id)
-      const discordMessage: DiscordMessage = {
-        authorId: message.author.id,
-        content: message.content,
-        authorUsername: message.author.username,
-        authorDisplayName: guildMember?.nickname ?? message.author.displayName,
-        cleanContent: message.cleanContent,
-        reference: !refMessage
-          ? undefined
-          : {
+    await validateServerMembersCache(message.guild)
+    const guildMember = message.guild.members.cache.get(message.author.id)
+    const discordMessage: DiscordMessage = {
+      authorId: message.author.id,
+      content: message.content,
+      authorUsername: message.author.username,
+      authorDisplayName: guildMember?.nickname ?? message.author.displayName,
+      cleanContent: message.cleanContent,
+      reference: !refMessage
+        ? undefined
+        : {
             authorUsername: refMessage.author.username,
             content: refMessage.content,
             cleanContent: refMessage.cleanContent,
+            attachments: refMessage.attachments
+              .toJSON()
+              .filter((a) => a.contentType !== null)
+              .map((a) => ({
+                uri: a.url,
+                mimeType: a.contentType!,
+              })),
           },
-        // referenceContent: refMessage || refMessage?.content,
-        // referenceCleanContent: refMessage?.cleanContent,
-        mentions: message.mentions.users.toJSON().map((u) => ({
-          id: u.id,
-          nickname:
-            message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
-          username: u.username,
+      mentions: message.mentions.users.toJSON().map((u) => ({
+        id: u.id,
+        nickname:
+          message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
+        username: u.username,
+      })),
+      attachments: message.attachments
+        .toJSON()
+        .filter((a) => a.contentType !== null)
+        .map((a) => ({
+          uri: a.url,
+          mimeType: a.contentType!,
         })),
-      }
-
-      store.dispatch(
-        addMessageBuffer({
-          message: discordMessage,
-          channelId: message.channelId,
-        })
-      )
-
-      clearMessageTimeout(message.channelId)
-      setMessageTimeout({
-        channelId: message.channelId,
-        timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
-      })
-
-      return
     }
+
+    store.dispatch(
+      addMessageBuffer({
+        message: discordMessage,
+        channelId: message.channelId,
+      })
+    )
+
+    clearMessageTimeout(message.channelId)
+    setMessageTimeout({
+      channelId: message.channelId,
+      timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
+    })
+
+    return
+  }
