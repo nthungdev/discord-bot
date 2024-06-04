@@ -7,6 +7,6 @@ export const LOCATION_ID = 'us-central1'
 export const dataFileName = 'predict-request.json'
 
 export const getContext = () => {
-  const bestiesString = besties.map(({ name, gender, username }) => `${name} (${gender}, @${username})`).join(', ')
+  const bestiesString = besties.map(({ name, gender, username }) => `${name} (gender: ${gender}, username: @${username})`).join(', ')
   return [...instructions, `Some of the besties are: ${bestiesString}`].join('; ')
 }
