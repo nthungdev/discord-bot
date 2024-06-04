@@ -93,8 +93,6 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       ...messages.flatMap((m) => m.reference?.attachments ?? []),
     ]
 
-    console.log({ files })
-
     const prompt = {
       text: textWithUsername,
       files,

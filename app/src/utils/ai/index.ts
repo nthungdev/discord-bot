@@ -22,6 +22,7 @@ import {
   PROJECT_ID,
   getContext,
 } from './config'
+import { imageToBase64 } from '../../helpers'
 
 const IGNORED_CONTENT = `I'm not able to help with that, as I'm only a language model.`
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/gif']
@@ -235,12 +236,6 @@ export const generateContent = async (
   }
 }
 
-const imageToBase64 = async (url: string) => {
-  const response = await axios.get(url, { responseType: 'arraybuffer' })
-  const buffer = Buffer.from(response.data, 'binary')
-  return buffer.toString('base64')
-}
-
 /**
  * Uses @google-cloud/vertexai API
  */
@@ -249,7 +244,11 @@ export const generativeResponse = async (prompt: AiPrompt) : Promise<AiPromptRes
   const model = 'gemini-1.5-pro'
 
   // Initialize Vertex with your Cloud project and location
-  const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION_ID })
+  const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION_ID,
+    googleAuthOptions: {
+      credentials: await getCredentials()
+    }
+   })
 
   // Instantiate the model
   const generativeVisionModel = vertexAI.getGenerativeModel({
