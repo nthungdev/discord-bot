@@ -18,6 +18,16 @@ const map = {
   '😜': ['nekouwu'],
   '😎': ['peniscool'],
   '😉': ['bluegons', 'catwink', 'pikadatass'],
+  '😱': [],
+  '❤️': [],
+  '😍': [],
+  '😳': [],
+  '🧐': [],
+  '😩': [],
+  '😤': [],
+  '🤪': [],
+  '😋': [],
+  '😁': [],
 }
 
 export const getEmojiMap = (guild: Guild) => {
@@ -26,7 +36,7 @@ export const getEmojiMap = (guild: Guild) => {
       .map(([emoji, names]) => {
         const ids = names
           .map((name) => {
-            return guild.emojis.cache.find((emoji) => emoji.name === name)?.id
+            return guild.emojis.cache.find((emoji) => emoji.name === name)?.id || name
           })
           .filter((i) => i !== undefined) as string[]
         return [emoji, ids]
