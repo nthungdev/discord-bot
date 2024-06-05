@@ -44,6 +44,8 @@ const clearMessageTimeout = (channelId: string) => {
 }
 
 const handleMessageTimeout = async (message: Message<boolean>) => {
+  console.log(`---handleMessageTimeout---`)
+
   try {
     await message.channel.sendTyping()
 
@@ -55,7 +57,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     // get the messages from the user who last messaged
     const lastMessage = messageBuffer[channel.id].at(-1)
     if (!lastMessage) {
-      console.log('No message in message buffer1')
+      console.log('No message in message buffer')
       return
     }
 
@@ -65,16 +67,15 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
     const text = messages
       .reduce((acc, message) => {
+        const authorQuote = `${message.authorUsername} says ${message.cleanContent}`
         if (message.reference) {
           return [
             ...acc,
-            `In reply to ${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${message.authorUsername} says "${message.cleanContent}"`,
+            // TODO parse and replace nicknames in reference with usernames
+            `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`,
           ]
         } else {
-          return [
-            ...acc,
-            `${message.authorUsername} says ${message.cleanContent}`,
-          ]
+          return [...acc, authorQuote]
         }
       }, [] as string[])
       .join('\n')
@@ -97,8 +98,10 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       history: messageHistory[channel.id] || [],
     } as AiPrompt
 
+    console.log(`promptText: ${prompt.text}`)
+
     try {
-      let { content, data } = await generateContent(prompt)
+      const { content, data } = await generateContent(prompt)
 
       // replace @<username> in message with @<user id>
       const contentWithMentions = replaceWithUserMentions(
@@ -114,7 +117,8 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
       console.log({
         user: textWithUsername,
-        bot: finalContent,
+        botRaw: content,
+        botFinal: finalContent,
       })
 
       store.dispatch(clearMessageBuffer(channel.id))
@@ -127,8 +131,8 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
       // TODO is this a good answer when model doesn't have a reply?
       await channel.send(finalMessage || '?')
-      await channel.sendTyping()
       if (endingEmoji) {
+        await channel.sendTyping()
         await channel.send(endingEmoji)
       }
 
@@ -148,11 +152,11 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         }`
       )
     } catch (error) {
-      console.error('Error generateContent ', typeof error)
+      console.error('Error generateContent')
       if (error instanceof AxiosError) {
         console.error({
-          message: error.message,
           name: error.name,
+          message: error.message,
           error: error.toJSON(),
         })
       } else {
