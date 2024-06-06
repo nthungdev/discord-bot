@@ -141,7 +141,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         addMessageHistory({
           channelId: channel.id,
           userMessage: text,
-          botMessage: content,
+          botMessage: content || '?',
         })
       )
 
