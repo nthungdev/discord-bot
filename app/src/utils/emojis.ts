@@ -1,32 +1,13 @@
 import { Guild, formatEmoji } from 'discord.js'
-
-const map = {
-  '😀': ['chinesebruhcat', 'smokedcat'],
-  '🤬': ['rat', 'pepefrog', 'smokedcat'],
-  '🤨': ['bruhcatmelvin', 'bruhcatmelvin', ''],
-  '😠': ['pepefrog', 'smokedcat', 'neko_nuuuu', 'ZeroTwoAnnoyed'],
-  '🤩': ['pepeishorny'],
-  '😈': ['pepeishorny'],
-  '😂': ['catcrythumbsup', 'nekouwu', 'pikadatass'],
-  '🤔': ['thonkcool', 'thonk'],
-  '🤣': ['UwU_GT'],
-  '😅': ['pepetears', 'smokedcat', 'nekofacepalm', 'monkaS'],
-  '🥰': ['pepeknickerspink', 'pepeishorny'],
-  '😏': ['bluegons'],
-  '😭': ['pikacry', 'sadhamster', 'pepecry'],
-  '🥺': ['sadhamster'],
-  '😜': ['nekouwu'],
-  '😎': ['peniscool'],
-  '😉': ['bluegons', 'catwink', 'pikadatass'],
-}
+import emojis from '../../config/emojis.json'
 
 export const getEmojiMap = (guild: Guild) => {
   return Object.fromEntries(
-    Object.entries(map)
+    Object.entries(emojis)
       .map(([emoji, names]) => {
         const ids = names
           .map((name) => {
-            return guild.emojis.cache.find((emoji) => emoji.name === name)?.id
+            return guild.emojis.cache.find((emoji) => emoji.name === name)?.id || name
           })
           .filter((i) => i !== undefined) as string[]
         return [emoji, ids]
