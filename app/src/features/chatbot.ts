@@ -22,12 +22,22 @@ export const chatbotSlice = createSlice({
   // `createSlice` will infer the state type from the `initialState` argument
   initialState,
   reducers: {
-    clearAll: (state) => {
-      state.messageHistory = {}
-      state.messageBuffer = {}
+    /** Clear all if missing channelId, else, clear for a specific channel */
+    clearMessageHistory: (state, action: PayloadAction<{
+      channelId?: string
+    }>) => {
+      if (action.payload.channelId) {
+        state.messageHistory[action.payload.channelId] = []
+      } else {
+        state.messageHistory = {}
+      }
     },
     clearMessageBuffer: (state, action: PayloadAction<string>) => {
       state.messageBuffer[action.payload] = []
+    },
+    clearAll: (state) => {
+      state.messageHistory = {}
+      state.messageBuffer = {}
     },
 
     addMessageBuffer: (
@@ -105,6 +115,7 @@ export const {
   addMessageHistory,
   addMessageBuffer,
   clearAll,
+  clearMessageHistory,
   clearMessageBuffer,
   reduceMessageHistory,
   setLastMemberFetch,

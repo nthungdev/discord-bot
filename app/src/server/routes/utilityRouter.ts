@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { deployGuildCommands } from '../../discord/deployCommands'
-import { clearAll } from '../../features/chatbot'
+import { clearMessageHistory } from '../../features/chatbot'
+import { store } from '../../store'
 
 const utilityRouter = Router()
 
@@ -23,9 +24,11 @@ utilityRouter.post('/deploy-command', async (req, res) => {
 })
 
 /// Clear the chat bot history
-utilityRouter.post('/clear', async (req, res) => {
+utilityRouter.post('/clearHistory', async (req, res) => {
+  const { channelId } = req.body
+
   try {
-    clearAll()
+    store.dispatch(clearMessageHistory({ channelId }))
     res.json({ ok: true })
   } catch (error) {
     res.json({ ok: false })
