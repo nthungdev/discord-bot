@@ -7,7 +7,7 @@ import {
   getPreviousMonthStart,
 } from '../../discord/checkIn'
 import client from '../../discord'
-import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../../utils/emojis'
+import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../../utils/emoji'
 
 const testRouter = Router()
 

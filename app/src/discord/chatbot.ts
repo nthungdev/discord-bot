@@ -13,7 +13,7 @@ import { store } from '../store'
 import { generateContent } from '../ai'
 import { AiPrompt, DiscordMessage } from '../types'
 import { replaceWithUserMentions } from './helpers'
-import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emojis'
+import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emoji'
 
 const BOT_REPLY_DELAY = 5000 // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds

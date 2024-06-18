@@ -1,7 +1,13 @@
 import { Guild, formatEmoji } from 'discord.js'
-import emojis from '../../config/emojis.json'
+// import emojis from '../../config/emojis.json'
+import { ConfigParameter, getConfigValue } from '../config'
 
 export const getEmojiMap = (guild: Guild) => {
+  const emojis = getConfigValue(ConfigParameter.guildEmojis)[guild.id]
+  if (!emojis) {
+    return {}
+  }
+
   return Object.fromEntries(
     Object.entries(emojis)
       .map(([emoji, names]) => {
@@ -12,7 +18,7 @@ export const getEmojiMap = (guild: Guild) => {
           .filter((i) => i !== undefined) as string[]
         return [emoji, ids]
       })
-      .filter(([_, ids]) => ids.length > 0)
+      .filter(([, ids]) => ids.length > 0)
   )
 }
 
@@ -33,7 +39,7 @@ export const replaceEmojis = (
 }
 
 export const splitLastEmoji = (text: string) => {
-  const lastEmoji = text.trim().match(/(\<\:_\:\d+\>)[\s\n\t]*[.!?]?[\s\n\t]*(\\n)?$/)
+  const lastEmoji = text.trim().match(/(<:_:\d+>)[\s\n\t]*[.!?]?[\s\n\t]*(\\n)?$/)
   if (lastEmoji === null) {
     return [text]
   }
