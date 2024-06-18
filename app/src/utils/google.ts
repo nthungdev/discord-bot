@@ -13,7 +13,7 @@ export const getAccessToken = async () => {
 
 export const getCredentials = async () => {
   const auth = new GoogleAuth({
-    scopes: 'https://www.googleapis.com/auth/cloud-platform',
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     credentials: serviceAccount
   });
   return await auth.getCredentials()
