@@ -57,7 +57,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return acc.replaceAll(`<@${id}>`, `@${mentionedUsers[id]?.username}`)
     }, prompt)
 
-    let { content } = await generateContent({ text: promptWithUsername })
+    const { content } = await generateContent({ text: promptWithUsername })
 
     console.log({
       user: promptWithUsername,
@@ -65,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     })
 
     // replace @<username> in message with @<user id>
-    let contentWithMentions = replaceWithUserMentions(
+    const contentWithMentions = replaceWithUserMentions(
       content,
       interaction.guild?.members.cache.toJSON() ?? []
     )
@@ -80,7 +80,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         botMessage: content,
       })
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`Failed to include Slavegon's comment`, error)
     await interaction.editReply(
       `*${interaction.user.displayName} checked in ${purpose}*`

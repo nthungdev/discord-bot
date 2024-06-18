@@ -1,8 +1,9 @@
 import { Router } from 'express'
-import { ChannelType, Message } from 'discord.js'
+import { ChannelType } from 'discord.js'
 import {
   countCheckInsInChannel,
   formatCheckInLeaderboard,
+  getCurrentMonthStart,
   getPreviousMonthEnd,
   getPreviousMonthStart,
 } from '../../discord/checkIn'
@@ -44,31 +45,50 @@ testRouter.post('/1', async (_, res, next) => {
   }
 })
 
-testRouter.post('/2', async (_, res, next) => {
-  const start = getPreviousMonthStart()
-  const end = getPreviousMonthEnd()
+testRouter.post('/2', async (req, res, next) => {
+  const start = getCurrentMonthStart()
+  const end = new Date()
 
   console.log({ start, end })
 
-  const channelId = '1233630882791952495'
+  const { channelId } = req.body
 
   try {
     const channel = client.channels.cache.get(channelId)
     if (!channel) {
-      res.json({ ok: false })
-      return
+      throw Error(`Channel not found: ${channelId}`)
     } else if (channel.type !== ChannelType.GuildText) {
-      throw Error(`Not a text channel ${channelId}`)
+      throw Error(`Not a text channel: ${channelId}`)
     }
 
-    const messages = await channel.messages.fetch({ limit: 20 })
-    if (messages.size !== 0) {
-      console.log(messages.first())
-      const firstMessage = messages.first() as Message<true>
-      console.log(firstMessage)
-    }
+    // const reportTemplate = getConfigValue(ConfigParameter.checkInLeaderboard)
 
-    res.json({ ok: true })
+    // console.log(reportTemplate)
+    // next(new Error('test'))
+    // return
+
+    const leaderboard = await countCheckInsInChannel(
+      channelId,
+      start,
+      end
+    )
+
+
+    const report = formatCheckInLeaderboard(start, end, leaderboard)
+    console.log(report)
+
+    // const messages = await channel.messages.fetch({ limit: 20 })
+    // if (messages.size !== 0) {
+    //   // console.log(messages.first())
+    //   const firstMessage = messages.first() as Message<true>
+    //   // console.log(firstMessage)
+    // }
+
+    res.json({
+      ok: true,
+      report,
+      // message,
+    })
     res.status(200)
   } catch (error: unknown) {
     next(error)
@@ -108,9 +128,6 @@ testRouter.post('/3', async (req, res, next) => {
       '😜': ['nekouwu'],
       '😎': ['peniscool'],
     }
-
-    // const catWtf = formatEmoji('1247386116001234964')
-    // console.log(catWtf)
 
     Object.entries(map).forEach(([emoji, names]) => {
       const ids = names

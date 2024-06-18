@@ -1,7 +1,7 @@
 import { ChannelType, Message, MessageType, userMention } from 'discord.js'
 import client from '..'
-import config from '../../config'
 import { DiscordCommand } from '../constants'
+import { ConfigParameter, getConfigValue } from '../../config'
 
 type CheckInTrackerData = {
   count: number
@@ -10,6 +10,13 @@ type CheckInTrackerData = {
   lastCheckIn: Date
   currentStreak: number
   username: string
+}
+
+const isCheckInCommand = (message: Message<true>) => {
+  return (
+    message.type === MessageType.ChatInputCommand &&
+    message.interaction?.commandName === DiscordCommand.CheckIn
+  )
 }
 
 export const getPreviousMonthStart = () => {
@@ -33,29 +40,29 @@ const isAfter = (target: Date, time: Date) => {
   return time.getTime() > target.getTime()
 }
 
-const isWithinPreviousMonth = (time: Date) => {
-  const currentDate = new Date()
-  const previousMonth = currentDate.getMonth() - 1
-  const previousMonthStart = new Date(
-    currentDate.getFullYear(),
-    previousMonth,
-    1
-  )
-  const previousMonthEnd = new Date(
-    currentDate.getFullYear(),
-    previousMonth + 1,
-    1
-  )
-  return (
-    time.getTime() >= previousMonthStart.getTime() &&
-    time.getTime() <= previousMonthEnd.getTime()
-  )
-}
+// const isWithinPreviousMonth = (time: Date) => {
+//   const currentDate = new Date()
+//   const previousMonth = currentDate.getMonth() - 1
+//   const previousMonthStart = new Date(
+//     currentDate.getFullYear(),
+//     previousMonth,
+//     1
+//   )
+//   const previousMonthEnd = new Date(
+//     currentDate.getFullYear(),
+//     previousMonth + 1,
+//     1
+//   )
+//   return (
+//     time.getTime() >= previousMonthStart.getTime() &&
+//     time.getTime() <= previousMonthEnd.getTime()
+//   )
+// }
 
-const isWithinPeriod = (start: Date, end: Date, time: Date) => {
-  // TODO validate start and end
-  return time.getTime() >= start.getTime() && time.getTime() <= end.getTime()
-}
+// const isWithinPeriod = (start: Date, end: Date, time: Date) => {
+//   // TODO validate start and end
+//   return time.getTime() >= start.getTime() && time.getTime() <= end.getTime()
+// }
 
 /**
  * @param messageDate always after streakLastDate
@@ -85,44 +92,51 @@ export async function countCheckInsInChannel(
     throw Error(`Not a text channel ${channelId}`)
   }
 
-  let count = 0
+  // let count = 0
   let done = false
-  let lastMessage: Message<true> | undefined = channel.messages.cache.last()
-  const messageBuffer: Message<true>[] = []
+  let lastMessage = (
+    await channel.messages.fetch({ limit: 1, cache: false })
+  ).first()
   const tracker: Record<string, CheckInTrackerData> = {}
+  const messageBuffer: Message<true>[] = []
+  if (lastMessage) {
+    messageBuffer.push(lastMessage)
+  }
 
-  // get messages within the period
+  console.info('Fetching command messages...')
+  // fetch messages within the period
   while (!done) {
     await channel.messages
       .fetch({ limit: 100, before: lastMessage?.id })
       .then((messages) => {
-        for (const [_, message] of messages) {
-          count++
+        for (const [, message] of messages) {
+          // count++
           lastMessage = message
           console.log(
-            `${message.createdAt.toLocaleString()} ${message.cleanContent}`
+            `${message.createdAt.toLocaleString()} ${message.cleanContent.slice(
+              0,
+              30
+            )}`
           )
 
-          if (isAfter(end, message.createdAt)) {
-            continue
-          } else if (
-            message.type === MessageType.ChatInputCommand &&
-            message.interaction?.commandName !== DiscordCommand.CheckIn
-          ) {
-            continue
-          } else if (!isWithinPeriod(start, end, message.createdAt)) {
-            console.log(
-              `not within the period ${start.toLocaleString()} - ${end.toLocaleString()}`
-            )
+          if (isAfter(message.createdAt, start)) {
+            console.log(`got message before ${start.toLocaleString()}`)
             done = true
             break
+          } else if (
+            isAfter(end, message.createdAt) ||
+            !isCheckInCommand(message)
+          ) {
+            continue
           }
 
           messageBuffer.unshift(message)
         }
       })
-    done = true
+    // done = true
   }
+  console.info('Done fetching messages.')
+  console.info(`Total messages: ${messageBuffer.length}`)
 
   // process messages
   messageBuffer.forEach((message) => {
@@ -133,7 +147,9 @@ export async function countCheckInsInChannel(
       (message.type === MessageType.ChatInputCommand &&
         message.interaction?.commandName !== DiscordCommand.CheckIn)
     ) {
-      console.log(`skipping ${message.type}: ${message.cleanContent}`)
+      console.log(
+        `skipping ${message.type}: ${message.cleanContent.slice(0, 30)}`
+      )
       return
     }
 
@@ -179,11 +195,12 @@ export function formatCheckInLeaderboard(
 ) {
   if (leaderboard.length === 0) return ''
 
-  const totalCount = leaderboard.reduce((acc, [_, { count }]) => acc + count, 0)
+  const totalCount = leaderboard.reduce((acc, [, { count }]) => acc + count, 0)
 
   const longestStreakLeaderboard = leaderboard.toSorted(
     (a, b) => b[1].longestStreak - a[1].longestStreak
   )
+  // sorted in decreasing order
   const mostCountLeaderboard = leaderboard.toSorted(
     (a, b) => b[1].count - a[1].count
   )
@@ -195,13 +212,14 @@ export function formatCheckInLeaderboard(
         `${userMention(userId)} (${longestStreak} ngày)`
     )
     .join('\n')
-  // sorted in decreasing order
+
   const formattedCounts = mostCountLeaderboard
-    .slice(0, 5)
+    // .slice(0, 5)
     .map(([userId, { count }]) => `${userMention(userId)}: ${count}`)
     .join('\n')
 
-  const report = config.checkInReportTemplate
+  const reportTemplate = getConfigValue(ConfigParameter.checkInLeaderboard)
+  const report = reportTemplate
     .replace('{date}', formatPeriod(startDate))
     .replace('{month}', `${startDate.getMonth() + 1}`)
     .replace('{totalCheckIns}', totalCount.toString())

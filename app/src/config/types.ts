@@ -16,3 +16,5 @@ export interface GuildMembersConfigMember {
 export interface GuildMembersConfig {
   [guildId: string]: GuildMembersConfigMember[]
 }
+
+export type CheckInLeaderboardConfig = string

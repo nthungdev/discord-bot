@@ -7,13 +7,14 @@ config({
 })
 
 import { Events } from 'discord.js'
+import * as admin from 'firebase-admin';
 // import { CronJob } from 'cron'
 import client, { commands, login, registerChatbot, loadCommands } from './discord'
 import server from './server'
 import { validateEnvs } from './helpers'
 import { AppCommand } from './types'
-import { initializeApp } from 'firebase-admin'
-import { applicationDefault } from 'firebase-admin/app'
+import serviceAccountKey from '../serviceAccountKey.json'
+import { init } from './config';
 
 const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
@@ -24,11 +25,14 @@ const main = async () => {
     process.exit(1)
   }
 
+
   // Initialize Firebase
-  initializeApp({
-    credential: applicationDefault(),
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccountKey as admin.ServiceAccount),
   })
 
+  // Init Remote Config
+  init()
 
   registerChatbot()
 

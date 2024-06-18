@@ -5,6 +5,7 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   DiscordjsErrorCodes,
+  DiscordjsError,
 } from 'discord.js'
 import {
   countCheckInsInChannel,
@@ -47,7 +48,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       components: [row],
     })
 
-    const collectorFilter = (i: any) => i.user.id === interaction.user.id
+    const collectorFilter = (i: unknown) =>
+      (i as ChatInputCommandInteraction).user.id === interaction.user.id
 
     const confirmation = await response.awaitMessageComponent({
       filter: collectorFilter,
@@ -85,9 +87,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     } else {
       await interaction.editReply({ content: report, components: [] })
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error({ e })
-    if (e?.code === DiscordjsErrorCodes.InteractionCollectorError) {
+    if (
+      e instanceof DiscordjsError &&
+      e.code === DiscordjsErrorCodes.InteractionCollectorError
+    ) {
       await interaction.editReply({
         content: `Đợi chọn option lâu quá, hủy`,
         components: [],
@@ -98,5 +103,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         components: [],
       })
     }
+
   }
 }
