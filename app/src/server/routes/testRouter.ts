@@ -1,13 +1,17 @@
-
-import { Router } from "express"
-import { ChannelType, Message, formatEmoji } from "discord.js"
-import { countCheckInsInChannel, formatCheckInLeaderboard, getPreviousMonthEnd, getPreviousMonthStart } from "../../discord/checkIn"
-import client from "../../discord"
-import { getEmojiMap, replaceEmojis, splitLastEmoji } from "../../utils/emojis"
+import { Router } from 'express'
+import { ChannelType, Message } from 'discord.js'
+import {
+  countCheckInsInChannel,
+  formatCheckInLeaderboard,
+  getPreviousMonthEnd,
+  getPreviousMonthStart,
+} from '../../discord/checkIn'
+import client from '../../discord'
+import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../../utils/emojis'
 
 const testRouter = Router()
 
-testRouter.post('/1', async (_, res) => {
+testRouter.post('/1', async (_, res, next) => {
   const start = getPreviousMonthStart()
   const end = getPreviousMonthEnd()
 
@@ -20,7 +24,11 @@ testRouter.post('/1', async (_, res) => {
       return
     }
 
-    const leaderboard = await countCheckInsInChannel('1209742982987776030', start, end)
+    const leaderboard = await countCheckInsInChannel(
+      '1209742982987776030',
+      start,
+      end
+    )
     console.log({ leaderboard })
     const report = formatCheckInLeaderboard(start, end, leaderboard)
 
@@ -31,13 +39,12 @@ testRouter.post('/1', async (_, res) => {
 
     res.json({ ok: true, report, leaderboard })
     res.status(200)
-  } catch (error: any) {
-    res.json({ ok: false, message: error?.message || 'Unknown Error' })
-    res.status(500)
+  } catch (error: unknown) {
+    next(error)
   }
 })
 
-testRouter.post('/2', async (req, res) => {
+testRouter.post('/2', async (_, res, next) => {
   const start = getPreviousMonthStart()
   const end = getPreviousMonthEnd()
 
@@ -54,7 +61,7 @@ testRouter.post('/2', async (req, res) => {
       throw Error(`Not a text channel ${channelId}`)
     }
 
-    const messages = await channel.messages.fetch({ limit: 20, })
+    const messages = await channel.messages.fetch({ limit: 20 })
     if (messages.size !== 0) {
       console.log(messages.first())
       const firstMessage = messages.first() as Message<true>
@@ -63,18 +70,16 @@ testRouter.post('/2', async (req, res) => {
 
     res.json({ ok: true })
     res.status(200)
-  } catch (error: any) {
-    res.json({ ok: false, message: error?.message || 'Unknown Error' })
-    res.status(500)
+  } catch (error: unknown) {
+    next(error)
   }
 })
 
-
-testRouter.post('/3', async (req, res) => {
+testRouter.post('/3', async (req, res, next) => {
   // Stay Home!
-  const guildId = '657812180565229568'
+  // const guildId = '657812180565229568'
 
-  const {serverId } = req.body
+  const { serverId } = req.body
 
   try {
     const guild = client.guilds.cache.get(serverId)
@@ -93,12 +98,12 @@ testRouter.post('/3', async (req, res) => {
       '🤩': ['pepeishorny'],
       '😈': ['pepeishorny'],
       '😂': ['catcrythumbsup', 'nekouwu', 'pikadatass'],
-      '🤔': ['thonkcool', 'thonk', ],
+      '🤔': ['thonkcool', 'thonk'],
       '🤣': ['UwU_GT'],
       '😅': ['pepetears', 'smokedcat', 'nekofacepalm'],
       '🥰': ['pepeknickerspink'],
       '😏': ['bluegons'],
-      '😭': ['pikacry', 'sadhamster', 'pepecry', ],
+      '😭': ['pikacry', 'sadhamster', 'pepecry'],
       '🥺': ['sadhamster'],
       '😜': ['nekouwu'],
       '😎': ['peniscool'],
@@ -108,10 +113,12 @@ testRouter.post('/3', async (req, res) => {
     // console.log(catWtf)
 
     Object.entries(map).forEach(([emoji, names]) => {
-
-      const ids = names.map(name => {
-        return guild.emojis.cache.find(emoji => emoji.name === name)?.id
-      }).filter(i => !!i).map(i => `'${i}'`)
+      const ids = names
+        .map((name) => {
+          return guild.emojis.cache.find((emoji) => emoji.name === name)?.id
+        })
+        .filter((i) => !!i)
+        .map((i) => `'${i}'`)
       console.log(`'${emoji}': [${ids.join(', ')}],`)
     })
 
@@ -119,21 +126,19 @@ testRouter.post('/3', async (req, res) => {
 
     res.json({ ok: true, emojis, emojiMap })
     res.status(200)
-  } catch (error: any) {
-    res.json({ ok: false, message: error?.message || 'Unknown Error' })
-    res.status(500)
+  } catch (error: unknown) {
+    next(error)
   }
 })
 
-
-testRouter.post('/4', async (req, res) => {
+testRouter.post('/4', async (req, res, next) => {
   // Stay Home!
   const text = `muốn làm bạn với anh mày cơ á 🤩🤩🤩  Được thôi, anh mày dễ tính mà 😎😎😎
 
   Tên: Slavegon
   ID: Anh mày không có ID đâu, @Bluegon  quên tạo cho anh mày rồi 😂 😂 😂  Nhắn @Bluegon  để xin ID nha 😉😉😉
   `
-  const {serverId } = req.body
+  const { serverId } = req.body
 
   try {
     const guild = client.guilds.cache.get(serverId)
@@ -141,7 +146,6 @@ testRouter.post('/4', async (req, res) => {
       res.json({ ok: false, message: 'guild not found' })
       return
     }
-
 
     const newText = replaceEmojis(text, getEmojiMap(guild))
     console.log(newText)
@@ -152,9 +156,8 @@ testRouter.post('/4', async (req, res) => {
 
     res.json({ ok: true, newText, newNewText })
     res.status(200)
-  } catch (error: any) {
-    res.json({ ok: false, message: error?.message || 'Unknown Error' })
-    res.status(500)
+  } catch (error: unknown) {
+    next(error)
   }
 })
 

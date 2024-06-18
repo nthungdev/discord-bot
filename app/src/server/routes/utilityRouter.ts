@@ -5,7 +5,7 @@ import { store } from '../../store'
 
 const utilityRouter = Router()
 
-utilityRouter.post('/deploy-command', async (req, res) => {
+utilityRouter.post('/deploy-command', async (req, res, next) => {
   const { token, clientId, guildId } = req.body
 
   if (token === undefined || clientId === undefined || guildId === undefined) {
@@ -17,21 +17,20 @@ utilityRouter.post('/deploy-command', async (req, res) => {
   try {
     await deployGuildCommands(token, clientId, guildId)
     res.json({ ok: true, message: 'commands deployed' })
-  } catch (error: any) {
-    res.status(500)
-    res.send({ ok: false, message: error?.message })
+  } catch (error: unknown) {
+    next(error)
   }
 })
 
 /// Clear the chat bot history
-utilityRouter.post('/clearHistory', async (req, res) => {
+utilityRouter.post('/clearHistory', async (req, res, next) => {
   const { channelId } = req.body
 
   try {
     store.dispatch(clearMessageHistory({ channelId }))
     res.json({ ok: true })
   } catch (error) {
-    res.json({ ok: false })
+    next(error)
   }
 })
 
