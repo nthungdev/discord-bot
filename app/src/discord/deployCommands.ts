@@ -2,7 +2,7 @@ import {  REST,RESTPutAPIApplicationCommandsResult, Routes } from 'discord.js'
 import { parseCommands } from './helpers';
 
 export const deployGuildCommands = async (token: string, clientId: string, guildId: string) => {
-  const commandsToReg = parseCommands().map(command => command.data.toJSON())
+  const commandsToReg = (await parseCommands()).map(command => command.data.toJSON())
 
   // Construct and prepare an instance of the REST module
   const rest = new REST().setToken(token);
