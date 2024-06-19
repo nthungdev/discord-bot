@@ -4,42 +4,21 @@ import {
   countCheckInsInChannel,
   formatCheckInLeaderboard,
   getCurrentMonthStart,
-  getPreviousMonthEnd,
-  getPreviousMonthStart,
 } from '../../discord/checkIn'
 import client from '../../discord'
 import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../../utils/emoji'
 import { Config, ConfigParameter } from '../../config'
+import { getGenAi } from '../../utils/ai'
 
 const testRouter = Router()
 
 testRouter.post('/1', async (_, res, next) => {
-  const start = getPreviousMonthStart()
-  const end = getPreviousMonthEnd()
-
-  console.log({ start, end })
-
   try {
-    const channel = client.channels.cache.get('1233630882791952495')
-    if (!channel) {
-      res.json({ ok: false })
-      return
-    }
+    const genAi = getGenAi()
+    await genAi.init()
+    const response = await genAi.generate({ text: 'Hello'})
 
-    const leaderboard = await countCheckInsInChannel(
-      '1209742982987776030',
-      start,
-      end
-    )
-    console.log({ leaderboard })
-    const report = formatCheckInLeaderboard(start, end, leaderboard)
-
-    // if (channel.isTextBased()) {
-    //   await channel.send(report)
-    // }
-    console.log(report)
-
-    res.json({ ok: true, report, leaderboard })
+    res.json({ ok: true, content: response.content })
     res.status(200)
   } catch (error: unknown) {
     next(error)
@@ -62,18 +41,11 @@ testRouter.post('/2', async (req, res, next) => {
       throw Error(`Not a text channel: ${channelId}`)
     }
 
-    // const reportTemplate = getConfigValue(ConfigParameter.checkInLeaderboard)
-
-    // console.log(reportTemplate)
-    // next(new Error('test'))
-    // return
-
     const leaderboard = await countCheckInsInChannel(
       channelId,
       start,
       end
     )
-
 
     const report = formatCheckInLeaderboard(start, end, leaderboard)
     console.log(report)
