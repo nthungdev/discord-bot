@@ -6,9 +6,9 @@ import {
   getCurrentMonthStart,
 } from '../../discord/checkIn'
 import client from '../../discord'
-import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../../utils/emoji'
+import { getEmojiMap, replaceEmojis, splitEndingEmojis } from '../../utils/emoji'
 import { Config, ConfigParameter } from '../../config'
-import { getGenAi } from '../../utils/ai'
+import { getGenAi } from '../../utils/genAi'
 
 const testRouter = Router()
 
@@ -107,7 +107,7 @@ testRouter.post('/4', async (req, res, next) => {
     const newText = replaceEmojis(text, getEmojiMap(guild))
     console.log(newText)
 
-    const newNewText = splitLastEmoji(newText)
+    const newNewText = splitEndingEmojis(newText)
     console.log(newNewText[0])
     console.log(newNewText[1])
 

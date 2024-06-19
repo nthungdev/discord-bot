@@ -12,9 +12,8 @@ import {
 import { store } from '../store'
 // import { generateContent } from '../ai'
 import { AiPrompt, DiscordMessage } from '../types'
-import { replaceWithUserMentions } from './helpers'
-import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emoji'
-import { getGenAi } from '../utils/ai'
+import { splitEndingEmojis } from '../utils/emoji'
+import { generateChatMessageWithGenAi, getGenAi } from '../utils/genAi'
 
 const BOT_REPLY_DELAY = 5000 // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
@@ -104,28 +103,11 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     try {
       const genAi = getGenAi({ guildId: message.guildId })
       await genAi.init()
-      const { content, data } = await genAi.generate(prompt)
-
-      // replace @<username> in message with @<user id>
-      const contentWithMentions = replaceWithUserMentions(
-        content,
-        (message.guild?.members.cache.toJSON() ?? []).map(m => ({
-          id: m.id,
-          username: m.user.username,
-          nickname: m.nickname || m.user.displayName,
-        }))
-      )
-
-      // replace standard emojis with server's custom  emojis
-      const finalContent = replaceEmojis(
-        contentWithMentions,
-        getEmojiMap(message.guild!)
-      )
+      const { content, data } = await generateChatMessageWithGenAi(genAi, prompt.text, messageMentions, message.guild)
 
       console.log({
         user: textWithUsername,
-        botRaw: content,
-        botFinal: finalContent,
+        bot: content,
       })
 
       store.dispatch(clearMessageBuffer(channel.id))
@@ -134,7 +116,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         console.log({ data: JSON.stringify(data) })
       }
 
-      const [finalMessage, endingEmoji] = splitLastEmoji(finalContent)
+      const [finalMessage, endingEmoji] = splitEndingEmojis(content)
 
       // TODO is this a good answer when model doesn't have a reply?
       await channel.send(finalMessage || '?')

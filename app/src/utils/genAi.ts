@@ -1,6 +1,10 @@
+import { Guild } from "discord.js";
 import { GenAi } from "../genAi"
 import { ConfigParameter, Config } from "../config"
 import { GuildMembersConfigMember } from "../config/types";
+import { replaceWithUserMentions } from "../discord/helpers";
+import { DiscordUser } from "../types";
+import { getEmojiMap, replaceEmojis } from "./emoji";
 
 const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   if (!members) return ''
@@ -42,4 +46,25 @@ export const getGenAi = ({ guildId }: GenAiConfig = {}) => {
   })
 
   return genAi
+}
+
+export const generateChatMessageWithGenAi = async (genAi: GenAi, promptText: string, users: DiscordUser[], guild?: Guild | null) => {
+  await genAi.init()
+  const { content, data } = await genAi.generate({ text: promptText })
+
+  // replace @<username> in message with @<user id>
+  const contentWithMentions = replaceWithUserMentions(
+    content,
+    users
+  )
+
+  let finalContent = contentWithMentions
+    if (guild) {
+      finalContent = replaceEmojis(
+        contentWithMentions,
+        getEmojiMap(guild)
+      )
+    }
+
+  return { content: finalContent, data }
 }

@@ -40,20 +40,23 @@ export const replaceEmojis = (
   return newText
 }
 
-export const splitLastEmoji = (text: string) => {
-  const lastEmoji = text.trim().match(/(<:_:\d+>)[\s\n\t]*[.!?]?[\s\n\t]*(\\n)?$/)
-  if (lastEmoji === null) {
+/**
+ * Only split the last emoji if it's a custom emoji
+ */
+export const splitEndingEmojis = (text: string) => {
+  const endingEmojis = text.trim().match(/(<:_:\d+>)+[\s\n\t]*[.!?]?[\s\n\t]*(\\n)?$/)
+  if (endingEmojis === null) {
     return [text]
   }
-  const emoji = lastEmoji[1]
+  const emojis = endingEmojis[1]
   const ending = text.at(-1)?.match(/[.!?]/)?.[0] || ''
   console.log({
-    emoji,
+    emojis,
     ending,
-    lastEmoji: [...lastEmoji],
-    index: lastEmoji.index,
-    untilIndex: text.slice(0, lastEmoji.index),
-    fromIndex: text.slice(lastEmoji.index),
+    lastEmoji: [...endingEmojis],
+    index: endingEmojis.index,
+    untilIndex: text.slice(0, endingEmojis.index),
+    fromIndex: text.slice(endingEmojis.index),
   })
-  return [text.slice(0, lastEmoji.index) + ending, emoji]
+  return [text.slice(0, endingEmojis.index) + ending, emojis]
 }

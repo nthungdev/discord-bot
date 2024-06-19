@@ -2,9 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
 import { DiscordCommand } from '../../constants'
 import { addMessageHistory } from '../../../features/chatbot'
 import { store } from '../../../store'
-import { replaceWithUserMentions } from '../../helpers'
-import { getGenAi } from '../../../utils/ai'
-import { getEmojiMap, replaceEmojis } from '../../../utils/emoji'
+import { generateChatMessageWithGenAi, getGenAi } from '../../../utils/genAi'
 
 enum CommandCheckInOption {
   what = 'what',
@@ -62,33 +60,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const genAi = getGenAi({ guildId: interaction.guildId })
     await genAi.init()
-    const { content } = await genAi.generate({ text: promptWithUsername })
+    const { content } = await generateChatMessageWithGenAi(genAi, promptWithUsername, [], interaction.guild)
 
-    console.log({
-      user: promptWithUsername,
-      bot: content,
-    })
-
-    // replace @<username> in message with @<user id>
-    const contentWithMentions = replaceWithUserMentions(
-      content,
-      (interaction.guild?.members.cache.toJSON() ?? []).map(m => ({
-        id: m.id,
-        username: m.user.username,
-        nickname: m.nickname || m.user.displayName,
-      }))
-    )
-
-    let finalContent = contentWithMentions
-    // replace standard emojis with server's custom  emojis
-    if (interaction.guild) {
-      finalContent = replaceEmojis(
-        contentWithMentions,
-        getEmojiMap(interaction.guild!)
-      )
-    }
-
-    const message = `*${interaction.user.displayName} checked in ${purpose}*\n${finalContent}`
+    const message = `*${interaction.user.displayName} checked in ${purpose}*\n${content}`
     await interaction.editReply(message)
 
     store.dispatch(
