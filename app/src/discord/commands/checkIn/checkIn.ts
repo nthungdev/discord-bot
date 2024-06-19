@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
 import { DiscordCommand } from '../../constants'
 import { addMessageHistory } from '../../../features/chatbot'
 import { store } from '../../../store'
-import { generateContent } from '../../../ai'
+import { generateContent } from '../../../genAi'
 import { replaceWithUserMentions } from '../../helpers'
 
 enum CommandCheckInOption {

@@ -14,6 +14,9 @@ export interface GenAiConfig {
   guildId?: string | null
 }
 
+/**
+ * @return GenAi with config values from Config
+ */
 export const getGenAi = ({ guildId }: GenAiConfig = {}) => {
   const config = Config.getInstance()
   const apiEndpoint = config.getConfigValue(ConfigParameter.aiApiEndpoint)
