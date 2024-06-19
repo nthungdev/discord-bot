@@ -13,7 +13,7 @@ import client, { commands, login, registerChatbot, loadCommands } from './discor
 import server from './server'
 import { validateEnvs } from './helpers'
 import { AppCommand } from './types'
-import serviceAccountKey from '../serviceAccountKey.json'
+import serviceAccountKey from '../service-account.json'
 import { Config } from './config';
 
 const { TOKEN, PORT } = process.env
@@ -25,8 +25,7 @@ const main = async () => {
     process.exit(1)
   }
 
-
-  // Initialize Firebase
+  // Init Firebase
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccountKey as admin.ServiceAccount),
   })
@@ -70,9 +69,6 @@ const main = async () => {
       }
     }
   });
-
-  // registerCommands('')
-
 
   // const job = new CronJob(
   //   '1 0 0 1 * *', // on 00:01 AM of the first of every month
