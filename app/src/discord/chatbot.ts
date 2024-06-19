@@ -10,10 +10,11 @@ import {
   setLastMemberFetch,
 } from '../features/chatbot'
 import { store } from '../store'
-import { generateContent } from '../ai'
+// import { generateContent } from '../ai'
 import { AiPrompt, DiscordMessage } from '../types'
 import { replaceWithUserMentions } from './helpers'
 import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emoji'
+import { getGenAi } from '../utils/ai'
 
 const BOT_REPLY_DELAY = 5000 // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
@@ -101,7 +102,9 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     console.log(`promptText: ${prompt.text}`)
 
     try {
-      const { content, data } = await generateContent(prompt)
+      const genAi = getGenAi({ guildId: message.guildId })
+      await genAi.init()
+      const { content, data } = await genAi.generate(prompt)
 
       // replace @<username> in message with @<user id>
       const contentWithMentions = replaceWithUserMentions(
