@@ -40,30 +40,6 @@ const isAfter = (target: Date, time: Date) => {
   return time.getTime() > target.getTime()
 }
 
-// const isWithinPreviousMonth = (time: Date) => {
-//   const currentDate = new Date()
-//   const previousMonth = currentDate.getMonth() - 1
-//   const previousMonthStart = new Date(
-//     currentDate.getFullYear(),
-//     previousMonth,
-//     1
-//   )
-//   const previousMonthEnd = new Date(
-//     currentDate.getFullYear(),
-//     previousMonth + 1,
-//     1
-//   )
-//   return (
-//     time.getTime() >= previousMonthStart.getTime() &&
-//     time.getTime() <= previousMonthEnd.getTime()
-//   )
-// }
-
-// const isWithinPeriod = (start: Date, end: Date, time: Date) => {
-//   // TODO validate start and end
-//   return time.getTime() >= start.getTime() && time.getTime() <= end.getTime()
-// }
-
 /**
  * @param messageDate always after streakLastDate
  * @param streakLastDate last time the user checked in
@@ -77,6 +53,7 @@ const checkStreak = (messageDate: Date, streakLastDate: Date | undefined) => {
 }
 
 const formatPeriod = (date: Date) => {
+  // TODO localize this
   return `Tháng ${date.getMonth() + 1} Năm ${date.getFullYear()}`
 }
 
@@ -92,7 +69,6 @@ export async function countCheckInsInChannel(
     throw Error(`Not a text channel ${channelId}`)
   }
 
-  // let count = 0
   let done = false
   let lastMessage = (
     await channel.messages.fetch({ limit: 1, cache: false })
@@ -103,14 +79,12 @@ export async function countCheckInsInChannel(
     messageBuffer.push(lastMessage)
   }
 
-  console.info('Fetching command messages...')
-  // fetch messages within the period
+  console.info('Fetching check-in command messages...')
   while (!done) {
     await channel.messages
       .fetch({ limit: 100, before: lastMessage?.id })
       .then((messages) => {
         for (const [, message] of messages) {
-          // count++
           lastMessage = message
           console.log(
             `${message.createdAt.toLocaleString()} ${message.cleanContent.slice(
@@ -119,6 +93,8 @@ export async function countCheckInsInChannel(
             )}`
           )
 
+          // skip messages after end date
+          // and stop when getting a message before start date
           if (isAfter(message.createdAt, start)) {
             console.log(`got message before ${start.toLocaleString()}`)
             done = true
@@ -133,30 +109,19 @@ export async function countCheckInsInChannel(
           messageBuffer.unshift(message)
         }
       })
-    // done = true
   }
-  console.info('Done fetching messages.')
-  console.info(`Total messages: ${messageBuffer.length}`)
+  console.info(`Done fetching messages. Total ${messageBuffer.length} messages`)
 
-  // process messages
+  // Count check-ins of each user
   messageBuffer.forEach((message) => {
-    if (
-      message.type !== MessageType.ChatInputCommand ||
-      // (message.type !== MessageType.ChatInputCommand &&
-      //   !message.cleanContent.match(/(?<!(?:ch[uư]a|kh[oô]ng).*)(?:check\s*-?in)/i)) ||
-      (message.type === MessageType.ChatInputCommand &&
-        message.interaction?.commandName !== DiscordCommand.CheckIn)
-    ) {
+    if (!isCheckInCommand(message)) {
       console.log(
         `skipping ${message.type}: ${message.cleanContent.slice(0, 30)}`
       )
       return
     }
 
-    const user =
-      message.interaction?.commandName === DiscordCommand.CheckIn
-        ? message.interaction!.user
-        : message.author
+    const { user } = message.interaction!
     const streakStatus = checkStreak(
       message.createdAt,
       tracker[user.id]?.lastCheckIn
@@ -165,8 +130,8 @@ export async function countCheckInsInChannel(
       streakStatus === 'increment'
         ? (tracker[user.id]?.currentStreak || 0) + 1
         : streakStatus === 'reset'
-          ? 1
-          : tracker[user.id]?.currentStreak || 0 // same date
+        ? 1
+        : tracker[user.id]?.currentStreak || 0 // same date
     const longestStreak = Math.max(
       currentStreak,
       tracker[user.id]?.longestStreak || 0
@@ -218,7 +183,9 @@ export function formatCheckInLeaderboard(
     .map(([userId, { count }]) => `${userMention(userId)}: ${count}`)
     .join('\n')
 
-  const reportTemplate = Config.getInstance().getConfigValue(ConfigParameter.checkInLeaderboard)
+  const reportTemplate = Config.getInstance().getConfigValue(
+    ConfigParameter.checkInLeaderboard
+  )
   const report = reportTemplate
     .replace('{date}', formatPeriod(startDate))
     .replace('{month}', `${startDate.getMonth() + 1}`)
