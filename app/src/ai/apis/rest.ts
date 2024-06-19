@@ -71,6 +71,7 @@ const generateContent = async (
           response.data.predictions[0].candidates
             // ignore prediction without result
             .find(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (c: any) =>
                 !(c.content as string).includes(
                   `I'm not able to help with that, as I'm only a language model.`

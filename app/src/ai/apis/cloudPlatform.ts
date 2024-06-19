@@ -57,6 +57,7 @@ const generateContent = async (
     const prediction =
       (
         response.predictions?.[0].structValue?.fields?.candidates?.listValue
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ?.values as any[]
       )
         ?.find(

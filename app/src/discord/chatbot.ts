@@ -163,7 +163,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         console.error({ error })
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error handleMessageTimeout', error)
   }
 }
