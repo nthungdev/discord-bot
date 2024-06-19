@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { deployGuildCommands } from '../../discord/deployCommands'
 import { clearMessageHistory } from '../../features/chatbot'
 import { store } from '../../store'
+import { Config } from '../../config'
 
 const utilityRouter = Router()
 
@@ -28,6 +29,15 @@ utilityRouter.post('/clearHistory', async (req, res, next) => {
 
   try {
     store.dispatch(clearMessageHistory({ channelId }))
+    res.json({ ok: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
+utilityRouter.post('/loadConfig', async (req, res, next) => {
+  try {
+    await Config.getInstance().loadConfig()
     res.json({ ok: true })
   } catch (error) {
     next(error)
