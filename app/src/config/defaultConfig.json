@@ -1,5 +1,31 @@
 {
   "guildEmojis": {},
   "guildMembers": {},
-  "checkInLeaderboard": "📢 Báo Cáo Điểm Danh {date} 📢\n\nTổng Số Lượt Điểm Danh: **{totalCheckIns}**\n\n👑 Quán Quân Điểm Danh 👑\n\nMột tràng pháo tay thật lớn dành cho {topCheckInUser} với tổng số {topCheckInCount} điểm danh trong tháng!\n\nTiếp tục phát huy nhé mọi người! Hãy cùng nhau nâng cao số ngày và số lượt điểm danh nào! 🚀\n\n🏆 Bảng Xếp Hạng 🏆\n\n{counts}"
+  "checkInLeaderboard": "",
+  "aiSafetySettings": {
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_HATE_SPEECH",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
+  },
+  "aiSystemInstruction": "You are a conversation chatbot.",
+  "aiProjectId": "",
+  "aiModelId": "",
+  "aiMaxOutputTokens": 1024,
+  "aiLocationId": "",
+  "aiApiEndpoint": ""
 }

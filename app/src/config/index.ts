@@ -44,6 +44,14 @@ export class Config {
       defaultConfig: {
         guildEmojis: JSON.stringify(defaultConfig.guildEmojis),
         guildMembers: JSON.stringify(defaultConfig.guildMembers),
+        checkInLeaderboard: defaultConfig.checkInLeaderboard,
+        aiApiEndpoint: defaultConfig.aiApiEndpoint,
+        aiProjectId: defaultConfig.aiProjectId,
+        aiModelId: defaultConfig.aiModelId,
+        aiLocationId: defaultConfig.aiLocationId,
+        aiSystemInstruction: defaultConfig.aiSystemInstruction,
+        aiMaxOutputTokens: defaultConfig.aiMaxOutputTokens,
+        aiSafetySettings: JSON.stringify(defaultConfig.aiSafetySettings),
       },
     })
   }
