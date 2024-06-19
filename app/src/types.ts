@@ -22,7 +22,7 @@ export type AiPrompt = {
   history?: AiChatMessage[],
 }
 
-export type DiscordMessageMention = {
+export type DiscordUser = {
   id: string
   nickname: string
   username: string
@@ -46,7 +46,7 @@ export type DiscordMessage = {
     cleanContent: string,
     attachments: DiscordMessageAttachment[],
   }
-  mentions: DiscordMessageMention[],
+  mentions: DiscordUser[],
   attachments: DiscordMessageAttachment[],
 }
 

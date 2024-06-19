@@ -21,6 +21,9 @@ export const getEmojiMap = (guild: Guild) => {
   )
 }
 
+/**
+ * replace standard emojis with server's custom  emojis
+ */
 export const replaceEmojis = (
   text: string,
   emojiMap: Record<string, string[]>

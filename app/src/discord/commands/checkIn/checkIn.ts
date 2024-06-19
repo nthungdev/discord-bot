@@ -72,7 +72,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // replace @<username> in message with @<user id>
     const contentWithMentions = replaceWithUserMentions(
       content,
-      interaction.guild?.members.cache.toJSON() ?? []
+      (interaction.guild?.members.cache.toJSON() ?? []).map(m => ({
+        id: m.id,
+        username: m.user.username,
+        nickname: m.nickname || m.user.displayName,
+      }))
     )
 
     let finalContent = contentWithMentions

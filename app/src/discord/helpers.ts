@@ -1,10 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { GuildMember, userMention } from 'discord.js'
+import { userMention } from 'discord.js'
+import { DiscordUser } from '../types'
 
 export const replaceWithUserMentions = (
   message: string,
-  serverMembers: GuildMember[]
+  serverMembers: DiscordUser[]
 ) => {
   let messageWithMentions
   const mentionMatches = new Set<string>()
@@ -21,7 +22,7 @@ export const replaceWithUserMentions = (
       (acc, mentionedUsername) => {
         const serverMember = serverMembers?.find(
           (m) =>
-            mentionedUsername.toLowerCase() === m.user.username.toLowerCase()
+            mentionedUsername.toLowerCase() === m.username.toLowerCase()
         )
         return serverMember
           ? acc.replaceAll(
