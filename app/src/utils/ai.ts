@@ -1,4 +1,4 @@
-import { GenAi } from "../ai"
+import { GenAi } from "../genAi"
 import { ConfigParameter, Config } from "../config"
 import { GuildMembersConfigMember } from "../config/types";
 
@@ -10,7 +10,11 @@ const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   return `Some of the members are: ${membersString}`
 }
 
-export const getGenAi = (guildId?: string) => {
+export interface GenAiConfig {
+  guildId?: string | null
+}
+
+export const getGenAi = ({ guildId }: GenAiConfig = {}) => {
   const config = Config.getInstance()
   const apiEndpoint = config.getConfigValue(ConfigParameter.aiApiEndpoint)
   const locationId = config.getConfigValue(ConfigParameter.aiLocationId)
