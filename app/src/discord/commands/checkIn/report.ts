@@ -16,6 +16,8 @@ import {
 } from '../../checkIn'
 import { DiscordCommand } from '../../constants'
 
+// TODO localize description
+
 export const data = new SlashCommandBuilder()
   .setName(DiscordCommand.CheckInReport)
   .setDescription('Tạo báo cáo điểm danh')
@@ -103,6 +105,5 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         components: [],
       })
     }
-
   }
 }
