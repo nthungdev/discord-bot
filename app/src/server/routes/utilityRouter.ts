@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { deployGuildCommands } from '../../discord/deployCommands'
 import { clearMessageHistory } from '../../features/chatbot'
 import { store } from '../../store'
-import { Config } from '../../config'
+import { Config, ConfigParameter } from '../../config'
 
 const utilityRouter = Router()
 
@@ -36,8 +36,21 @@ utilityRouter.post('/clearHistory', async (req, res, next) => {
 })
 
 utilityRouter.post('/loadConfig', async (req, res, next) => {
+  const params: string[] = req.body.params || []
+
   try {
     await Config.getInstance().loadConfig()
+    if (params.length) {
+      const config = Config.getInstance()
+      const value: Record<string, unknown> = {}
+      for (const param of params) {
+        const configValue = config.getConfigValue(param as ConfigParameter)
+        value[param] = configValue
+      }
+      console.log(value)
+      res.json({ ok: true, value })
+      return
+    }
     res.json({ ok: true })
   } catch (error) {
     next(error)
