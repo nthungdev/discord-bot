@@ -1,6 +1,7 @@
 import {
   ClientError,
   FinishReason,
+  GenerativeModel,
   HarmBlockThreshold,
   HarmCategory,
   InlineDataPart,
@@ -13,59 +14,17 @@ import { LOCATION_ID, PROJECT_ID } from '../config'
 import { imageToBase64 } from '../../utils'
 import { IGNORED_CONTENT, getContext } from '../helpers'
 
-/**
- * Uses @google-cloud/vertexai API
- */
-const generateContent = async (prompt: AiPrompt): Promise<AiPromptResponse> => {
-  // const model = 'gemini-1.0-pro-vision-001'
-  const model = 'gemini-1.5-pro'
-
-  // Initialize Vertex with your Cloud project and location
-  const vertexAI = new VertexAI({
-    project: PROJECT_ID,
-    location: LOCATION_ID,
-    googleAuthOptions: {
-      credentials: await getCredentials(),
-    },
-  })
-
-  // Instantiate the model
-  const generativeVisionModel = vertexAI.getGenerativeModel({
-    model,
-    systemInstruction: getContext(),
-    generationConfig: {
-      maxOutputTokens: 8192,
-    },
-    safetySettings: [
-      {
-        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-      },
-      {
-        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-      },
-      {
-        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-      },
-      {
-        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-      },
-    ],
-  })
-
+export const generate = async (model: GenerativeModel, prompt: AiPrompt): Promise<AiPromptResponse> => {
   const { text, history = [], files = [] } = prompt
 
-  const chat = generativeVisionModel.startChat({
+  const chat = model.startChat({
     history: history.map(({ content, author }) => ({
       role: author === 'bot' ? 'model' : 'user',
       parts: [{ text: content }],
     })),
   })
 
-  let parts = []
+  const parts = []
 
   for (const file of files) {
     if (file.mimeType.startsWith('image/')) {
@@ -109,7 +68,7 @@ const generateContent = async (prompt: AiPrompt): Promise<AiPromptResponse> => {
     }
 
     return { content: candidateText, data: result.response }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof ClientError) {
       // TODO handle invalid argument error
       throw error
@@ -118,4 +77,48 @@ const generateContent = async (prompt: AiPrompt): Promise<AiPromptResponse> => {
   }
 }
 
-export default generateContent
+/**
+ * Uses "@google-cloud/vertexai" API
+ */
+export const generateContent = async (prompt: AiPrompt): Promise<AiPromptResponse> => {
+  // const model = 'gemini-1.0-pro-vision-001'
+  const model = 'gemini-1.5-pro'
+
+  // Initialize Vertex with your Cloud project and location
+  const vertexAI = new VertexAI({
+    project: PROJECT_ID,
+    location: LOCATION_ID,
+    googleAuthOptions: {
+      credentials: await getCredentials(),
+    },
+  })
+
+  // Instantiate the model
+  const generativeVisionModel = vertexAI.getGenerativeModel({
+    model,
+    systemInstruction: getContext(),
+    generationConfig: {
+      maxOutputTokens: 8192,
+    },
+    safetySettings: [
+      {
+        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+      },
+    ],
+  })
+
+  return generate(generativeVisionModel, prompt)
+}

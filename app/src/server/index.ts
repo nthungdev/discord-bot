@@ -6,6 +6,7 @@ import { getRandomSleepReminderMessage } from '../utils'
 import testRouter from './routes/testRouter'
 import utilityRouter from './routes/utilityRouter'
 import auth from './middlewares/auth'
+import errorHandler from './middlewares/errorHandler'
 
 const app: Application = express()
 
@@ -93,5 +94,7 @@ app.post('/sleepreminder', async (req: Request, res: Response) => {
     message,
   })
 })
+
+app.use(errorHandler)
 
 export default app

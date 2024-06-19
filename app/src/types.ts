@@ -7,6 +7,7 @@ export type AiChatMessage = {
 
 export type AiPromptResponse = {
   content: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any,
 }
 
@@ -21,7 +22,7 @@ export type AiPrompt = {
   history?: AiChatMessage[],
 }
 
-export type DiscordMessageMention = {
+export type DiscordUser = {
   id: string
   nickname: string
   username: string
@@ -45,7 +46,7 @@ export type DiscordMessage = {
     cleanContent: string,
     attachments: DiscordMessageAttachment[],
   }
-  mentions: DiscordMessageMention[],
+  mentions: DiscordUser[],
   attachments: DiscordMessageAttachment[],
 }
 

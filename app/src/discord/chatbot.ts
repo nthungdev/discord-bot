@@ -10,10 +10,10 @@ import {
   setLastMemberFetch,
 } from '../features/chatbot'
 import { store } from '../store'
-import { generateContent } from '../ai'
+// import { generateContent } from '../ai'
 import { AiPrompt, DiscordMessage } from '../types'
-import { replaceWithUserMentions } from './helpers'
-import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../utils/emojis'
+import { splitEndingEmojis } from '../utils/emoji'
+import { generateChatMessageWithGenAi, getGenAi } from '../utils/genAi'
 
 const BOT_REPLY_DELAY = 5000 // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000 // 1 day in milliseconds
@@ -101,24 +101,13 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     console.log(`promptText: ${prompt.text}`)
 
     try {
-      const { content, data } = await generateContent(prompt)
-
-      // replace @<username> in message with @<user id>
-      const contentWithMentions = replaceWithUserMentions(
-        content,
-        message.guild?.members.cache.toJSON() ?? []
-      )
-
-      // replace standard emojis with server's custom  emojis
-      const finalContent = replaceEmojis(
-        contentWithMentions,
-        getEmojiMap(message.guild!)
-      )
+      const genAi = getGenAi({ guildId: message.guildId })
+      await genAi.init()
+      const { content, data } = await generateChatMessageWithGenAi(genAi, prompt.text, messageMentions, message.guild)
 
       console.log({
         user: textWithUsername,
-        botRaw: content,
-        botFinal: finalContent,
+        bot: content,
       })
 
       store.dispatch(clearMessageBuffer(channel.id))
@@ -127,7 +116,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         console.log({ data: JSON.stringify(data) })
       }
 
-      const [finalMessage, endingEmoji] = splitLastEmoji(finalContent)
+      const [finalMessage, endingEmoji] = splitEndingEmojis(content)
 
       // TODO is this a good answer when model doesn't have a reply?
       await channel.send(finalMessage || '?')
@@ -147,8 +136,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
       // debug
       console.log(
-        `history size: ${
-          selectMessageHistory(store.getState())[channel.id].length
+        `history size: ${selectMessageHistory(store.getState())[channel.id].length
         }`
       )
     } catch (error) {
@@ -163,7 +151,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         console.error({ error })
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error handleMessageTimeout', error)
   }
 }
@@ -176,48 +164,48 @@ export const handleChatbot =
     allowedServers?: string[]
     freeChannels?: string[]
   } = {}) =>
-  async (message: Message<boolean>) => {
-    // skip handling this message when:
-    if (
-      // incoming message not coming from allowed channels
-      !allowedServers.includes(message.guildId || '') ||
-      // message from the bot itself
-      message.author.id === client.user!.id ||
-      // // has attachment (haven't supported yet)
-      // message.attachments.size !== 0 ||
-      // has sticker (handling stickers not supported)
-      message.stickers.size !== 0 ||
-      // not a supported message type
-      ![MessageType.Default, MessageType.Reply].includes(
-        Number(message.type.toString())
-      ) ||
-      // the bot is not being mentioned when channel requires so
-      (!freeChannels.includes(message.channelId) &&
-        !message.mentions.members?.has(client.user!.id)) ||
-      // is a DM message (DM not supported)
-      message.guild === null
-    ) {
-      return
-    }
+    async (message: Message<boolean>) => {
+      // skip handling this message when:
+      if (
+        // incoming message not coming from allowed channels
+        !allowedServers.includes(message.guildId || '') ||
+        // message from the bot itself
+        message.author.id === client.user!.id ||
+        // // has attachment (haven't supported yet)
+        // message.attachments.size !== 0 ||
+        // has sticker (handling stickers not supported)
+        message.stickers.size !== 0 ||
+        // not a supported message type
+        ![MessageType.Default, MessageType.Reply].includes(
+          Number(message.type.toString())
+        ) ||
+        // the bot is not being mentioned when channel requires so
+        (!freeChannels.includes(message.channelId) &&
+          !message.mentions.members?.has(client.user!.id)) ||
+        // is a DM message (DM not supported)
+        message.guild === null
+      ) {
+        return
+      }
 
-    let refMessage: Message<boolean> | null = null
-    if (message.reference !== null) {
-      refMessage = await message.channel.messages.fetch(
-        message.reference.messageId!
-      )
-    }
+      let refMessage: Message<boolean> | null = null
+      if (message.reference !== null) {
+        refMessage = await message.channel.messages.fetch(
+          message.reference.messageId!
+        )
+      }
 
-    await validateServerMembersCache(message.guild)
-    const guildMember = message.guild.members.cache.get(message.author.id)
-    const discordMessage: DiscordMessage = {
-      authorId: message.author.id,
-      content: message.content,
-      authorUsername: message.author.username,
-      authorDisplayName: guildMember?.nickname ?? message.author.displayName,
-      cleanContent: message.cleanContent,
-      reference: !refMessage
-        ? undefined
-        : {
+      await validateServerMembersCache(message.guild)
+      const guildMember = message.guild.members.cache.get(message.author.id)
+      const discordMessage: DiscordMessage = {
+        authorId: message.author.id,
+        content: message.content,
+        authorUsername: message.author.username,
+        authorDisplayName: guildMember?.nickname ?? message.author.displayName,
+        cleanContent: message.cleanContent,
+        reference: !refMessage
+          ? undefined
+          : {
             authorUsername: refMessage.author.username,
             content: refMessage.content,
             cleanContent: refMessage.cleanContent,
@@ -229,33 +217,33 @@ export const handleChatbot =
                 mimeType: a.contentType!,
               })),
           },
-      mentions: message.mentions.users.toJSON().map((u) => ({
-        id: u.id,
-        nickname:
-          message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
-        username: u.username,
-      })),
-      attachments: message.attachments
-        .toJSON()
-        .filter((a) => a.contentType !== null)
-        .map((a) => ({
-          uri: a.url,
-          mimeType: a.contentType!,
+        mentions: message.mentions.users.toJSON().map((u) => ({
+          id: u.id,
+          nickname:
+            message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
+          username: u.username,
         })),
-    }
+        attachments: message.attachments
+          .toJSON()
+          .filter((a) => a.contentType !== null)
+          .map((a) => ({
+            uri: a.url,
+            mimeType: a.contentType!,
+          })),
+      }
 
-    store.dispatch(
-      addMessageBuffer({
-        message: discordMessage,
+      store.dispatch(
+        addMessageBuffer({
+          message: discordMessage,
+          channelId: message.channelId,
+        })
+      )
+
+      clearMessageTimeout(message.channelId)
+      setMessageTimeout({
         channelId: message.channelId,
+        timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
       })
-    )
 
-    clearMessageTimeout(message.channelId)
-    setMessageTimeout({
-      channelId: message.channelId,
-      timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
-    })
-
-    return
-  }
+      return
+    }

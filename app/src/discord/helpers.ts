@@ -1,14 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { GuildMember, userMention } from 'discord.js'
+import { userMention } from 'discord.js'
+import { DiscordUser } from '../types'
 
 export const replaceWithUserMentions = (
   message: string,
-  serverMembers: GuildMember[]
+  serverMembers: DiscordUser[]
 ) => {
   let messageWithMentions
   const mentionMatches = new Set<string>()
-  ;[...message.matchAll(/(?<=\@)((\.?(?:[\w]+\.)*\w+)\.?)/g)].forEach(
+  ;[...message.matchAll(/(?<=@)((\.?(?:[\w]+\.)*\w+)\.?)/g)].forEach(
     (match) => {
       const [, withDot, withoutDot] = match
       mentionMatches.add(withDot)
@@ -21,7 +22,7 @@ export const replaceWithUserMentions = (
       (acc, mentionedUsername) => {
         const serverMember = serverMembers?.find(
           (m) =>
-            mentionedUsername.toLowerCase() === m.user.username.toLowerCase()
+            mentionedUsername.toLowerCase() === m.username.toLowerCase()
         )
         return serverMember
           ? acc.replaceAll(
@@ -36,7 +37,7 @@ export const replaceWithUserMentions = (
   return messageWithMentions ?? message
 }
 
-export const parseCommands = () => {
+export const parseCommands = async () => {
   const commands = []
   // Grab all the command folders from the commands directory
   const foldersPath = path.join(__dirname, 'commands')
@@ -51,7 +52,7 @@ export const parseCommands = () => {
     // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file)
-      const command = require(filePath)
+      const command = await import(filePath)
       if ('data' in command && 'execute' in command) {
         commands.push(command)
       } else {

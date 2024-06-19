@@ -7,11 +7,14 @@ config({
 })
 
 import { Events } from 'discord.js'
-import { CronJob } from 'cron'
+import * as admin from 'firebase-admin';
+// import { CronJob } from 'cron'
 import client, { commands, login, registerChatbot, loadCommands } from './discord'
 import server from './server'
 import { validateEnvs } from './helpers'
 import { AppCommand } from './types'
+import serviceAccountKey from '../service-account.json'
+import { Config } from './config';
 
 const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
@@ -21,6 +24,14 @@ const main = async () => {
   if (!validEnvs) {
     process.exit(1)
   }
+
+  // Init Firebase
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccountKey as admin.ServiceAccount),
+  })
+
+  // Init Remote Config
+  await Config.getInstance().init()
 
   registerChatbot()
 
@@ -59,18 +70,15 @@ const main = async () => {
     }
   });
 
-  // registerCommands('')
-
-
-  const job = new CronJob(
-    '1 0 0 1 * *', // on 00:01 AM of the first of every month
-    () => {
-      // TODO check in counter
-    }, // onTick
-    null, // onComplete
-    true, // start
-    'America/New_York' // timeZone
-  );
+  // const job = new CronJob(
+  //   '1 0 0 1 * *', // on 00:01 AM of the first of every month
+  //   () => {
+  //     // TODO check in counter
+  //   }, // onTick
+  //   null, // onComplete
+  //   true, // start
+  //   'America/New_York' // timeZone
+  // );
 
   server.listen(port, function () {
     console.log(`Express app is listening on port ${port} !`)

@@ -47,7 +47,7 @@ export const registerChatbot = () => {
  * Make sure the commands are deployed before logging in
  */
 export const loadCommands = async () => {
-  const commandsToReg = parseCommands()
+  const commandsToReg = await parseCommands()
   commandsToReg.forEach((command) => {
     commands.set(command.data.name, command);
   })

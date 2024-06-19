@@ -2,8 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
 import { DiscordCommand } from '../../constants'
 import { addMessageHistory } from '../../../features/chatbot'
 import { store } from '../../../store'
-import { generateContent } from '../../../ai'
-import { replaceWithUserMentions } from '../../helpers'
+import { generateChatMessageWithGenAi, getGenAi } from '../../../utils/genAi'
 
 enum CommandCheckInOption {
   what = 'what',
@@ -16,6 +15,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption((option) =>
     option
       .setName(CommandCheckInOption.what)
+      // TODO localize description
       .setDescription('Tôi đã làm gì')
       .setRequired(true)
   )
@@ -36,6 +36,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   try {
     if (!hasSlavegonComment) {
+      console.info(`${interaction.user.displayName} checked in without Slavegon comment`)
       await interaction.reply(
         `*${interaction.user.displayName} checked in ${purpose}*`
       )
@@ -57,20 +58,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return acc.replaceAll(`<@${id}>`, `@${mentionedUsers[id]?.username}`)
     }, prompt)
 
-    let { content } = await generateContent({ text: promptWithUsername })
+    const genAi = getGenAi({ guildId: interaction.guildId })
+    await genAi.init()
+    const { content } = await generateChatMessageWithGenAi(genAi, promptWithUsername, [], interaction.guild)
 
-    console.log({
-      user: promptWithUsername,
-      bot: content,
-    })
-
-    // replace @<username> in message with @<user id>
-    let contentWithMentions = replaceWithUserMentions(
-      content,
-      interaction.guild?.members.cache.toJSON() ?? []
-    )
-
-    const message = `*${interaction.user.displayName} checked in ${purpose}*\n${contentWithMentions}`
+    const message = `*${interaction.user.displayName} checked in ${purpose}*\n${content}`
     await interaction.editReply(message)
 
     store.dispatch(
@@ -80,10 +72,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         botMessage: content,
       })
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`Failed to include Slavegon's comment`, error)
-    await interaction.editReply(
-      `*${interaction.user.displayName} checked in ${purpose}*`
-    )
+    const message = `*${interaction.user.displayName} checked in ${purpose}*`
+    if (interaction.replied || interaction.deferred) {
+      await interaction.editReply(message)
+    } else {
+      await interaction.reply(message)
+    }
   }
 }
