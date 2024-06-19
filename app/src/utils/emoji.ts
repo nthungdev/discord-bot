@@ -1,9 +1,8 @@
 import { Guild, formatEmoji } from 'discord.js'
-// import emojis from '../../config/emojis.json'
-import { ConfigParameter, getConfigValue } from '../config'
+import { Config, ConfigParameter } from '../config'
 
 export const getEmojiMap = (guild: Guild) => {
-  const emojis = getConfigValue(ConfigParameter.guildEmojis)[guild.id]
+  const emojis = Config.getInstance().getConfigValue(ConfigParameter.guildEmojis)[guild.id]
   if (!emojis) {
     return {}
   }

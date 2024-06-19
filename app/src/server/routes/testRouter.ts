@@ -9,6 +9,7 @@ import {
 } from '../../discord/checkIn'
 import client from '../../discord'
 import { getEmojiMap, replaceEmojis, splitLastEmoji } from '../../utils/emoji'
+import { Config, ConfigParameter } from '../../config'
 
 const testRouter = Router()
 
@@ -99,49 +100,16 @@ testRouter.post('/3', async (req, res, next) => {
   // Stay Home!
   // const guildId = '657812180565229568'
 
-  const { serverId } = req.body
+  // const { serverId } = req.body
 
   try {
-    const guild = client.guilds.cache.get(serverId)
-    if (!guild) {
-      res.json({ ok: false, message: 'guild not found' })
-      return
-    }
+    const config = Config.getInstance()
+    // await loadConfig()
+    const value = config.getConfigValue(ConfigParameter.aiSystemInstruction)
 
-    const emojis = guild.emojis.cache.toJSON()
+    console.log(value)
 
-    const map = {
-      '😀': ['chinesebruhcat', 'smokedcat'],
-      '🤬': ['rat', 'pepefrog', 'smokedcat'],
-      '🤨': ['bruhcatmelvin', 'bruhcatmelvin', ''],
-      '😠': ['pepefrog', 'smokedcat'],
-      '🤩': ['pepeishorny'],
-      '😈': ['pepeishorny'],
-      '😂': ['catcrythumbsup', 'nekouwu', 'pikadatass'],
-      '🤔': ['thonkcool', 'thonk'],
-      '🤣': ['UwU_GT'],
-      '😅': ['pepetears', 'smokedcat', 'nekofacepalm'],
-      '🥰': ['pepeknickerspink'],
-      '😏': ['bluegons'],
-      '😭': ['pikacry', 'sadhamster', 'pepecry'],
-      '🥺': ['sadhamster'],
-      '😜': ['nekouwu'],
-      '😎': ['peniscool'],
-    }
-
-    Object.entries(map).forEach(([emoji, names]) => {
-      const ids = names
-        .map((name) => {
-          return guild.emojis.cache.find((emoji) => emoji.name === name)?.id
-        })
-        .filter((i) => !!i)
-        .map((i) => `'${i}'`)
-      console.log(`'${emoji}': [${ids.join(', ')}],`)
-    })
-
-    const emojiMap = getEmojiMap(guild)
-
-    res.json({ ok: true, emojis, emojiMap })
+    res.json({ ok: true, value })
     res.status(200)
   } catch (error: unknown) {
     next(error)

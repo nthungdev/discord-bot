@@ -1,7 +1,7 @@
 import { ChannelType, Message, MessageType, userMention } from 'discord.js'
 import client from '..'
 import { DiscordCommand } from '../constants'
-import { ConfigParameter, getConfigValue } from '../../config'
+import { Config, ConfigParameter } from '../../config'
 
 type CheckInTrackerData = {
   count: number
@@ -218,7 +218,7 @@ export function formatCheckInLeaderboard(
     .map(([userId, { count }]) => `${userMention(userId)}: ${count}`)
     .join('\n')
 
-  const reportTemplate = getConfigValue(ConfigParameter.checkInLeaderboard)
+  const reportTemplate = Config.getInstance().getConfigValue(ConfigParameter.checkInLeaderboard)
   const report = reportTemplate
     .replace('{date}', formatPeriod(startDate))
     .replace('{month}', `${startDate.getMonth() + 1}`)

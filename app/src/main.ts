@@ -14,7 +14,7 @@ import server from './server'
 import { validateEnvs } from './helpers'
 import { AppCommand } from './types'
 import serviceAccountKey from '../serviceAccountKey.json'
-import { init } from './config';
+import { Config } from './config';
 
 const { TOKEN, PORT } = process.env
 const port: number | string = PORT || 3001
@@ -32,7 +32,7 @@ const main = async () => {
   })
 
   // Init Remote Config
-  init()
+  await Config.getInstance().init()
 
   registerChatbot()
 
