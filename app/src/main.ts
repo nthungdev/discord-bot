@@ -1,4 +1,4 @@
-import { config } from 'dotenv'
+import { config,  } from 'dotenv'
 config({
   path:
     process.env.NODE_ENV === 'production'
@@ -13,11 +13,13 @@ import client, { commands, login, registerChatbot, loadCommands } from './discor
 import server from './server'
 import { validateEnvs } from './helpers'
 import { AppCommand } from './types'
-import serviceAccountKey from '../service-account.json'
 import { Config } from './config';
+import serviceAccountKey from '../service-account.json'
 
-const { TOKEN, PORT } = process.env
+const { TOKEN, PORT, NODE_ENV } = process.env
 const port: number | string = PORT || 3001
+
+console.info(`Running in ${NODE_ENV || 'development'} mode`)
 
 const main = async () => {
   const validEnvs = validateEnvs()
@@ -35,14 +37,12 @@ const main = async () => {
 
   registerChatbot()
 
-  // registerCommands('1233630823496814593')
-  // Bluegon Land guild id
   await loadCommands()
 
   // Log the bot into Discord
   await login(TOKEN as string)
 
-  // TODO refactor this to a separate file
+  // TODO refactor this into a separate file
   client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
 

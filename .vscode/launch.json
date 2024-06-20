@@ -5,15 +5,29 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "app: debug start",
       "type": "node",
       "request": "launch",
-      "name": "app: debug",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "console": "integratedTerminal",
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
       "envFile": "${workspaceFolder}/app/.env.development",
-      "program": "${workspaceFolder}/app/build/src/main.js",
-      "preLaunchTask": "app: debug",
+      "program": "${workspaceFolder}/app/src/main.ts",
+    },
+
+    {
+      "name": "app: debug watch",
+      "type": "node",
+      "request": "attach",
+      // NodeJS debugger port
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
+      "preLaunchTask": "watch app",
+      // Automatically terminate all tasks when the debugger is stopped, practically killing the app
+      "postDebugTask": "terminate all tasks"
     }
+
+
   ]
 }

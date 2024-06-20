@@ -1,21 +1,16 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "app: build",
-			"type": "npm",
-			"script": "build",
-			"path": "app",
-			"group": "build",
-		},
-		{
-			"label": "app: watch",
-			"type": "npm",
-			"script": "watch",
-			"path": "app",
-			"group": "build",
-			"isBackground": true,
-			"problemMatcher": [
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "watch app",
+      "detail": "Debugging app in watch mode",
+      "type": "npm",
+      "script": "debug",
+      "path": "app",
+      "group": "build",
+      // isBackground + problemMatcher to magically make the task run in the background while not blocking the debugger from attaching
+      "isBackground": true,
+      "problemMatcher": [
         {
           "pattern": [
             {
@@ -28,14 +23,27 @@
           "background": {
             "activeOnStart": false,
             "beginsPattern": ".",
-            "endsPattern": ".",
+            "endsPattern": "."
           }
         }
-      ],
-		},
-		{
-			"label": "app: debug",
-			"dependsOn": ["app: build", "app: watch"],
-		}
-	]
+      ]
+    },
+
+    {
+      "label": "terminate all tasks",
+      "detail": "Terminate all tasks",
+      "command": "echo ${input:terminateAllTasks}",
+      "type": "shell",
+      "problemMatcher": []
+    }
+  ],
+
+  "inputs": [
+    {
+      "id": "terminateAllTasks",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "terminateAll"
+    }
+  ]
 }

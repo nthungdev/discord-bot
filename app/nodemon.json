@@ -1,5 +1,12 @@
 {
-  "ignore": [
-    "predict-request.json"
-  ]
+  "restartable": "rs",
+  "watch": ["src"],
+  "ext": "js,json,ts",
+  "execMap": {
+    "ts": "node -r ts-node/register"
+  },
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "ignore": [".git", "node_modules", "build"]
 }
