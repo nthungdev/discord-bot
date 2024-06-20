@@ -11,9 +11,7 @@
     "lint": "eslint src",
     "debug": "nodemon --inspect src/main.ts",
     "dev": "nodemon src/main.ts",
-    "preprod": "yarn build",
-    "prod": "NODE_ENV=production node build/src/main.js",
-    "start": "node build/src/main.js",
+    "start": "NODE_ENV=production node build/src/main.js",
     "docker-build": "docker-compose build",
     "docker-dev": "docker-compose -f compose.yaml -f compose.development.yaml up -d",
     "docker-prod": "docker-compose -f compose.yaml -f compose.production.yaml up -d"
