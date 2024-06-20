@@ -3,4 +3,5 @@ node_modules
 build
 service-account.json
 predict-request.json
-config/**
+config
+tools
