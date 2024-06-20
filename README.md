@@ -13,7 +13,7 @@ There are plans to add more directories to the root for other features; therefor
 - Respond to commands.
   - `checkin`: Check in to an activity.
   - `checkin-report`: Generate a check-in report.
+- Short-term history: keep track of the recent messages as context.
 - Customization
   - Define instructions to how the bot would respond to messages.
   - Define members' information (nickname, username, gender) so the bot can refer to and mention in messages.
-
