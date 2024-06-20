@@ -1,10 +1,8 @@
-# Discord Chat Bot
-
-A Discord chat bot using [Discord.js](https://discord.js.org/) and [Google's Vertex AI (Gemini)](https://cloud.google.com/vertex-ai/).
+# Discord Chat Bot App
 
 ## Setup
 
-These 4 setup steps are required to run the app.
+These 4 setup steps are required to run the chat bot.
 
 ### 1. Create Discord application
 
