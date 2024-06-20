@@ -103,7 +103,15 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     try {
       const genAi = getGenAi({ guildId: message.guildId })
       await genAi.init()
-      const { content, data } = await generateChatMessageWithGenAi(genAi, prompt.text, messageMentions, message.guild)
+      const { content, data } = await generateChatMessageWithGenAi(
+        genAi,
+        prompt.text,
+        message.guild?.members.cache.toJSON().map(m => ({
+          id: m.id,
+          nickname: m.nickname ?? m.displayName,
+          username: m.user.username,
+        })) || [],
+        message.guild)
 
       console.log({
         user: textWithUsername,

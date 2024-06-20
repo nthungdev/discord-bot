@@ -60,7 +60,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const genAi = getGenAi({ guildId: interaction.guildId })
     await genAi.init()
-    const { content } = await generateChatMessageWithGenAi(genAi, promptWithUsername, [], interaction.guild)
+    const { content } = await generateChatMessageWithGenAi(
+      genAi,
+      promptWithUsername,
+      interaction.guild?.members.cache.toJSON().map(m => ({
+        id: m.id,
+        nickname: m.nickname ?? m.displayName,
+        username: m.user.username,
+      })) || [],
+      interaction.guild
+    )
 
     const message = `*${interaction.user.displayName} checked in ${purpose}*\n${content}`
     await interaction.editReply(message)
