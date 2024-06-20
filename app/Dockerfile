@@ -19,6 +19,9 @@ WORKDIR /usr/src/app
 # Create a stage for installing production dependecies.
 FROM base as deps
 
+# Install python3 as needed for (one or more) Node dependencies.
+RUN apk add --no-cache python3 g++ make
+
 # Download dependencies as a separate step to take advantage of Docker's caching.
 # Leverage a cache mount to /root/.yarn to speed up subsequent builds.
 # Leverage bind mounts to package.json and yarn.lock to avoid having to copy them

@@ -1,13 +1,17 @@
 {
   "name": "chat-bot-app",
+  "version": "0.2.0",
+  "description": "discord bot",
+  "author": "Hung Nguyen",
+  "license": "ISC",
   "scripts": {
-    "build": "rimraf build && tsc",
+    "clean": "rimraf build",
+    "prebuild": "yarn clean",
+    "build": "tsc",
     "lint": "eslint src",
+    "debug": "nodemon --inspect src/main.ts",
     "dev": "nodemon src/main.ts",
-    "start": "node build/src/main.js",
-    "gcp-build": "rimraf build && tsc",
-    "logs": "gcloud app logs tail -s default",
-    "deploy": "gcloud app deploy",
+    "start": "NODE_ENV=production node build/src/main.js",
     "docker-build": "docker-compose build",
     "docker-dev": "docker-compose -f compose.yaml -f compose.development.yaml up -d",
     "docker-prod": "docker-compose -f compose.yaml -f compose.production.yaml up -d"
@@ -41,10 +45,5 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
     "typescript-eslint": "^7.7.1"
-  },
-  "version": "0.1.0",
-  "description": "discord bot",
-  "main": "index.js",
-  "author": "Hung Nguyen",
-  "license": "ISC"
+  }
 }
