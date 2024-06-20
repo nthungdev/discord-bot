@@ -1,7 +1,7 @@
 export const validateEnvs = () => {
   const requiredEnvs = [
     'TOKEN',
-    'SLEEP_REMINDER_SERVER_ID',
+    // 'SLEEP_REMINDER_SERVER_ID',
     'AI_API_KEY',
     'CLIENT_ID',
     'BEARER_TOKEN',
