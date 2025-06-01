@@ -1,19 +1,19 @@
-import axios from "axios"
-import { AiChatMessage } from "../../types"
-import { getAccessToken } from "../../utils/google"
-import { API_ENDPOINT, LOCATION_ID, MODEL_ID, PROJECT_ID } from "../config"
-import { getContext } from "../helpers"
+import axios from "axios";
+import { AiChatMessage } from "../../types";
+import { getAccessToken } from "../../utils/google";
+import { API_ENDPOINT, LOCATION_ID, MODEL_ID, PROJECT_ID } from "../config";
+import { getContext } from "../helpers";
 
 /**
  * Uses VertexAI RestAPI
  */
 const generateContent = async (
   message: string,
-  history: AiChatMessage[] = []
+  history: AiChatMessage[] = [],
 ) => {
-  const token = await getAccessToken()
+  const token = await getAccessToken();
 
-  const url = `https://${API_ENDPOINT}/v1/projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}:predict`
+  const url = `https://${API_ENDPOINT}/v1/projects/${PROJECT_ID}/locations/${LOCATION_ID}/publishers/google/models/${MODEL_ID}:predict`;
 
   const requestData = {
     instances: [
@@ -24,7 +24,7 @@ const generateContent = async (
           ...history.map(({ content, author }) => ({
             content,
             author,
-            ...(author === 'bot'
+            ...(author === "bot"
               ? {
                   citationMetadata: {
                     citations: [],
@@ -39,7 +39,7 @@ const generateContent = async (
               : {}),
           })),
           {
-            author: 'user',
+            author: "user",
             content: message,
           },
         ],
@@ -53,16 +53,16 @@ const generateContent = async (
       temperature: 0.92,
       topP: 1,
     },
-  }
-  const requestJson = JSON.stringify(requestData)
+  };
+  const requestJson = JSON.stringify(requestData);
 
   try {
     const response = await axios.post(url, requestJson, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-    })
+    });
 
     return {
       data: response.data,
@@ -74,16 +74,16 @@ const generateContent = async (
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (c: any) =>
                 !(c.content as string).includes(
-                  `I'm not able to help with that, as I'm only a language model.`
-                )
-            ) ?? { content: '' }
+                  `I'm not able to help with that, as I'm only a language model.`,
+                ),
+            ) ?? { content: "" }
         ).content as string
       ).trim(),
-    }
+    };
   } catch (error) {
-    console.log({ message, history })
-    throw error
+    console.log({ message, history });
+    throw error;
   }
-}
+};
 
-export default generateContent
+export default generateContent;
