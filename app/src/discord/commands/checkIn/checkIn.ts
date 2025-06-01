@@ -3,6 +3,7 @@ import { DiscordCommand } from '../../constants'
 import { addMessageHistory } from '../../../features/chatbot'
 import { store } from '../../../store'
 import { generateChatMessageWithGenAi, getGenAi } from '../../../utils/genAi'
+import { AiPrompt } from '../../../types'
 
 enum CommandCheckInOption {
   what = 'what',
@@ -53,16 +54,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       mentionedIds.map((id) => [id, interaction.client.users.cache.get(id)])
     )
 
-    const prompt = `${interaction.user.username} says: checked in ${purpose}`
-    const promptWithUsername = mentionedIds.reduce((acc, id) => {
+    const text = `${interaction.user.username} says: checked in ${purpose}`
+    const textWithUsername = mentionedIds.reduce((acc, id) => {
       return acc.replaceAll(`<@${id}>`, `@${mentionedUsers[id]?.username}`)
-    }, prompt)
+    }, text)
+    const prompt: AiPrompt = {
+      text: textWithUsername
+    }
 
     const genAi = getGenAi({ guildId: interaction.guildId })
     await genAi.init()
     const { content } = await generateChatMessageWithGenAi(
       genAi,
-      promptWithUsername,
+      prompt,
       interaction.guild?.members.cache.toJSON().map(m => ({
         id: m.id,
         nickname: m.nickname ?? m.displayName,
@@ -77,7 +81,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     store.dispatch(
       addMessageHistory({
         channelId: interaction.channelId,
-        userMessage: prompt,
+        userMessage: prompt.text,
         botMessage: content,
       })
     )

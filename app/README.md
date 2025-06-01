@@ -41,16 +41,22 @@ Make sure you have done the setup steps first.
 
 ### Install
 
-This project uses [yarn v1](https://classic.yarnpkg.com/lang/en/) so make sure you have it installed.
+This project uses [pnpm](https://pnpm.io/) as the package manager. If you don't have it installed, you can install it globally with:
 
 ```shell
-yarn install
+npm install -g pnpm
+```
+
+Then, install the dependencies with
+
+```shell
+pnpm i
 ```
 
 ### Develop
 
 ```shell
-yarn dev
+pnpm dev
 ```
 
 ### Run
@@ -58,8 +64,8 @@ yarn dev
 Run the app in production mode.
 
 ```shell
-yarn build
-yarn start
+pnpm build
+pnpm start
 ```
 
 ### Debug with VS Code
