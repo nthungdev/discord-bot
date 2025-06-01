@@ -1,21 +1,26 @@
-import { NextFunction, Response, Request } from 'express'
+import { NextFunction, Response, Request } from "express";
 
-const errorHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
+const errorHandler = (
+  err: unknown,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   if (res.headersSent) {
-    return next(err)
+    return next(err);
   }
 
-  let message = 'Unknown Error'
+  let message = "Unknown Error";
 
   if (err instanceof Error) {
-    message = err.message || message
+    message = err.message || message;
   }
 
-  console.error(err)
+  console.error(err);
   res.status(500).json({
     ok: false,
     message,
-  })
-}
+  });
+};
 
-export default errorHandler
+export default errorHandler;
