@@ -34,7 +34,7 @@ export const getGenAi = ({ guildId }: GenAiConfig = {}) => {
   const members = guildId ? config.getConfigValue(ConfigParameter.guildMembers)[guildId] : []
   const membersInstruction = formatMembersInstruction(members)
 
-  const genAi = new GenAi({
+  const genAiConfig = {
     apiEndpoint,
     locationId,
     maxOutputTokens,
@@ -43,7 +43,9 @@ export const getGenAi = ({ guildId }: GenAiConfig = {}) => {
     safetySettings,
     membersInstruction,
     systemInstruction
-  })
+  }
+
+  const genAi = new GenAi(genAiConfig)
 
   return genAi
 }
