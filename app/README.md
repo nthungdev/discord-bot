@@ -78,10 +78,10 @@ There are 2 debug configurations for VS Code
 ## Docker
 
 ```shell
-yarn docker-build
+pnpm docker-build
 
 # Run in development mode container
-yarn docker-dev
+pnpm docker-dev
 # Run in production mode container
-yarn docker-prod
+pnpm docker-prod
 ```
