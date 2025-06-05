@@ -1,5 +1,5 @@
 import { Guild } from "discord.js";
-import { GenAi } from "../genAi";
+import { GenAi, GenAiConfig } from "../genAi";
 import { ConfigParameter, Config } from "../config";
 import { GuildMembersConfigMember } from "../config/types";
 import { replaceWithUserMentions } from "../discord/helpers";
@@ -13,37 +13,45 @@ const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   const membersString = shuffledMembers
     .map(
       ({ name, gender, username }) =>
-        `${name} (gender: ${gender}, username: @${username})`,
+        `${name} (gender: ${gender}, username: @${username})`
     )
     .join(", ");
   return `Some of the members are: ${membersString}`;
 };
 
-export interface GenAiConfig {
+export interface GetGenAiConfig extends Partial<GenAiConfig> {
   guildId?: string | null;
 }
 
 /**
  * @return GenAi with config values from Config
  */
-export const getGenAi = ({ guildId }: GenAiConfig = {}) => {
-  const config = Config.getInstance();
-  const apiEndpoint = config.getConfigValue(ConfigParameter.aiApiEndpoint);
-  const locationId = config.getConfigValue(ConfigParameter.aiLocationId);
-  const projectId = config.getConfigValue(ConfigParameter.aiProjectId);
-  const modelId = config.getConfigValue(ConfigParameter.aiModelId);
-  const maxOutputTokens = config.getConfigValue(
-    ConfigParameter.aiMaxOutputTokens,
-  );
-  const safetySettings = config.getConfigValue(
-    ConfigParameter.aiSafetySettings,
-  ).safetySettings;
-  const systemInstruction = config.getConfigValue(
-    ConfigParameter.aiSystemInstruction,
-  );
+export const getGenAi = (config: GetGenAiConfig = {}) => {
+  const remoteConfig = Config.getInstance();
+  const apiEndpoint =
+    config.apiEndpoint ||
+    remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);
+  const locationId =
+    config.locationId ||
+    remoteConfig.getConfigValue(ConfigParameter.aiLocationId);
+  const projectId =
+    config.projectId ||
+    remoteConfig.getConfigValue(ConfigParameter.aiProjectId);
+  const modelId =
+    config.modelId || remoteConfig.getConfigValue(ConfigParameter.aiModelId);
+  const maxOutputTokens =
+    config.maxOutputTokens ||
+    remoteConfig.getConfigValue(ConfigParameter.aiMaxOutputTokens);
+  const safetySettings =
+    config.safetySettings ||
+    remoteConfig.getConfigValue(ConfigParameter.aiSafetySettings)
+      .safetySettings;
+  const systemInstruction =
+    config.systemInstruction ||
+    remoteConfig.getConfigValue(ConfigParameter.aiSystemInstruction);
 
-  const members = guildId
-    ? config.getConfigValue(ConfigParameter.guildMembers)[guildId]
+  const members = config.guildId
+    ? remoteConfig.getConfigValue(ConfigParameter.guildMembers)[config.guildId]
     : [];
   const membersInstruction = formatMembersInstruction(members);
 
@@ -67,7 +75,7 @@ export const generateChatMessageWithGenAi = async (
   genAi: GenAi,
   prompt: AiPrompt,
   users: DiscordUser[],
-  guild?: Guild | null,
+  guild?: Guild | null
 ) => {
   await genAi.init();
   console.log(prompt.files);
