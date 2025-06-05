@@ -4,7 +4,7 @@ import { getCredentials } from "../utils/google";
 import * as vertexAi from "./apis/vertextAi";
 import { AiPrompt } from "../types";
 
-interface GenAiConfig {
+export interface GenAiConfig {
   apiEndpoint: string;
   projectId: string;
   locationId: string;

@@ -20,8 +20,9 @@ import { validateEnvs } from "./helpers";
 import { AppCommand } from "./types";
 import { Config } from "./config";
 import serviceAccountKey from "../service-account.json";
+import PoliceBot from "./bots/police-bot";
 
-const { TOKEN, PORT, NODE_ENV } = process.env;
+const { TOKEN, POLICE_BOT_TOKEN, PORT, NODE_ENV } = process.env;
 const port: number | string = PORT || 3001;
 
 console.info(`Running in ${NODE_ENV || "development"} mode`);
@@ -48,6 +49,12 @@ const main = async () => {
 
   // Log the bot into Discord
   await login(TOKEN as string);
+
+  const policeBot = new PoliceBot({
+    token: POLICE_BOT_TOKEN as string,
+  })
+  await policeBot.login()
+  policeBot.activate()
 
   // TODO refactor this into a separate file
   client.on(Events.InteractionCreate, async (interaction) => {
