@@ -10,6 +10,11 @@ import BaseBot from "./base-bot";
 import { getAnswer } from "../utils/wordle";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
 
+interface Violation {
+  reason: string;
+  terms: string[];
+}
+
 interface PoliceBotConfig {
   token: string;
 }
@@ -19,8 +24,6 @@ const censorCharacters = "▓▓▓▓▓";
 export default class PoliceBot extends BaseBot {
   token: string;
   client: Client;
-  lastWordleAnswerTime?: string; // YYYY-MM-DD format
-  cachedWordleAnswer?: string;
 
   constructor(config: PoliceBotConfig) {
     super();
@@ -42,20 +45,28 @@ export default class PoliceBot extends BaseBot {
     this.client.on(Events.MessageCreate, this.handleNewMessage);
   }
 
-  private async getTodayWordleAnswer() {
-    // en-CA returns YYYY-MM-DD format
-    const todayString = new Intl.DateTimeFormat("en-CA", {
+  private async getWordleAnswers() {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/New_York",
-    }).format();
+    });
 
-    if (todayString === this.lastWordleAnswerTime && this.cachedWordleAnswer) {
-      return this.cachedWordleAnswer;
-    }
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
 
-    const answer = await getAnswer(todayString);
-    this.lastWordleAnswerTime = todayString;
-    this.cachedWordleAnswer = answer || undefined;
-    return answer;
+    // en-CA returns YYYY-MM-DD format
+    const todayString = formatter.format(today);
+    const yesterdayString = formatter.format(yesterday);
+    const tomorrowString = formatter.format(tomorrow);
+
+    const todayAnswer = await getAnswer(todayString);
+    const yesterdayAnswer = await getAnswer(yesterdayString);
+    const tomorrowAnswer = await getAnswer(tomorrowString);
+    return [todayAnswer, yesterdayAnswer, tomorrowAnswer].filter(
+      (a) => a !== null
+    );
   }
 
   private async handleNewMessage(message: Message<boolean>) {
@@ -69,42 +80,130 @@ export default class PoliceBot extends BaseBot {
         return;
       }
 
-      const wordleAnswer = await this.getTodayWordleAnswer();
+      const violations = await this.analyzeMessageContent(message.content);
 
-      if (!wordleAnswer) {
-        console.log(
-          "No Wordle answer found for today, skipping message handling"
-        );
-        return;
-      }
-
-      const regex = new RegExp(`\\b${wordleAnswer}\\b`, "gi");
-      const matches = [...message.content.matchAll(regex)];
-
-      if (matches.length > 0) {
-        // censor the wordle answer in the message
-        const censoredContent = message.content.replace(
-          regex,
-          censorCharacters
-        );
+      if (violations.length > 0) {
+        const censoredMessage = this.censorMessage(message.content, violations);
 
         await message.channel.sendTyping();
 
-        const comment = await this.generateComment(message.guild);
+        const comment = await this.generateViolationComment(
+          message.guild,
+          violations.map((v) => v.reason),
+          message.content
+        );
+
+        // The bot might quote the original message, so we need to censor it as well
+        const censoredComment = this.censorMessage(comment, violations);
 
         const quotedContent = `${userMention(message.author.id)} said:
-${censoredContent
+${censoredMessage
   .split("\n")
   .map((line) => `> ${line}`)
   .join("\n")}`;
+        console.log({ censoredMessage, quotedContent, violations });
         await message.reply(quotedContent);
-        await message.delete();
-        await message.channel.send(comment);
+        await Promise.all([
+          await message.delete(),
+          await message.channel.send(censoredComment),
+        ]);
         await message.channel.send(this.getRandomPoliceGif());
       }
     } catch (error) {
       console.log("Error handling new message in PoliceBot", error);
     }
+  }
+
+  private async analyzeMessageContent(message: string) {
+    const bans = [
+      {
+        reason: `từ ngữ phân biệt chủng tộc tới người da đen`,
+        terms: ["nig", "nigger", "niggers"],
+      },
+      {
+        reason: `dùng từ cấm`,
+        terms: ["3 que"],
+      },
+      {
+        reason: `dùng từ bậy`,
+        terms: [
+          "faggot",
+          "fuck",
+          "shit",
+          "bitch",
+          "bitches",
+          "asshole",
+          "assholes",
+          "ass hole",
+          "địt mẹ",
+          "địt",
+          "đm",
+          "dm",
+          "ditme",
+          "dit me",
+          "dmm",
+          "đmm",
+          "đĩ",
+          "điếm",
+          "địt con mẹ",
+          "địt con đĩ",
+          "địt con điếm",
+          "đụ má",
+          "đụ mẹ",
+          "chó đẻ",
+          "chó đái",
+          "chó chết",
+          "lồn",
+          "loz",
+          "cai lon",
+          "lon tao",
+          "cặc",
+        ],
+      },
+    ];
+
+    const wordleAnswers = await this.getWordleAnswers();
+
+    if (wordleAnswers.length) {
+      bans.push({
+        reason: "spoil wordle answer",
+        terms: wordleAnswers,
+      });
+    }
+
+    const violations: Violation[] = [];
+    for (const { reason, terms } of bans) {
+      const violatedTerms = [];
+      for (const term of terms) {
+        // Join multiple word terms with word boundaries and optional whitespace
+        const regex = new RegExp(
+          `\\b${term.split(" ").join("\\b\\s+\\b")}\\b`,
+          "gi"
+        );
+        const matches = [...message.matchAll(regex)];
+        if (matches.length > 0) {
+          violatedTerms.push(term);
+        }
+      }
+      if (violatedTerms.length === 0) continue;
+      violations.push({
+        reason,
+        terms: violatedTerms,
+      });
+    }
+
+    return violations;
+  }
+
+  private censorMessage(message: string, violations: Violation[]) {
+    let consoredMessage = message;
+    for (const { terms } of violations) {
+      for (const term of terms) {
+        const regex = new RegExp(`\\b${term}\\b`, "gi");
+        consoredMessage = consoredMessage.replaceAll(regex, censorCharacters);
+      }
+    }
+    return consoredMessage;
   }
 
   private getRandomPoliceGif() {
@@ -130,15 +229,24 @@ ${censoredContent
       "https://tenor.com/view/capoo-bugcat-cute-arrest-illegal-gif-26565715",
       "https://tenor.com/view/cat-gif-24925438",
     ];
-    return gifs[Math.floor(Math.random() * gifs.length)];
+    const randomIndex = Math.floor(Math.random() * gifs.length);
+    return gifs[randomIndex];
   }
 
-  private async generateComment(guild: Guild) {
-    const promptText = `What would you say to a user who spoil the Wordle answer in a Discord message?`;
+  private async generateViolationComment(
+    guild: Guild,
+    violations: string[],
+    originalMessage: string
+  ) {
+    const violationString = violations.join(", ");
+    const promptText = `What would you say to a user who violated: ${violationString}? They said: ${originalMessage}`;
+
+    console.log(promptText);
 
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `You're Popogon. You are a police bot. You make sure everyone in the Discord server follows the rules. You speak Vietnamese. You are satire. You are funny. You are sarcastic. You use the "sir" pronoun. You only use 1 emoji at the end.`,
+      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn chỉ dùng emoji ở cuối cùng.`,
+      membersInstruction: " ",
     });
     await genAi.init();
     const { content } = await generateChatMessageWithGenAi(

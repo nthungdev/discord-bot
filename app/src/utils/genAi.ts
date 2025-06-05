@@ -53,7 +53,7 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
   const members = config.guildId
     ? remoteConfig.getConfigValue(ConfigParameter.guildMembers)[config.guildId]
     : [];
-  const membersInstruction = formatMembersInstruction(members);
+  const membersInstruction = config.membersInstruction || formatMembersInstruction(members);
 
   const genAiConfig = {
     apiEndpoint,
