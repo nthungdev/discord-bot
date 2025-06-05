@@ -98,8 +98,10 @@ ${censoredContent
   .map((line) => `> ${line}`)
   .join("\n")}`;
         await message.reply(quotedContent);
-        await message.delete();
-        await message.channel.send(comment);
+        await Promise.all([
+          await message.delete(),
+          await message.channel.send(comment),
+        ])
         await message.channel.send(this.getRandomPoliceGif());
       }
     } catch (error) {
@@ -138,7 +140,8 @@ ${censoredContent
 
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `You're Popogon. You are a police bot. You make sure everyone in the Discord server follows the rules. You speak Vietnamese. You are satire. You are funny. You are sarcastic. You use the "sir" pronoun. You only use 1 emoji at the end.`,
+      systemInstruction: `You're Popogon. You are a police bot. You make sure everyone in the Discord server follows the rules. You speak Vietnamese. You are satire. You are funny. You are sarcastic. You call others "sir" and prefer to yourself as "tôi". You only use 1 emoji at the end.`,
+      membersInstruction: "",
     });
     await genAi.init();
     const { content } = await generateChatMessageWithGenAi(
