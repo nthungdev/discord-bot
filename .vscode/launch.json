@@ -13,8 +13,10 @@
       "skipFiles": ["<node_internals>/**"],
       "envFile": "${workspaceFolder}/app/.env.development",
       "program": "${workspaceFolder}/app/src/main.ts",
+      "preLaunchTask": "build",
     },
 
+    // Choose Debug anyway if there is error
     {
       "name": "app: debug watch",
       "type": "node",
@@ -26,8 +28,6 @@
       "preLaunchTask": "watch app",
       // Automatically terminate all tasks when the debugger is stopped, practically killing the app
       "postDebugTask": "terminate all tasks"
-    }
-
-
+    },
   ]
 }
