@@ -24,8 +24,6 @@ const censorCharacters = "▓▓▓▓▓";
 export default class PoliceBot extends BaseBot {
   token: string;
   client: Client;
-  lastWordleAnswerTime?: string; // YYYY-MM-DD format
-  cachedWordleAnswer?: string;
 
   constructor(config: PoliceBotConfig) {
     super();
@@ -47,20 +45,28 @@ export default class PoliceBot extends BaseBot {
     this.client.on(Events.MessageCreate, this.handleNewMessage);
   }
 
-  private async getTodayWordleAnswer() {
-    // en-CA returns YYYY-MM-DD format
-    const todayString = new Intl.DateTimeFormat("en-CA", {
+  private async getWordleAnswers() {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/New_York",
-    }).format();
+    });
 
-    if (todayString === this.lastWordleAnswerTime && this.cachedWordleAnswer) {
-      return this.cachedWordleAnswer;
-    }
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
 
-    const answer = await getAnswer(todayString);
-    this.lastWordleAnswerTime = todayString;
-    this.cachedWordleAnswer = answer || undefined;
-    return answer;
+    // en-CA returns YYYY-MM-DD format
+    const todayString = formatter.format(today);
+    const yesterdayString = formatter.format(yesterday);
+    const tomorrowString = formatter.format(tomorrow);
+
+    const todayAnswer = await getAnswer(todayString);
+    const yesterdayAnswer = await getAnswer(yesterdayString);
+    const tomorrowAnswer = await getAnswer(tomorrowString);
+    return [todayAnswer, yesterdayAnswer, tomorrowAnswer].filter(
+      (a) => a !== null
+    );
   }
 
   private async handleNewMessage(message: Message<boolean>) {
@@ -121,6 +127,14 @@ ${censoredMessage
       {
         reason: `dùng từ bậy`,
         terms: [
+          "faggot",
+          "fuck",
+          "shit",
+          "bitch",
+          "bitches",
+          "asshole",
+          "assholes",
+          "ass hole",
           "địt mẹ",
           "địt",
           "đm",
@@ -148,12 +162,12 @@ ${censoredMessage
       },
     ];
 
-    const wordleAnswer = await this.getTodayWordleAnswer();
+    const wordleAnswers = await this.getWordleAnswers();
 
-    if (wordleAnswer) {
+    if (wordleAnswers.length) {
       bans.push({
         reason: "spoil wordle answer",
-        terms: [wordleAnswer],
+        terms: wordleAnswers,
       });
     }
 
@@ -227,10 +241,12 @@ ${censoredMessage
     const violationString = violations.join(", ");
     const promptText = `What would you say to a user who violated: ${violationString}? They said: ${originalMessage}`;
 
+    console.log(promptText);
+
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn chỉ dùng emoji ở cuối cùng.`,
-      membersInstruction: "",
+      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn chỉ dùng emoji ở cuối cùng.`,
+      membersInstruction: " ",
     });
     await genAi.init();
     const { content } = await generateChatMessageWithGenAi(
