@@ -10,6 +10,11 @@ import BaseBot from "./base-bot";
 import { getAnswer } from "../utils/wordle";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
 
+interface Violation {
+  reason: string;
+  terms: string[];
+}
+
 interface PoliceBotConfig {
   token: string;
 }
@@ -69,44 +74,122 @@ export default class PoliceBot extends BaseBot {
         return;
       }
 
-      const wordleAnswer = await this.getTodayWordleAnswer();
+      const violations = await this.analyzeMessageContent(message.content);
 
-      if (!wordleAnswer) {
-        console.log(
-          "No Wordle answer found for today, skipping message handling"
-        );
-        return;
-      }
-
-      const regex = new RegExp(`\\b${wordleAnswer}\\b`, "gi");
-      const matches = [...message.content.matchAll(regex)];
-
-      if (matches.length > 0) {
-        // censor the wordle answer in the message
-        const censoredContent = message.content.replace(
-          regex,
-          censorCharacters
-        );
+      if (violations.length > 0) {
+        const censoredMessage = this.censorMessage(message.content, violations);
 
         await message.channel.sendTyping();
 
-        const comment = await this.generateComment(message.guild);
+        const comment = await this.generateViolationComment(
+          message.guild,
+          violations.map((v) => v.reason),
+          message.content
+        );
+
+        // The bot might quote the original message, so we need to censor it as well
+        const censoredComment = this.censorMessage(comment, violations);
 
         const quotedContent = `${userMention(message.author.id)} said:
-${censoredContent
+${censoredMessage
   .split("\n")
   .map((line) => `> ${line}`)
   .join("\n")}`;
+        console.log({ censoredMessage, quotedContent, violations });
         await message.reply(quotedContent);
         await Promise.all([
           await message.delete(),
-          await message.channel.send(comment),
-        ])
+          await message.channel.send(censoredComment),
+        ]);
         await message.channel.send(this.getRandomPoliceGif());
       }
     } catch (error) {
       console.log("Error handling new message in PoliceBot", error);
     }
+  }
+
+  private async analyzeMessageContent(message: string) {
+    const bans = [
+      {
+        reason: `từ ngữ phân biệt chủng tộc tới người da đen`,
+        terms: ["nig", "nigger", "niggers"],
+      },
+      {
+        reason: `dùng từ cấm`,
+        terms: ["3 que"],
+      },
+      {
+        reason: `dùng từ bậy`,
+        terms: [
+          "địt mẹ",
+          "địt",
+          "đm",
+          "dm",
+          "ditme",
+          "dit me",
+          "dmm",
+          "đmm",
+          "đĩ",
+          "điếm",
+          "địt con mẹ",
+          "địt con đĩ",
+          "địt con điếm",
+          "đụ má",
+          "đụ mẹ",
+          "chó đẻ",
+          "chó đái",
+          "chó chết",
+          "lồn",
+          "loz",
+          "cai lon",
+          "lon tao",
+          "cặc",
+        ],
+      },
+    ];
+
+    const wordleAnswer = await this.getTodayWordleAnswer();
+
+    if (wordleAnswer) {
+      bans.push({
+        reason: "spoil wordle answer",
+        terms: [wordleAnswer],
+      });
+    }
+
+    const violations: Violation[] = [];
+    for (const { reason, terms } of bans) {
+      const violatedTerms = [];
+      for (const term of terms) {
+        // Join multiple word terms with word boundaries and optional whitespace
+        const regex = new RegExp(
+          `\\b${term.split(" ").join("\\b\\s+\\b")}\\b`,
+          "gi"
+        );
+        const matches = [...message.matchAll(regex)];
+        if (matches.length > 0) {
+          violatedTerms.push(term);
+        }
+      }
+      if (violatedTerms.length === 0) continue;
+      violations.push({
+        reason,
+        terms: violatedTerms,
+      });
+    }
+
+    return violations;
+  }
+
+  private censorMessage(message: string, violations: Violation[]) {
+    let consoredMessage = message;
+    for (const { terms } of violations) {
+      for (const term of terms) {
+        const regex = new RegExp(`\\b${term}\\b`, "gi");
+        consoredMessage = consoredMessage.replaceAll(regex, censorCharacters);
+      }
+    }
+    return consoredMessage;
   }
 
   private getRandomPoliceGif() {
@@ -132,15 +215,21 @@ ${censoredContent
       "https://tenor.com/view/capoo-bugcat-cute-arrest-illegal-gif-26565715",
       "https://tenor.com/view/cat-gif-24925438",
     ];
-    return gifs[Math.floor(Math.random() * gifs.length)];
+    const randomIndex = Math.floor(Math.random() * gifs.length);
+    return gifs[randomIndex];
   }
 
-  private async generateComment(guild: Guild) {
-    const promptText = `What would you say to a user who spoil the Wordle answer in a Discord message?`;
+  private async generateViolationComment(
+    guild: Guild,
+    violations: string[],
+    originalMessage: string
+  ) {
+    const violationString = violations.join(", ");
+    const promptText = `What would you say to a user who violated: ${violationString}? They said: ${originalMessage}`;
 
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `You're Popogon. You are a police bot. You make sure everyone in the Discord server follows the rules. You speak Vietnamese. You are satire. You are funny. You are sarcastic. You call others "sir" and prefer to yourself as "tôi". You only use 1 emoji at the end.`,
+      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn chỉ dùng emoji ở cuối cùng.`,
       membersInstruction: "",
     });
     await genAi.init();
