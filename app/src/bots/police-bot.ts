@@ -6,7 +6,7 @@ import {
   Message,
   userMention,
 } from "discord.js";
-import BaseBot from "./base-bot";
+import BaseBot, { BaseBotConfig } from "./base-bot";
 import { getAnswer } from "../utils/wordle";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
 
@@ -15,19 +15,13 @@ interface Violation {
   terms: string[];
 }
 
-interface PoliceBotConfig {
-  token: string;
-}
-
 const censorCharacters = "▓▓▓▓▓";
 
 export default class PoliceBot extends BaseBot {
-  token: string;
-  client: Client;
+  protected client: Client;
 
-  constructor(config: PoliceBotConfig) {
-    super();
-    this.token = config.token;
+  constructor(config: BaseBotConfig) {
+    super(config);
     this.client = new Client({
       intents: [
         // TODO make sure to only use the intents needed
@@ -69,7 +63,7 @@ export default class PoliceBot extends BaseBot {
     );
   }
 
-  private async handleNewMessage(message: Message<boolean>) {
+  protected async handleNewMessage(message: Message<boolean>) {
     try {
       if (message.author.bot) return;
 
