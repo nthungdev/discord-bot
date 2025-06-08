@@ -1,6 +1,8 @@
 import axios from "axios";
 import { setupCache } from "axios-cache-interceptor";
 
+const axiosWithCache = setupCache(axios);
+
 type WordleResponse = {
   id: string;
   solution: string;
@@ -12,7 +14,6 @@ type WordleResponse = {
  * @returns The Wordle answer for today, or null if the request fails.
  */
 export async function getAnswer(date: string) {
-  const axiosWithCache = setupCache(axios);
   const url = `https://www.nytimes.com/svc/wordle/v2/${date}.json`;
   try {
     const response = await axiosWithCache.get<WordleResponse>(url, {
