@@ -1,6 +1,5 @@
 import {
   Client,
-  Events,
   GatewayIntentBits,
   Guild,
   Message,
@@ -32,11 +31,6 @@ export default class PoliceBot extends BaseBot {
       ],
     });
     this.handleNewMessage = this.handleNewMessage.bind(this);
-  }
-
-  activate(): void {
-    console.log("Activate PoliceBot");
-    this.client.on(Events.MessageCreate, this.handleNewMessage);
   }
 
   private async getWordleAnswers() {

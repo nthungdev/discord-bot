@@ -36,12 +36,14 @@ const main = async () => {
   // Init Firebase
   admin.initializeApp({
     credential: admin.credential.cert(
-      serviceAccountKey as admin.ServiceAccount,
+      serviceAccountKey as admin.ServiceAccount
     ),
   });
 
   // Init Remote Config
   await Config.getInstance().init();
+
+  const allowedGuildIds = (process.env.ALLOWED_SERVERS ?? "").split(",");
 
   registerChatbot();
 
@@ -52,16 +54,16 @@ const main = async () => {
 
   const policeBot = new PoliceBot({
     token: POLICE_BOT_TOKEN as string,
-  })
-  await policeBot.login()
-  policeBot.activate()
+    allowedGuildIds,
+  });
+  await policeBot.login();
+  policeBot.listenToNewMessages();
 
   // TODO refactor this into a separate file
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
-    const allowedServers = (process.env.ALLOWED_SERVERS ?? "").split(",");
-    if (!allowedServers.includes(interaction.guildId || "")) {
+    if (!allowedGuildIds.includes(interaction.guildId || "")) {
       return;
     }
 
@@ -69,7 +71,7 @@ const main = async () => {
 
     if (!command) {
       console.error(
-        `No command matching ${interaction.commandName} was found.`,
+        `No command matching ${interaction.commandName} was found.`
       );
       return;
     }
