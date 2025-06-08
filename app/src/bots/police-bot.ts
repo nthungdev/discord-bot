@@ -16,6 +16,21 @@ interface Violation {
 
 const censorCharacters = "▓▓▓▓▓";
 
+/**
+ * Support regex for terms with accented characters and spaces
+ */
+function buildRegexFromTerms(terms: string[]) {
+  const escapedTerms = terms.map((term) => {
+    // Escape special regex characters, and normalize spaces
+    const escaped = term
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\s+/g, "\\s+");
+    return `(?<!\\p{L})${escaped}(?!\\p{L})`;
+  });
+
+  return new RegExp(escapedTerms.join("|"), "giu"); // g = global, i = ignore case, u = Unicode
+}
+
 export default class PoliceBot extends BaseBot {
   protected client: Client;
 
@@ -123,9 +138,10 @@ ${censoredMessage
           "asshole",
           "assholes",
           "ass hole",
-          "địt",
           "dit me",
           "địt mẹ",
+          "du me",
+          "đụ mẹ",
           "ditme",
           "đĩ",
           "điếm",
@@ -135,7 +151,6 @@ ${censoredMessage
           "địt con điếm",
           "du ma",
           "đụ má",
-          "đụ mẹ",
           "chó đẻ",
           "chó đái",
           "chó chết",
@@ -144,6 +159,7 @@ ${censoredMessage
           "cai lon",
           "lon tao",
           "cặc",
+          "con cac",
         ],
       },
     ];
@@ -160,18 +176,10 @@ ${censoredMessage
     const violations: Violation[] = [];
     for (const { reason, terms } of bans) {
       const violatedTerms = [];
-      for (const term of terms) {
-        // Join multiple word terms with word boundaries and optional whitespace
-        const regex = new RegExp(
-          `\\b${term.split(" ").join("\\b\\s+\\b")}\\b`,
-          "gi"
-        );
-        const matches = [...message.matchAll(regex)];
-        if (matches.length > 0) {
-          violatedTerms.push(term);
-        }
-      }
-      if (violatedTerms.length === 0) continue;
+      const regex = buildRegexFromTerms(terms);
+      const matches = [...message.matchAll(regex)];
+      if (matches.length === 0) continue;
+      violatedTerms.push(...matches.map((m) => m[0]));
       violations.push({
         reason,
         terms: violatedTerms,
@@ -185,7 +193,7 @@ ${censoredMessage
     let consoredMessage = message;
     for (const { terms } of violations) {
       for (const term of terms) {
-        const regex = new RegExp(`\\b${term}\\b`, "gi");
+        const regex = buildRegexFromTerms([term]);
         consoredMessage = consoredMessage.replaceAll(regex, censorCharacters);
       }
     }
@@ -202,7 +210,6 @@ ${censoredMessage
       "https://tenor.com/view/cop-police-popo-policeman-law-gif-17603106871416626477",
       "https://tenor.com/view/pokemon-squirtle-sunglasses-deal-with-it-gif-5634922",
       "https://tenor.com/view/dolerp-dole-department-of-law-enforcement-doj-five-m-gif-23229685",
-      "https://tenor.com/view/abhijit-naskar-naskar-law-and-order-law-law-abiding-gif-22892062",
       "https://tenor.com/view/shock-anime-akibas-trip-akibastrip-cop-gif-14686985010886003011",
       "https://tenor.com/view/police-costume-angel-vsfs-victorias-secret-victorias-secret-fasion-show-gif-13764354",
       "https://tenor.com/view/anime-order-is-the-rabbit-gif-9154127",
@@ -231,7 +238,7 @@ ${censoredMessage
 
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn chỉ dùng emoji ở cuối cùng.`,
+      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn chỉ dùng emoji ở cuối cùng.`,
       membersInstruction: " ",
     });
     await genAi.init();
