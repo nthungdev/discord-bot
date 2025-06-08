@@ -14,7 +14,7 @@ interface Violation {
   terms: string[];
 }
 
-const censorCharacters = "▓▓▓▓▓";
+const censorCharacter = "▓";
 
 /**
  * Support regex for terms with accented characters and spaces
@@ -194,7 +194,7 @@ ${censoredMessage
     for (const { terms } of violations) {
       for (const term of terms) {
         const regex = buildRegexFromTerms([term]);
-        consoredMessage = consoredMessage.replaceAll(regex, censorCharacters);
+        consoredMessage = consoredMessage.replaceAll(regex, censorCharacter.repeat(term.length));
       }
     }
     return consoredMessage;
