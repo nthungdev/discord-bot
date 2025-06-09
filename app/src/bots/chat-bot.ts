@@ -1,6 +1,14 @@
-import { Guild, Message, MessageType } from "discord.js";
-import { AxiosError } from "axios";
-import client from ".";
+import {
+  Client,
+  Collection,
+  GatewayIntentBits,
+  Guild,
+  Interaction,
+  Message,
+  MessageType,
+} from "discord.js";
+import BaseBot, { BaseBotConfig } from "./base-bot";
+import { store } from "../store";
 import {
   addMessageBuffer,
   addMessageHistory,
@@ -9,11 +17,11 @@ import {
   selectMessageHistory,
   setLastMemberFetch,
 } from "../features/chatbot";
-import { store } from "../store";
-// import { generateContent } from '../ai'
-import { AiPrompt, DiscordMessage } from "../types";
-import { splitEndingEmojis } from "../utils/emoji";
+import { AiPrompt, AppCommand, DiscordMessage } from "../types";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
+import { splitEndingEmojis } from "../utils/emoji";
+import { isAxiosError } from "axios";
+import { parseCommands } from "../discord/helpers";
 
 const BOT_REPLY_DELAY = 5000; // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
@@ -55,7 +63,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
     const { channel } = message;
     const { messageHistory, messageBuffer } = selectChatbotState(
-      store.getState(),
+      store.getState()
     );
 
     // get the messages from the user who last messaged
@@ -115,7 +123,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
           nickname: m.nickname ?? m.displayName,
           username: m.user.username,
         })) || [],
-        message.guild,
+        message.guild
       );
 
       console.log({
@@ -144,18 +152,18 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
           channelId: channel.id,
           userMessage: text,
           botMessage: content || "?",
-        }),
+        })
       );
 
       // debug
       console.log(
         `history size: ${
           selectMessageHistory(store.getState())[channel.id].length
-        }`,
+        }`
       );
     } catch (error) {
       console.error("Error generateContent");
-      if (error instanceof AxiosError) {
+      if (isAxiosError(error)) {
         console.error({
           name: error.name,
           message: error.message,
@@ -170,42 +178,99 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   }
 };
 
-export const handleChatbot =
-  ({
-    allowedServers = [],
-    freeChannels = [],
-  }: {
-    allowedServers?: string[];
-    freeChannels?: string[];
-  } = {}) =>
-  async (message: Message<boolean>) => {
-    // skip handling this message when:
-    if (
-      // incoming message not coming from allowed channels
-      !allowedServers.includes(message.guildId || "") ||
-      // message from the bot itself
-      message.author.id === client.user!.id ||
-      // // has attachment (haven't supported yet)
-      // message.attachments.size !== 0 ||
-      // has sticker (handling stickers not supported)
-      message.stickers.size !== 0 ||
-      // not a supported message type
-      ![MessageType.Default, MessageType.Reply].includes(
-        Number(message.type.toString()),
-      ) ||
-      // the bot is not being mentioned when channel requires so
-      (!freeChannels.includes(message.channelId) &&
-        !message.mentions.members?.has(client.user!.id)) ||
-      // is a DM message (DM not supported)
-      message.guild === null
-    ) {
+interface ChatBotConfig extends BaseBotConfig {
+  /** List of channel IDs where the bot is allowed to respond without being mentioning */
+  freeChannelIds?: string[];
+}
+
+export default class ChatBot extends BaseBot {
+  protected client: Client;
+  config: ChatBotConfig;
+  private commands = new Collection<string, AppCommand>();
+
+  constructor(config: ChatBotConfig) {
+    super(config);
+    this.config = config;
+    this.client = new Client({
+      intents: [
+        // TODO make sure to only use the intents needed
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessages,
+      ],
+    });
+    this.handleNewMessage = this.handleNewMessage.bind(this);
+  }
+
+  async loadCommands() {
+    const commandsToReg = await parseCommands();
+    commandsToReg.forEach((command) => {
+      this.commands.set(command.data.name, command);
+    });
+    console.log(`Loaded ${this.commands.size} commands.`);
+  }
+
+  protected async handleNewInteraction(interaction: Interaction) {
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = this.commands.get(interaction.commandName);
+
+    if (!command) {
+      console.error(
+        `No command matching ${interaction.commandName} was found.`
+      );
       return;
     }
+
+    try {
+      await (command as AppCommand).execute(interaction);
+    } catch (error) {
+      console.error(error);
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: "There was an error while executing this command!",
+          ephemeral: true,
+        });
+      } else {
+        await interaction.reply({
+          content: "There was an error while executing this command!",
+          ephemeral: true,
+        });
+      }
+    }
+  }
+
+  protected async handleNewMessage(message: Message<boolean>) {
+    // Implement your message handling logic here
+    if (message.author.bot) return;
+
+    if (message.author.id === this.client.user!.id) return;
+
+    // has attachment (haven't supported yet)
+    // message.attachments.size !== 0 ||
+    // has sticker (handling stickers not supported)
+    if (message.stickers.size !== 0) return;
+
+    // not a supported message type
+    if (![MessageType.Default, MessageType.Reply].includes(message.type))
+      return;
+
+    if (!message.inGuild()) return;
+
+    // the bot is not in free channels
+    if (
+      this.config.freeChannelIds &&
+      !this.config.freeChannelIds.includes(message.channelId) &&
+      !message.mentions.members?.has(this.client.user!.id)
+    )
+      return;
 
     let refMessage: Message<boolean> | null = null;
     if (message.reference !== null) {
       refMessage = await message.channel.messages.fetch(
-        message.reference.messageId!,
+        message.reference.messageId!
       );
     }
 
@@ -250,7 +315,7 @@ export const handleChatbot =
       addMessageBuffer({
         message: discordMessage,
         channelId: message.channelId,
-      }),
+      })
     );
 
     clearMessageTimeout(message.channelId);
@@ -258,6 +323,5 @@ export const handleChatbot =
       channelId: message.channelId,
       timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
     });
-
-    return;
-  };
+  }
+}

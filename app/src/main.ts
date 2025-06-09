@@ -6,21 +6,14 @@ config({
       : ".env.development",
 });
 
-import { Events } from "discord.js";
 import * as admin from "firebase-admin";
 // import { CronJob } from 'cron'
-import client, {
-  commands,
-  login,
-  registerChatbot,
-  loadCommands,
-} from "./discord";
 import server from "./server";
 import { validateEnvs } from "./helpers";
-import { AppCommand } from "./types";
 import { Config } from "./config";
 import serviceAccountKey from "../service-account.json";
 import PoliceBot from "./bots/police-bot";
+import ChatBot from "./bots/chat-bot";
 
 const { TOKEN, POLICE_BOT_TOKEN, PORT, NODE_ENV } = process.env;
 const port: number | string = PORT || 3001;
@@ -44,13 +37,7 @@ const main = async () => {
   await Config.getInstance().init();
 
   const allowedGuildIds = (process.env.ALLOWED_SERVERS ?? "").split(",");
-
-  registerChatbot();
-
-  await loadCommands();
-
-  // Log the bot into Discord
-  await login(TOKEN as string);
+  const freeChannelIds = (process.env.FREE_CHANNELS ?? "").split(",");
 
   const policeBot = new PoliceBot({
     token: POLICE_BOT_TOKEN as string,
@@ -59,40 +46,15 @@ const main = async () => {
   await policeBot.login();
   policeBot.listenToNewMessages();
 
-  // TODO refactor this into a separate file
-  client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-
-    if (!allowedGuildIds.includes(interaction.guildId || "")) {
-      return;
-    }
-
-    const command = commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(
-        `No command matching ${interaction.commandName} was found.`
-      );
-      return;
-    }
-
-    try {
-      await (command as AppCommand).execute(interaction);
-    } catch (error) {
-      console.error(error);
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.reply({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      }
-    }
+  const chatBot = new ChatBot({
+    token: TOKEN as string,
+    allowedGuildIds,
+    freeChannelIds,
   });
+  await chatBot.login();
+  chatBot.listenToNewMessages();
+  await chatBot.loadCommands();
+  chatBot.listenToNewInteractions();
 
   // const job = new CronJob(
   //   '1 0 0 1 * *', // on 00:01 AM of the first of every month

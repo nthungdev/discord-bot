@@ -2,6 +2,7 @@ import {
   Client,
   GatewayIntentBits,
   Guild,
+  Interaction,
   Message,
   userMention,
 } from "discord.js";
@@ -70,6 +71,10 @@ export default class PoliceBot extends BaseBot {
     return [todayAnswer, yesterdayAnswer, tomorrowAnswer].filter(
       (a) => a !== null
     );
+  }
+  protected handleNewInteraction(interaction: Interaction): Promise<void> {
+    console.log(interaction.applicationId);
+    throw new Error("Method not implemented.");
   }
 
   protected async handleNewMessage(message: Message<boolean>) {
@@ -194,7 +199,10 @@ ${censoredMessage
     for (const { terms } of violations) {
       for (const term of terms) {
         const regex = buildRegexFromTerms([term]);
-        consoredMessage = consoredMessage.replaceAll(regex, censorCharacter.repeat(term.length));
+        consoredMessage = consoredMessage.replaceAll(
+          regex,
+          censorCharacter.repeat(term.length)
+        );
       }
     }
     return consoredMessage;

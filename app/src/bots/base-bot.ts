@@ -1,4 +1,4 @@
-import { Client, Events, Message } from "discord.js";
+import { Client, Events, Interaction, Message } from "discord.js";
 
 export interface BaseBotConfig {
   token: string;
@@ -17,21 +17,37 @@ export default abstract class BaseBot {
   }
 
   protected abstract handleNewMessage(message: Message): Promise<void>;
+  protected abstract handleNewInteraction(
+    interaction: Interaction
+  ): Promise<void>;
 
   listenToNewMessages() {
     this.client.on(Events.MessageCreate, (message) => {
       if (message.inGuild()) {
-        const notInAllowedGuilds = this.config.allowedGuildIds && !this.config.allowedGuildIds.includes(
-          message.guildId
-        );
-        const inDisallowedGuilds = this.config.disallowedGuildIds && !!this.config.disallowedGuildIds.includes(
-          message.guildId
-        );
+        const notInAllowedGuilds =
+          this.config.allowedGuildIds &&
+          !this.config.allowedGuildIds.includes(message.guildId);
+        const inDisallowedGuilds =
+          this.config.disallowedGuildIds &&
+          !!this.config.disallowedGuildIds.includes(message.guildId);
         if (notInAllowedGuilds || inDisallowedGuilds) {
           return;
         }
       }
       this.handleNewMessage(message);
+    });
+  }
+
+  listenToNewInteractions() {
+    this.client.on(Events.InteractionCreate, async (interaction) => {
+      if (
+        this.config.allowedGuildIds &&
+        !this.config.allowedGuildIds.includes(interaction.guildId || "")
+      ) {
+        return;
+      }
+
+      this.handleNewInteraction(interaction);
     });
   }
 
