@@ -1,12 +1,12 @@
 import {
   Client,
-  Events,
   GatewayIntentBits,
   Guild,
+  Interaction,
   Message,
   userMention,
 } from "discord.js";
-import BaseBot from "./base-bot";
+import BaseBot, { BaseBotConfig } from "./base-bot";
 import { getAnswer } from "../utils/wordle";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
 
@@ -15,19 +15,28 @@ interface Violation {
   terms: string[];
 }
 
-interface PoliceBotConfig {
-  token: string;
+const censorCharacter = "▓";
+
+/**
+ * Support regex for terms with accented characters and spaces
+ */
+function buildRegexFromTerms(terms: string[]) {
+  const escapedTerms = terms.map((term) => {
+    // Escape special regex characters, and normalize spaces
+    const escaped = term
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\s+/g, "\\s+");
+    return `(?<!\\p{L})${escaped}(?!\\p{L})`;
+  });
+
+  return new RegExp(escapedTerms.join("|"), "giu"); // g = global, i = ignore case, u = Unicode
 }
 
-const censorCharacters = "▓▓▓▓▓";
-
 export default class PoliceBot extends BaseBot {
-  token: string;
-  client: Client;
+  protected client: Client;
 
-  constructor(config: PoliceBotConfig) {
-    super();
-    this.token = config.token;
+  constructor(config: BaseBotConfig) {
+    super(config);
     this.client = new Client({
       intents: [
         // TODO make sure to only use the intents needed
@@ -38,11 +47,6 @@ export default class PoliceBot extends BaseBot {
       ],
     });
     this.handleNewMessage = this.handleNewMessage.bind(this);
-  }
-
-  activate(): void {
-    console.log("Activate PoliceBot");
-    this.client.on(Events.MessageCreate, this.handleNewMessage);
   }
 
   private async getWordleAnswers() {
@@ -68,8 +72,12 @@ export default class PoliceBot extends BaseBot {
       (a) => a !== null
     );
   }
+  protected handleNewInteraction(interaction: Interaction): Promise<void> {
+    console.log(interaction.applicationId);
+    throw new Error("Method not implemented.");
+  }
 
-  private async handleNewMessage(message: Message<boolean>) {
+  protected async handleNewMessage(message: Message<boolean>) {
     try {
       if (message.author.bot) return;
 
@@ -83,35 +91,42 @@ export default class PoliceBot extends BaseBot {
       const violations = await this.analyzeMessageContent(message.content);
 
       if (violations.length > 0) {
-        const censoredMessage = this.censorMessage(message.content, violations);
-
-        await message.channel.sendTyping();
-
-        const comment = await this.generateViolationComment(
-          message.guild,
-          violations.map((v) => v.reason),
-          message.content
-        );
-
-        // The bot might quote the original message, so we need to censor it as well
-        const censoredComment = this.censorMessage(comment, violations);
-
-        const quotedContent = `${userMention(message.author.id)} said:
-${censoredMessage
-  .split("\n")
-  .map((line) => `> ${line}`)
-  .join("\n")}`;
-        console.log({ censoredMessage, quotedContent, violations });
-        await message.reply(quotedContent);
-        await Promise.all([
-          await message.delete(),
-          await message.channel.send(censoredComment),
-        ]);
-        await message.channel.send(this.getRandomPoliceGif());
+        this.handleViolatedMessage(message, violations);
       }
     } catch (error) {
       console.log("Error handling new message in PoliceBot", error);
     }
+  }
+
+  private async handleViolatedMessage(
+    message: Message<true>,
+    violations: Violation[]
+  ) {
+    const censoredMessage = this.censorMessage(message.content, violations);
+
+    await message.channel.sendTyping();
+
+    const comment = await this.generateViolationComment(
+      message.guild,
+      violations.map((v) => v.reason),
+      message.content
+    );
+
+    // The bot might quote the original message, so we need to censor it as well
+    const censoredComment = this.censorMessage(comment, violations);
+
+    const quotedContent = `${userMention(message.author.id)} said:
+${censoredMessage
+  .split("\n")
+  .map((line) => `> ${line}`)
+  .join("\n")}`;
+    console.log({ censoredMessage, quotedContent, violations });
+    await message.reply(quotedContent);
+    await Promise.all([
+      await message.delete(),
+      await message.channel.send(censoredComment),
+    ]);
+    await message.channel.send(this.getRandomPoliceGif());
   }
 
   private async analyzeMessageContent(message: string) {
@@ -135,21 +150,19 @@ ${censoredMessage
           "asshole",
           "assholes",
           "ass hole",
-          "địt mẹ",
-          "địt",
-          "đm",
-          "dm",
-          "ditme",
           "dit me",
-          "dmm",
-          "đmm",
+          "địt mẹ",
+          "du me",
+          "đụ mẹ",
+          "ditme",
           "đĩ",
           "điếm",
+          "dit con me",
           "địt con mẹ",
           "địt con đĩ",
           "địt con điếm",
+          "du ma",
           "đụ má",
-          "đụ mẹ",
           "chó đẻ",
           "chó đái",
           "chó chết",
@@ -158,6 +171,7 @@ ${censoredMessage
           "cai lon",
           "lon tao",
           "cặc",
+          "con cac",
         ],
       },
     ];
@@ -174,18 +188,10 @@ ${censoredMessage
     const violations: Violation[] = [];
     for (const { reason, terms } of bans) {
       const violatedTerms = [];
-      for (const term of terms) {
-        // Join multiple word terms with word boundaries and optional whitespace
-        const regex = new RegExp(
-          `\\b${term.split(" ").join("\\b\\s+\\b")}\\b`,
-          "gi"
-        );
-        const matches = [...message.matchAll(regex)];
-        if (matches.length > 0) {
-          violatedTerms.push(term);
-        }
-      }
-      if (violatedTerms.length === 0) continue;
+      const regex = buildRegexFromTerms(terms);
+      const matches = [...message.matchAll(regex)];
+      if (matches.length === 0) continue;
+      violatedTerms.push(...matches.map((m) => m[0]));
       violations.push({
         reason,
         terms: violatedTerms,
@@ -199,8 +205,11 @@ ${censoredMessage
     let consoredMessage = message;
     for (const { terms } of violations) {
       for (const term of terms) {
-        const regex = new RegExp(`\\b${term}\\b`, "gi");
-        consoredMessage = consoredMessage.replaceAll(regex, censorCharacters);
+        const regex = buildRegexFromTerms([term]);
+        consoredMessage = consoredMessage.replaceAll(
+          regex,
+          censorCharacter.repeat(term.length)
+        );
       }
     }
     return consoredMessage;
@@ -216,7 +225,6 @@ ${censoredMessage
       "https://tenor.com/view/cop-police-popo-policeman-law-gif-17603106871416626477",
       "https://tenor.com/view/pokemon-squirtle-sunglasses-deal-with-it-gif-5634922",
       "https://tenor.com/view/dolerp-dole-department-of-law-enforcement-doj-five-m-gif-23229685",
-      "https://tenor.com/view/abhijit-naskar-naskar-law-and-order-law-law-abiding-gif-22892062",
       "https://tenor.com/view/shock-anime-akibas-trip-akibastrip-cop-gif-14686985010886003011",
       "https://tenor.com/view/police-costume-angel-vsfs-victorias-secret-victorias-secret-fasion-show-gif-13764354",
       "https://tenor.com/view/anime-order-is-the-rabbit-gif-9154127",
@@ -245,7 +253,7 @@ ${censoredMessage
 
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn chỉ dùng emoji ở cuối cùng.`,
+      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn chỉ dùng emoji ở cuối cùng.`,
       membersInstruction: " ",
     });
     await genAi.init();
