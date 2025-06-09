@@ -91,35 +91,42 @@ export default class PoliceBot extends BaseBot {
       const violations = await this.analyzeMessageContent(message.content);
 
       if (violations.length > 0) {
-        const censoredMessage = this.censorMessage(message.content, violations);
-
-        await message.channel.sendTyping();
-
-        const comment = await this.generateViolationComment(
-          message.guild,
-          violations.map((v) => v.reason),
-          message.content
-        );
-
-        // The bot might quote the original message, so we need to censor it as well
-        const censoredComment = this.censorMessage(comment, violations);
-
-        const quotedContent = `${userMention(message.author.id)} said:
-${censoredMessage
-  .split("\n")
-  .map((line) => `> ${line}`)
-  .join("\n")}`;
-        console.log({ censoredMessage, quotedContent, violations });
-        await message.reply(quotedContent);
-        await Promise.all([
-          await message.delete(),
-          await message.channel.send(censoredComment),
-        ]);
-        await message.channel.send(this.getRandomPoliceGif());
+        this.handleViolatedMessage(message, violations);
       }
     } catch (error) {
       console.log("Error handling new message in PoliceBot", error);
     }
+  }
+
+  private async handleViolatedMessage(
+    message: Message<true>,
+    violations: Violation[]
+  ) {
+    const censoredMessage = this.censorMessage(message.content, violations);
+
+    await message.channel.sendTyping();
+
+    const comment = await this.generateViolationComment(
+      message.guild,
+      violations.map((v) => v.reason),
+      message.content
+    );
+
+    // The bot might quote the original message, so we need to censor it as well
+    const censoredComment = this.censorMessage(comment, violations);
+
+    const quotedContent = `${userMention(message.author.id)} said:
+${censoredMessage
+  .split("\n")
+  .map((line) => `> ${line}`)
+  .join("\n")}`;
+    console.log({ censoredMessage, quotedContent, violations });
+    await message.reply(quotedContent);
+    await Promise.all([
+      await message.delete(),
+      await message.channel.send(censoredComment),
+    ]);
+    await message.channel.send(this.getRandomPoliceGif());
   }
 
   private async analyzeMessageContent(message: string) {
