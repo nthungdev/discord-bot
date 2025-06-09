@@ -7,14 +7,8 @@ import {
   DiscordjsErrorCodes,
   DiscordjsError,
 } from "discord.js";
-import {
-  countCheckInsInChannel,
-  formatCheckInLeaderboard,
-  getCurrentMonthStart,
-  getPreviousMonthEnd,
-  getPreviousMonthStart,
-} from "../../checkIn";
 import { DiscordCommand } from "../../constants";
+import { countCheckInsInChannel, formatCheckInLeaderboard, getCurrentMonthStart, getPreviousMonthEnd, getPreviousMonthStart } from "../utilities/checkIn";
 
 // TODO localize description
 
@@ -75,6 +69,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const leaderboard = await countCheckInsInChannel(
+      interaction.client,
       interaction.channelId,
       start,
       end,

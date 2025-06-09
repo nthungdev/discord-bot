@@ -1,7 +1,6 @@
-import { ChannelType, Message, MessageType, userMention } from "discord.js";
-import client from "..";
-import { DiscordCommand } from "../constants";
-import { Config, ConfigParameter } from "../../config";
+import { ChannelType, Client, Message, MessageType, userMention } from "discord.js";
+import { DiscordCommand } from "../../constants";
+import { Config, ConfigParameter } from "../../../config";
 
 type CheckInTrackerData = {
   count: number;
@@ -58,6 +57,7 @@ const formatPeriod = (date: Date) => {
 };
 
 export async function countCheckInsInChannel(
+  client: Client<true>,
   channelId: string,
   start: Date,
   end: Date,

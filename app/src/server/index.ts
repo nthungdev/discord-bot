@@ -1,7 +1,5 @@
-import express, { Application, Request, Response } from "express";
+import express, { Application, Response } from "express";
 import bodyParser from "body-parser";
-import { TextChannel } from "discord.js";
-import client from "../discord";
 import testRouter from "./routes/testRouter";
 import utilityRouter from "./routes/utilityRouter";
 import auth from "./middlewares/auth";
@@ -23,27 +21,27 @@ app.use(auth);
 app.use("/tests", testRouter);
 app.use("/utility", utilityRouter);
 
-app.post("/message", async (req: Request, res: Response) => {
-  const { message, channelId } = req.body;
+// app.post("/message", async (req: Request, res: Response) => {
+//   const { message, channelId } = req.body;
 
-  const channel = client.channels.cache.get(channelId) as
-    | TextChannel
-    | undefined;
-  if (channel === undefined) {
-    res.status(400); // bad request
-    res.send({ ok: false, message: "channel not found" });
-    return;
-  }
+//   const channel = client.channels.cache.get(channelId) as
+//     | TextChannel
+//     | undefined;
+//   if (channel === undefined) {
+//     res.status(400); // bad request
+//     res.send({ ok: false, message: "channel not found" });
+//     return;
+//   }
 
-  await channel.send(message);
+//   await channel.send(message);
 
-  res.json({
-    ok: true,
-    message: "message sent",
-    channelId,
-    data: { message },
-  });
-});
+//   res.json({
+//     ok: true,
+//     message: "message sent",
+//     channelId,
+//     data: { message },
+//   });
+// });
 
 // app.post('/sleepreminder', async (req: Request, res: Response) => {
 //   const { channelId } = req.body
