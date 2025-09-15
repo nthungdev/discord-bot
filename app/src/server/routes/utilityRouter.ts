@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { deployGuildCommands } from "../../discord/deployCommands";
-import { clearMessageHistory } from "../../features/chatbot";
-import { store } from "../../store";
+import { chatbotActions, policeBotActions, store } from "../../store";
 import { Config, ConfigParameter } from "../../config";
 
 const utilityRouter = Router();
@@ -28,7 +27,8 @@ utilityRouter.post("/clearHistory", async (req, res, next) => {
   const { channelId } = req.body;
 
   try {
-    store.dispatch(clearMessageHistory({ channelId }));
+    store.dispatch(chatbotActions.clearMessageHistory({ channelId }));
+    store.dispatch(policeBotActions.clearMessageHistory({ channelId }));
     res.json({ ok: true });
   } catch (error) {
     next(error);
