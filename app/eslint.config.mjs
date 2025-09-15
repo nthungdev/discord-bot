@@ -6,5 +6,5 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  { ignores: ["node_modules/*", "build/*"] },
+  { ignores: ["node_modules/*", "build/*", "*.d.ts"] },
 );
