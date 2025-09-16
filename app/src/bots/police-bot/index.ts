@@ -332,7 +332,7 @@ ${censoredMessage
     const bans = [
       {
         reason: `từ ngữ phân biệt chủng tộc tới người da đen`,
-        terms: ["nig", "nigger", "niggers"],
+        terms: [/n+i+g+e+r+s*/, /n+i+g+a*r*s*/],
       },
       {
         reason: `dùng từ cấm`,
@@ -341,14 +341,11 @@ ${censoredMessage
       {
         reason: `dùng từ bậy`,
         terms: [
+          /s+h+(i|j)+t+/,
+          /b+(i|j)+t+c+h+(e+s+)*/,
+          /f+u+c*k+/,
+          /a+s+\s*h+(o|0)+l+e+s*/,
           "faggot",
-          "fuck",
-          "shit",
-          "bitch",
-          "bitches",
-          "asshole",
-          "assholes",
-          "ass hole",
           "dit me",
           "địt mẹ",
           "du me",
@@ -366,7 +363,7 @@ ${censoredMessage
           "chó đái",
           "chó chết",
           "lồn",
-          "loz",
+          /l+(o|0)+z+/,
           "cai lon",
           "lon tao",
           "cặc",
