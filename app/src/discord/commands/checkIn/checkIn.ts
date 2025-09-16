@@ -1,7 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { DiscordCommand } from "../../constants";
-import { addMessageHistory } from "../../../features/chatbot";
-import { store } from "../../../store";
+import { chatbotActions, store } from "../../../store";
 import { generateChatMessageWithGenAi, getGenAi } from "../../../utils/genAi";
 import { AiPrompt } from "../../../types";
 
@@ -18,33 +17,33 @@ export const data = new SlashCommandBuilder()
       .setName(CommandCheckInOption.what)
       // TODO localize description
       .setDescription("Tôi đã làm gì")
-      .setRequired(true),
+      .setRequired(true)
   )
   .addBooleanOption((option) =>
     option
       .setName(CommandCheckInOption.slavegonComment)
       .setDescription("Thêm comment của Slavegon")
-      .setRequired(false),
+      .setRequired(false)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const hasSlavegonComment =
     interaction.options.getBoolean(
       CommandCheckInOption.slavegonComment,
-      false,
+      false
     ) ?? true;
   const purpose = interaction.options.getString(
     CommandCheckInOption.what,
-    true,
+    true
   );
 
   try {
     if (!hasSlavegonComment) {
       console.info(
-        `${interaction.user.displayName} checked in without Slavegon comment`,
+        `${interaction.user.displayName} checked in without Slavegon comment`
       );
       await interaction.reply(
-        `*${interaction.user.displayName} checked in ${purpose}*`,
+        `*${interaction.user.displayName} checked in ${purpose}*`
       );
       return;
     }
@@ -52,11 +51,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply();
 
     const mentionedIds = [...purpose.matchAll(/<@(\d+)>/g)].map(
-      (match) => match[1],
+      (match) => match[1]
     );
 
     const mentionedUsers = Object.fromEntries(
-      mentionedIds.map((id) => [id, interaction.client.users.cache.get(id)]),
+      mentionedIds.map((id) => [id, interaction.client.users.cache.get(id)])
     );
 
     const text = `${interaction.user.username} says: checked in ${purpose}`;
@@ -77,18 +76,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         nickname: m.nickname ?? m.displayName,
         username: m.user.username,
       })) || [],
-      interaction.guild,
+      interaction.guild
     );
 
     const message = `*${interaction.user.displayName} checked in ${purpose}*\n${content}`;
     await interaction.editReply(message);
 
     store.dispatch(
-      addMessageHistory({
+      chatbotActions.addMessageHistory({
         channelId: interaction.channelId,
         userMessage: prompt.text,
         botMessage: content,
-      }),
+      })
     );
   } catch (error: unknown) {
     console.error(`Failed to include Slavegon's comment`, error);

@@ -1,9 +1,16 @@
 import { configureStore } from "@reduxjs/toolkit";
-import chatbot from "./features/chatbot";
+import { createChatbotSlice } from "./features/chatbot";
+
+const chatbotSlice = createChatbotSlice("chatbot");
+const policeBotSlice = createChatbotSlice("policeBot");
+
+export const chatbotActions = chatbotSlice.actions;
+export const policeBotActions = policeBotSlice.actions;
 
 export const store = configureStore({
   reducer: {
-    chatbot,
+    chatbot: chatbotSlice.reducer,
+    policeBot: policeBotSlice.reducer,
   },
 });
 

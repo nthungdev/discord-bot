@@ -1,30 +1,37 @@
 import {
   Client,
-  Collection,
   GatewayIntentBits,
   Guild,
   Interaction,
   Message,
   MessageType,
+  userMention,
 } from "discord.js";
-import BaseBot, { BaseBotConfig } from "./base-bot";
-import { chatbotActions, store } from "../store";
-import { AiPrompt, AppCommand, DiscordMessage } from "../types";
-import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
-import { splitEndingEmojis } from "../utils/emoji";
+import BaseBot, { BaseBotConfig } from "./../base-bot";
+import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
+import { policeBotActions, store } from "../../store";
+import { AiPrompt, DiscordMessage } from "../../types";
+import { splitEndingEmojis } from "../../utils/emoji";
 import { isAxiosError } from "axios";
-import { parseCommands } from "../discord/helpers";
+import { Violation } from "./types";
+import {
+  buildRegexFromTerms,
+  censorMessage,
+  getRandomPoliceGif,
+  getWordleAnswers,
+} from "./utils";
 
+const SYSTEM_INSTRUCTION = `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật, ngoại từ bản thân bạn. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn không ngần ngại mắng người khác. Bạn phạt người bị report làm việc sai trái. Bạn chỉ dùng emoji ở cuối cùng.`;
 const BOT_REPLY_DELAY = 5000; // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 /** Fetch up-to-date member list to cache */
 const validateServerMembersCache = async (guild: Guild) => {
-  const { lastMemberFetch } = store.getState().chatbot;
+  const { lastMemberFetch } = store.getState().policeBot;
   if (!lastMemberFetch || lastMemberFetch + MEMBER_FETCH_AGE < Date.now()) {
     await guild.members.fetch();
     store.dispatch(
-      chatbotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE)
+      policeBotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE)
     );
   }
 };
@@ -56,7 +63,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     await message.channel.sendTyping();
 
     const { channel } = message;
-    const { messageHistory, messageBuffer } = store.getState().chatbot;
+    const { messageHistory, messageBuffer } = store.getState().policeBot;
 
     // get the messages from the user who last messaged
     const lastMessage = messageBuffer[channel.id]?.at(-1);
@@ -106,7 +113,10 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     console.log(`promptText: ${prompt.text}`);
 
     try {
-      const genAi = getGenAi({ guildId: message.guildId });
+      const genAi = getGenAi({
+        guildId: message.guildId,
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
         genAi,
@@ -124,7 +134,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         bot: content,
       });
 
-      store.dispatch(chatbotActions.clearMessageBuffer(channel.id));
+      store.dispatch(policeBotActions.clearMessageBuffer(channel.id));
 
       if (content === "") {
         console.log({ data: JSON.stringify(data) });
@@ -141,7 +151,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
       // save conversation into history
       store.dispatch(
-        chatbotActions.addMessageHistory({
+        policeBotActions.addMessageHistory({
           channelId: channel.id,
           userMessage: text,
           botMessage: content || "?",
@@ -151,7 +161,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       // debug
       console.log(
         `history size: ${
-          store.getState().chatbot.messageHistory[channel.id].length
+          store.getState().policeBot.messageHistory[channel.id].length
         }`
       );
     } catch (error) {
@@ -171,25 +181,16 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   }
 };
 
-interface ChatBotConfig extends BaseBotConfig {
-  /** List of channel IDs where the bot is allowed to respond without being mentioning */
-  freeChannelIds?: string[];
-}
+export default class PoliceBot extends BaseBot {
+  protected client: Client<true>;
 
-export default class ChatBot extends BaseBot {
-  protected client: Client;
-  config: ChatBotConfig;
-  private commands = new Collection<string, AppCommand>();
-
-  constructor(config: ChatBotConfig) {
+  constructor(config: BaseBotConfig) {
     super(config);
-    this.config = config;
     this.client = new Client({
       intents: [
         // TODO make sure to only use the intents needed
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessages,
       ],
@@ -197,71 +198,47 @@ export default class ChatBot extends BaseBot {
     this.handleNewMessage = this.handleNewMessage.bind(this);
   }
 
-  async loadCommands() {
-    const commandsToReg = await parseCommands();
-    commandsToReg.forEach((command) => {
-      this.commands.set(command.data.name, command);
-    });
-    console.log(`Loaded ${this.commands.size} commands.`);
-  }
-
-  protected async handleNewInteraction(interaction: Interaction) {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = this.commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(
-        `No command matching ${interaction.commandName} was found.`
-      );
-      return;
-    }
-
-    try {
-      await (command as AppCommand).execute(interaction);
-    } catch (error) {
-      console.error(error);
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.reply({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      }
-    }
+  protected handleNewInteraction(interaction: Interaction): Promise<void> {
+    console.log(interaction.applicationId);
+    throw new Error("Method not implemented.");
   }
 
   protected async handleNewMessage(message: Message<boolean>) {
-    if (!message.channel.isSendable()) {
-      console.log("Channel is not sendable, skipping message handling");
-      return;
+    try {
+      if (message.author.bot) return;
+
+      if (!message.inGuild()) return;
+
+      if (!message.channel.isSendable()) {
+        console.log("Channel is not sendable, skipping message handling");
+        return;
+      }
+
+      // not a supported message type
+      if (![MessageType.Default, MessageType.Reply].includes(message.type))
+        return;
+
+      // has attachment (haven't supported yet)
+      // message.attachments.size !== 0 ||
+      // has sticker (handling stickers not supported)
+      if (message.stickers.size !== 0) return;
+
+      const violations = await this.analyzeMessageContent(message.content);
+
+      if (violations.length > 0) {
+        await this.handleViolatedMessage(message, violations);
+        return;
+      }
+
+      if (message.mentions.members?.has(this.client.user!.id)) {
+        await this.replyToMessage(message);
+      }
+    } catch (error) {
+      console.log("Error handling new message in PoliceBot", error);
     }
+  }
 
-    if (message.author.bot) return;
-
-    // has attachment (haven't supported yet)
-    // message.attachments.size !== 0 ||
-    // has sticker (handling stickers not supported)
-    if (message.stickers.size !== 0) return;
-
-    // not a supported message type
-    if (![MessageType.Default, MessageType.Reply].includes(message.type))
-      return;
-
-    if (!message.inGuild()) return;
-
-    // the bot is not in free channels or being mentioned
-    if (
-      this.config.freeChannelIds &&
-      !this.config.freeChannelIds.includes(message.channelId) &&
-      !message.mentions.members?.has(this.client.user!.id)
-    )
-      return;
-
+  private async replyToMessage(message: Message<true>) {
     let refMessage: Message<boolean> | null = null;
     if (message.reference !== null) {
       refMessage = await message.channel.messages.fetch(
@@ -307,7 +284,7 @@ export default class ChatBot extends BaseBot {
     };
 
     store.dispatch(
-      chatbotActions.addMessageBuffer({
+      policeBotActions.addMessageBuffer({
         message: discordMessage,
         channelId: message.channelId,
       })
@@ -318,5 +295,130 @@ export default class ChatBot extends BaseBot {
       channelId: message.channelId,
       timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
     });
+  }
+
+  private async handleViolatedMessage(
+    message: Message<true>,
+    violations: Violation[]
+  ) {
+    const censoredMessage = censorMessage(message.content, violations);
+
+    await message.channel.sendTyping();
+
+    const comment = await this.generateViolationComment(
+      message.guild,
+      violations.map((v) => v.reason),
+      message.content
+    );
+
+    // The bot might quote the original message, so we need to censor it as well
+    const censoredComment = censorMessage(comment, violations);
+
+    const quotedContent = `${userMention(message.author.id)} said:
+${censoredMessage
+  .split("\n")
+  .map((line) => `> ${line}`)
+  .join("\n")}`;
+    console.log({ censoredMessage, quotedContent, violations });
+    await message.reply(quotedContent);
+    await Promise.all([
+      await message.delete(),
+      await message.channel.send(censoredComment),
+    ]);
+    await message.channel.send(getRandomPoliceGif());
+  }
+
+  private async analyzeMessageContent(message: string) {
+    const bans = [
+      {
+        reason: `từ ngữ phân biệt chủng tộc tới người da đen`,
+        terms: [/n+i+g+e+r+s*/, /n+i+g+a*r*s*/],
+      },
+      {
+        reason: `dùng từ cấm`,
+        terms: ["3 que"],
+      },
+      {
+        reason: `dùng từ bậy`,
+        terms: [
+          /s+h+(i|j)+t+/,
+          /b+(i|j)+t+c+h+(e+s+)*/,
+          /f+u+c*k+/,
+          /a+s+\s*h+(o|0)+l+e+s*/,
+          "faggot",
+          "dit me",
+          "địt mẹ",
+          "du me",
+          "đụ mẹ",
+          "ditme",
+          "đĩ",
+          "điếm",
+          "dit con me",
+          "địt con mẹ",
+          "địt con đĩ",
+          "địt con điếm",
+          "du ma",
+          "đụ má",
+          "chó đẻ",
+          "chó đái",
+          "chó chết",
+          "lồn",
+          /l+(o|0)+z+/,
+          "cai lon",
+          "lon tao",
+          "cặc",
+          "con cac",
+        ],
+      },
+    ];
+
+    const wordleAnswers = await getWordleAnswers();
+
+    if (wordleAnswers.length) {
+      bans.push({
+        reason: "spoil wordle answer",
+        terms: wordleAnswers,
+      });
+    }
+
+    const violations: Violation[] = [];
+    for (const { reason, terms } of bans) {
+      const violatedTerms = [];
+      const regex = buildRegexFromTerms(terms);
+      const matches = [...message.matchAll(regex)];
+      if (matches.length === 0) continue;
+      violatedTerms.push(...matches.map((m) => m[0]));
+      violations.push({
+        reason,
+        terms: violatedTerms,
+      });
+    }
+
+    return violations;
+  }
+
+  private async generateViolationComment(
+    guild: Guild,
+    violations: string[],
+    originalMessage: string
+  ) {
+    const violationString = violations.join(", ");
+    const promptText = `What would you say to a user who violated: ${violationString}? They said: ${originalMessage}`;
+
+    console.log(promptText);
+
+    const genAi = getGenAi({
+      guildId: guild.id,
+      systemInstruction: SYSTEM_INSTRUCTION,
+      membersInstruction: " ",
+    });
+    await genAi.init();
+    const { content } = await generateChatMessageWithGenAi(
+      genAi,
+      { text: promptText },
+      [],
+      guild
+    );
+    return content;
   }
 }
