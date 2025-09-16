@@ -88,7 +88,8 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     // replace nicknames in prompt with username so that the model returns back with references to username
     // then username is replaced with formatted mentions in the final message
     const textWithUsername = messageMentions.reduce((acc, mention) => {
-      return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`);
+      // return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`);
+      return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
     }, text);
 
     const files = [
