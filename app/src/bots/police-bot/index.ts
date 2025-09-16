@@ -21,6 +21,7 @@ import {
   getWordleAnswers,
 } from "./utils";
 
+const SYSTEM_INSTRUCTION = `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật, ngoại từ bản thân bạn. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn không ngần ngại mắng người khác. Bạn phạt người bị report làm việc sai trái. Bạn chỉ dùng emoji ở cuối cùng.`;
 const BOT_REPLY_DELAY = 5000; // 5s
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
@@ -62,16 +63,16 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     await message.channel.sendTyping();
 
     const { channel } = message;
-    const { messageHistory, messageBuffer } = store.getState().chatbot;
+    const { messageHistory, messageBuffer } = store.getState().policeBot;
 
     // get the messages from the user who last messaged
-    const lastMessage = messageBuffer[channel.id].at(-1);
+    const lastMessage = messageBuffer[channel.id]?.at(-1);
     if (!lastMessage) {
       console.log("No message in message buffer");
       return;
     }
 
-    const messages: DiscordMessage[] = messageBuffer[channel.id]
+    const messages: DiscordMessage[] = (messageBuffer[channel.id] ?? [])
       .filter((m) => m.authorId === lastMessage.authorId)
       .toReversed();
 
@@ -94,7 +95,8 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     // replace nicknames in prompt with username so that the model returns back with references to username
     // then username is replaced with formatted mentions in the final message
     const textWithUsername = messageMentions.reduce((acc, mention) => {
-      return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`);
+      // return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`);
+      return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
     }, text);
 
     const files = [
@@ -111,7 +113,10 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     console.log(`promptText: ${prompt.text}`);
 
     try {
-      const genAi = getGenAi({ guildId: message.guildId });
+      const genAi = getGenAi({
+        guildId: message.guildId,
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
         genAi,
@@ -156,7 +161,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       // debug
       console.log(
         `history size: ${
-          store.getState().chatbot.messageHistory[channel.id].length
+          store.getState().policeBot.messageHistory[channel.id].length
         }`
       );
     } catch (error) {
@@ -221,14 +226,13 @@ export default class PoliceBot extends BaseBot {
       const violations = await this.analyzeMessageContent(message.content);
 
       if (violations.length > 0) {
-        this.handleViolatedMessage(message, violations);
+        await this.handleViolatedMessage(message, violations);
+        return;
       }
 
       if (message.mentions.members?.has(this.client.user!.id)) {
-        this.replyToMessage(message);
+        await this.replyToMessage(message);
       }
-
-      // TODO reply to mentioned messages
     } catch (error) {
       console.log("Error handling new message in PoliceBot", error);
     }
@@ -408,7 +412,7 @@ ${censoredMessage
 
     const genAi = getGenAi({
       guildId: guild.id,
-      systemInstruction: `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn chỉ dùng emoji ở cuối cùng.`,
+      systemInstruction: SYSTEM_INSTRUCTION,
       membersInstruction: " ",
     });
     await genAi.init();

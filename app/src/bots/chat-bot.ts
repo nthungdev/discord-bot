@@ -59,13 +59,13 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     const { messageHistory, messageBuffer } = store.getState().chatbot;
 
     // get the messages from the user who last messaged
-    const lastMessage = messageBuffer[channel.id].at(-1);
+    const lastMessage = messageBuffer[channel.id]?.at(-1);
     if (!lastMessage) {
       console.log("No message in message buffer");
       return;
     }
 
-    const messages: DiscordMessage[] = messageBuffer[channel.id]
+    const messages: DiscordMessage[] = (messageBuffer[channel.id] ?? [])
       .filter((m) => m.authorId === lastMessage.authorId)
       .toReversed();
 
