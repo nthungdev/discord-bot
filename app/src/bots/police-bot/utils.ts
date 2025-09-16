@@ -54,8 +54,10 @@ export function censorMessage(message: string, violations: Violation[]) {
 /**
  * Support regex for terms with accented characters and spaces
  */
-export function buildRegexFromTerms(terms: string[]) {
+export function buildRegexFromTerms(terms: (string | RegExp)[]) {
   const escapedTerms = terms.map((term) => {
+    if (term instanceof RegExp) return term.source;
+
     // Escape special regex characters, and normalize spaces
     const escaped = term
       .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
