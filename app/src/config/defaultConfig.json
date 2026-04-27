@@ -1,6 +1,14 @@
 {
   "guildEmojis": {},
   "guildMembers": {},
+  "bots": {
+    "chatBot": {
+      "guilds": {}
+    },
+    "policeBot": {
+      "guilds": {}
+    }
+  },
   "checkInLeaderboard": "",
   "aiSafetySettings": {
     "safetySettings": [

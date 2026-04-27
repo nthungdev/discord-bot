@@ -10,12 +10,12 @@ import * as admin from "firebase-admin";
 // import { CronJob } from 'cron'
 import server from "./server";
 import { validateEnvs } from "./helpers";
-import { Config } from "./config";
+import { Config, ConfigParameter } from "./config";
 import serviceAccountKey from "../service-account.json";
 import PoliceBot from "./bots/police-bot";
 import ChatBot from "./bots/chat-bot";
 
-const { TOKEN, POLICE_BOT_TOKEN, PORT, NODE_ENV } = process.env;
+const { CHATBOT_TOKEN, POLICE_BOT_TOKEN, PORT, NODE_ENV } = process.env;
 const port: number | string = PORT || 3001;
 
 console.info(`Running in ${NODE_ENV || "development"} mode`);
@@ -34,22 +34,20 @@ const main = async () => {
   });
 
   // Init Remote Config
-  await Config.getInstance().init();
-
-  const allowedGuildIds = (process.env.ALLOWED_SERVERS ?? "").split(",");
-  const freeChannelIds = (process.env.FREE_CHANNELS ?? "").split(",");
+  const remoteConfig = Config.getInstance();
+  await remoteConfig.init();
+  const botPolicies = remoteConfig.getConfigValue(ConfigParameter.bots);
 
   const policeBot = new PoliceBot({
     token: POLICE_BOT_TOKEN as string,
-    allowedGuildIds,
+    botConfig: botPolicies.policeBot,
   });
   await policeBot.login();
   policeBot.listenToNewMessages();
 
   const chatBot = new ChatBot({
-    token: TOKEN as string,
-    allowedGuildIds,
-    freeChannelIds,
+    token: CHATBOT_TOKEN as string,
+    botConfig: botPolicies.chatBot,
   });
   await chatBot.login();
   chatBot.listenToNewMessages();

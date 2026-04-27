@@ -171,17 +171,12 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
   }
 };
 
-interface ChatBotConfig extends BaseBotConfig {
-  /** List of channel IDs where the bot is allowed to respond without being mentioning */
-  freeChannelIds?: string[];
-}
-
 export default class ChatBot extends BaseBot {
   protected client: Client;
-  config: ChatBotConfig;
+  config: BaseBotConfig;
   private commands = new Collection<string, AppCommand>();
 
-  constructor(config: ChatBotConfig) {
+  constructor(config: BaseBotConfig) {
     super(config);
     this.config = config;
     this.client = new Client({
@@ -252,15 +247,10 @@ export default class ChatBot extends BaseBot {
     if (![MessageType.Default, MessageType.Reply].includes(message.type))
       return;
 
-    if (!message.inGuild()) return;
-
-    // the bot is not in free channels or being mentioned
-    if (
-      this.config.freeChannelIds &&
-      !this.config.freeChannelIds.includes(message.channelId) &&
-      !message.mentions.members?.has(this.client.user!.id)
-    )
+    if (!this.shouldReplyToMessage(message))
       return;
+
+    if (!message.inGuild()) return;
 
     let refMessage: Message<boolean> | null = null;
     if (message.reference !== null) {
