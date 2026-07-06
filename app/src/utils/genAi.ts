@@ -1,5 +1,5 @@
 import { Guild } from "discord.js";
-import { GenAi, GenAiConfig } from "../genAi";
+import { GenAi, GenAiConfig, VertexGenAi } from "../genAi";
 import { ConfigParameter, Config } from "../config";
 import { GuildMembersConfigMember } from "../config/types";
 import { replaceWithUserMentions } from "../discord/helpers";
@@ -66,7 +66,7 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     systemInstruction,
   };
 
-  const genAi = new GenAi(genAiConfig);
+  const genAi: GenAi = new VertexGenAi(genAiConfig);
 
   return genAi;
 };
