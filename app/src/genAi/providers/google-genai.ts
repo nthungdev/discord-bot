@@ -2,6 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 import { GenAi, GenAiConfig } from "../types";
 import { AiPrompt, AiPromptResponse } from "../../types";
 
+/**
+ * This class implements the GenAi interface for the Google GenAI provider.
+ * It has the following tools enabled:
+ * - Google Search
+ */
 export class MyGoogleGenAI implements GenAi {
   private aiAPI: GoogleGenAI | undefined;
 
@@ -22,6 +27,7 @@ export class MyGoogleGenAI implements GenAi {
       model: this.config.modelId,
       input: prompt.text,
       system_instruction: this.getSystemInstruction(),
+      tools: [{ type: "google_search" }],
     });
 
     return {
