@@ -7,6 +7,7 @@ import {
   AiModelIdConfig,
   AiProjectIdConfig,
   AiSafetySettingsConfig,
+  AiProviderConfig,
   CheckInLeaderboardConfig,
   GuildEmojisConfig,
   GuildMembersConfig,
@@ -20,6 +21,7 @@ export enum ConfigParameter {
   aiProjectId = 'aiProjectId',
   aiModelId = 'aiModelId',
   aiLocationId = 'aiLocationId',
+  aiProvider = 'aiProvider',
   aiSystemInstruction = 'aiSystemInstruction',
   aiMaxOutputTokens = 'aiMaxOutputTokens',
   aiSafetySettings = 'aiSafetySettings',
@@ -49,6 +51,7 @@ export class Config {
         aiProjectId: defaultConfig.aiProjectId,
         aiModelId: defaultConfig.aiModelId,
         aiLocationId: defaultConfig.aiLocationId,
+        aiProvider: defaultConfig.aiProvider,
         aiSystemInstruction: defaultConfig.aiSystemInstruction,
         aiMaxOutputTokens: defaultConfig.aiMaxOutputTokens,
         aiSafetySettings: JSON.stringify(defaultConfig.aiSafetySettings),
@@ -86,6 +89,8 @@ export class Config {
     ? AiApiEndpointConfig
     : T extends ConfigParameter.aiLocationId
     ? AiLocationIdConfig
+    : T extends ConfigParameter.aiProvider
+    ? AiProviderConfig
     : T extends ConfigParameter.aiModelId
     ? AiModelIdConfig
     : T extends ConfigParameter.aiMaxOutputTokens
@@ -102,6 +107,7 @@ export class Config {
       case ConfigParameter.aiLocationId:
       case ConfigParameter.aiModelId:
       case ConfigParameter.aiProjectId:
+      case ConfigParameter.aiProvider:
       case ConfigParameter.aiSystemInstruction:
         return config.getString(key) as never
       case ConfigParameter.aiMaxOutputTokens:

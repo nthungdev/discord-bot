@@ -27,5 +27,6 @@
   "aiModelId": "",
   "aiMaxOutputTokens": 1024,
   "aiLocationId": "",
+  "aiProvider": "google-genai",
   "aiApiEndpoint": ""
 }

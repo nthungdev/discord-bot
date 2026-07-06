@@ -1,2 +1,3 @@
 onlyBuiltDependencies:
+  - '@google/genai'
   - protobufjs
