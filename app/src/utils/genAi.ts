@@ -1,11 +1,10 @@
 import { Guild } from "discord.js";
-import { GenAi, GenAiConfig, VertexGenAi } from "../genAi";
+import { GenAi, GenAiConfig, createGenAi } from "../genAi";
 import { ConfigParameter, Config } from "../config";
 import { GuildMembersConfigMember } from "../config/types";
 import { replaceWithUserMentions } from "../discord/helpers";
 import { AiPrompt, DiscordUser } from "../types";
 import { getEmojiMap, replaceEmojis } from "./emoji";
-import { MyGoogleGenAI } from "../genAi/providers/google-genai";
 
 const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   if (!members) return "";
@@ -30,6 +29,8 @@ export interface GetGenAiConfig extends Partial<GenAiConfig> {
 export const getGenAi = (config: GetGenAiConfig = {}) => {
   const remoteConfig = Config.getInstance();
   const apiKey = config.apiKey;
+  const provider =
+    config.provider || remoteConfig.getConfigValue(ConfigParameter.aiProvider);
   const apiEndpoint =
     config.apiEndpoint ||
     remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);
@@ -59,6 +60,7 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
 
   const genAiConfig: GenAiConfig = {
     apiKey,
+    provider,
     apiEndpoint,
     locationId,
     maxOutputTokens,
@@ -69,8 +71,7 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     systemInstruction,
   };
 
-  // const genAi: GenAi = new VertexGenAi(genAiConfig);
-  const genAi: GenAi = new MyGoogleGenAI(genAiConfig);
+  const genAi: GenAi = createGenAi(genAiConfig);
 
   return genAi;
 };
