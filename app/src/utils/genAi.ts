@@ -13,7 +13,7 @@ const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   const membersString = shuffledMembers
     .map(
       ({ name, gender, username }) =>
-        `${name} (gender: ${gender}, username: @${username})`
+        `${name} (gender: ${gender}, username: @${username})`,
     )
     .join(", ");
   return `Some of the members are: ${membersString}`;
@@ -23,6 +23,8 @@ export interface GetGenAiConfig extends Partial<GenAiConfig> {
   guildId?: string | null;
 }
 
+const DEFAULT_AI_PROVIDER: GetGenAiConfig["provider"] = "google-genai";
+
 /**
  * @return GenAi with config values from Config
  */
@@ -30,7 +32,9 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
   const remoteConfig = Config.getInstance();
   const apiKey = config.apiKey;
   const provider =
-    config.provider || remoteConfig.getConfigValue(ConfigParameter.aiProvider);
+    config.provider ||
+    remoteConfig.getConfigValue(ConfigParameter.aiProvider) ||
+    DEFAULT_AI_PROVIDER;
   const apiEndpoint =
     config.apiEndpoint ||
     remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);
@@ -56,7 +60,8 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
   const members = config.guildId
     ? remoteConfig.getConfigValue(ConfigParameter.guildMembers)[config.guildId]
     : [];
-  const membersInstruction = config.membersInstruction || formatMembersInstruction(members);
+  const membersInstruction =
+    config.membersInstruction || formatMembersInstruction(members);
 
   const genAiConfig: GenAiConfig = {
     apiKey,
@@ -80,7 +85,7 @@ export const generateChatMessageWithGenAi = async (
   genAi: GenAi,
   prompt: AiPrompt,
   users: DiscordUser[],
-  guild?: Guild | null
+  guild?: Guild | null,
 ) => {
   await genAi.init();
   console.log(prompt.files);
