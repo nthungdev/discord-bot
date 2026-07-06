@@ -1,6 +1,7 @@
 import { AiPrompt, AiPromptResponse } from "../types";
 
 export interface GenAiConfig {
+  apiKey?: string;
   apiEndpoint: string;
   projectId: string;
   locationId: string;

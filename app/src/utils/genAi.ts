@@ -5,6 +5,7 @@ import { GuildMembersConfigMember } from "../config/types";
 import { replaceWithUserMentions } from "../discord/helpers";
 import { AiPrompt, DiscordUser } from "../types";
 import { getEmojiMap, replaceEmojis } from "./emoji";
+import { MyGoogleGenAI } from "../genAi/providers/google-genai";
 
 const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   if (!members) return "";
@@ -28,6 +29,7 @@ export interface GetGenAiConfig extends Partial<GenAiConfig> {
  */
 export const getGenAi = (config: GetGenAiConfig = {}) => {
   const remoteConfig = Config.getInstance();
+  const apiKey = config.apiKey;
   const apiEndpoint =
     config.apiEndpoint ||
     remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);
@@ -55,7 +57,8 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     : [];
   const membersInstruction = config.membersInstruction || formatMembersInstruction(members);
 
-  const genAiConfig = {
+  const genAiConfig: GenAiConfig = {
+    apiKey,
     apiEndpoint,
     locationId,
     maxOutputTokens,
@@ -66,7 +69,8 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     systemInstruction,
   };
 
-  const genAi: GenAi = new VertexGenAi(genAiConfig);
+  // const genAi: GenAi = new VertexGenAi(genAiConfig);
+  const genAi: GenAi = new MyGoogleGenAI(genAiConfig);
 
   return genAi;
 };
