@@ -220,16 +220,16 @@ export interface IConversationMemoryService {
 ### 5.2 Bot Integration Points
 
 1. **`app/src/bots/base-bot.ts`**:
-   - Helper getter `this.botId` resolving `this.client.user?.id ?? "default-bot"`.
+   - `BaseBotConfig` requires `id: string`.
+   - `BaseBot` stores `readonly id: string` passed during construction (e.g. `"chatBot"`, `"policeBot"`, or custom instance ID).
 2. **`app/src/bots/chat-bot.ts`**:
    - In `handleMessageTimeout`:
      ```typescript
-     const botId = this.client.user?.id || "chatBot";
-     const history = await memoryService.getHistory(botId, channel.id);
+     const history = await memoryService.getHistory(this.id, channel.id);
      const prompt = { text: textWithUsername, files, history };
      ...
      await memoryService.addTurn(
-       botId,
+       this.id,
        channel.id,
        text,
        content || "?",

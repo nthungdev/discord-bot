@@ -2,20 +2,19 @@ import { Client, Events, Interaction, Message } from "discord.js";
 import { BotConfig } from "../config/types";
 
 export interface BaseBotConfig {
+  id: string;
   token: string;
   botConfig: BotConfig;
 }
 
 export default abstract class BaseBot {
+  readonly id: string;
   config: BaseBotConfig;
   protected abstract client: Client;
 
   constructor(config: BaseBotConfig) {
     this.config = config;
-  }
-
-  public get botId(): string {
-    return this.client.user?.id ?? "default-bot";
+    this.id = config.id;
   }
 
   protected abstract handleNewMessage(message: Message): Promise<void>;

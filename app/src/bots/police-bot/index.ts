@@ -309,7 +309,7 @@ export default class PoliceBot extends BaseBot {
     setMessageTimeout({
       channelId: message.channelId,
       timeout: setTimeout(
-        () => handleMessageTimeout(message, this.botId),
+        () => handleMessageTimeout(message, this.id),
         BOT_REPLY_DELAY
       ),
     });
