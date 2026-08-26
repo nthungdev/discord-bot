@@ -10,7 +10,8 @@ import {
 import BaseBot, { BaseBotConfig } from "./../base-bot";
 import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
 import { policeBotActions, store } from "../../store";
-import { AiPrompt, DiscordMessage } from "../../types";
+import { AiPrompt, DiscordMessage, UserActorInfo } from "../../types";
+import { memoryService } from "../../services/memory";
 import { splitEndingEmojis } from "../../utils/emoji";
 import { isAxiosError } from "axios";
 import { Violation } from "./types";
@@ -52,7 +53,10 @@ const clearMessageTimeout = (channelId: string) => {
   clearTimeout(messageTimeout[channelId]);
 };
 
-const handleMessageTimeout = async (message: Message<boolean>) => {
+const handleMessageTimeout = async (
+  message: Message<boolean>,
+  botId: string
+) => {
   console.log(`---handleMessageTimeout---`);
 
   try {
@@ -63,7 +67,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     await message.channel.sendTyping();
 
     const { channel } = message;
-    const { messageHistory, messageBuffer } = store.getState().policeBot;
+    const { messageBuffer } = store.getState().policeBot;
 
     // get the messages from the user who last messaged
     const lastMessage = messageBuffer[channel.id]?.at(-1);
@@ -104,10 +108,12 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
       ...messages.flatMap((m) => m.reference?.attachments ?? []),
     ];
 
+    const history = await memoryService.getHistory(botId, channel.id);
+
     const prompt = {
       text: textWithUsername,
       files,
-      history: messageHistory[channel.id] || [],
+      history,
     } as AiPrompt;
 
     console.log(`promptText: ${prompt.text}`);
@@ -150,21 +156,25 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
         await channel.send(endingEmoji);
       }
 
-      // save conversation into history
-      store.dispatch(
-        policeBotActions.addMessageHistory({
-          channelId: channel.id,
-          userMessage: text,
-          botMessage: content || "?",
-        })
+      // save conversation into persistent memory
+      const actor: UserActorInfo = {
+        userId: lastMessage.authorId,
+        username: lastMessage.authorUsername,
+        displayName: lastMessage.authorDisplayName,
+      };
+
+      await memoryService.addTurn(
+        botId,
+        channel.id,
+        text,
+        content || "?",
+        actor,
+        message.guildId ?? undefined,
+        "policeBot"
       );
 
       // debug
-      console.log(
-        `history size: ${
-          store.getState().policeBot.messageHistory[channel.id].length
-        }`
-      );
+      console.log(`history updated for botId: ${botId}, channel: ${channel.id}`);
     } catch (error) {
       console.error("Error generateContent");
       if (isAxiosError(error)) {
@@ -298,7 +308,10 @@ export default class PoliceBot extends BaseBot {
     clearMessageTimeout(message.channelId);
     setMessageTimeout({
       channelId: message.channelId,
-      timeout: setTimeout(() => handleMessageTimeout(message), BOT_REPLY_DELAY),
+      timeout: setTimeout(
+        () => handleMessageTimeout(message, this.botId),
+        BOT_REPLY_DELAY
+      ),
     });
   }
 

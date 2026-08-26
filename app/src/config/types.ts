@@ -51,3 +51,5 @@ export type AiLocationIdConfig = string
 export type AiProviderConfig = 'google-genai' | 'vertex'
 
 export type AiMaxOutputTokens = number
+export type AiMaxConversationHistoryConfig = number
+export type MemoryStoreTypeConfig = "local" | "firestore"

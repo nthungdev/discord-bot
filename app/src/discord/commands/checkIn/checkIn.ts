@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { DiscordCommand } from "../../constants";
-import { chatbotActions, store } from "../../../store";
 import { generateChatMessageWithGenAi, getGenAi } from "../../../utils/genAi";
 import { AiPrompt } from "../../../types";
+import { memoryService } from "../../../services/memory";
 
 enum CommandCheckInOption {
   what = "what",
@@ -85,12 +85,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const message = `*${interaction.user.displayName} checked in ${purpose}*\n${content}`;
     await interaction.editReply(message);
 
-    store.dispatch(
-      chatbotActions.addMessageHistory({
-        channelId: interaction.channelId,
-        userMessage: prompt.text,
-        botMessage: content,
-      }),
+    await memoryService.addTurn(
+      interaction.client.user.id,
+      interaction.channelId,
+      prompt.text,
+      content,
+      {
+        userId: interaction.user.id,
+        username: interaction.user.username,
+        displayName: interaction.user.displayName,
+      },
+      interaction.guildId ?? undefined,
+      "chatBot"
     );
   } catch (error: unknown) {
     console.error(`Failed to include Slavegon's comment`, error);

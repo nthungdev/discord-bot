@@ -14,6 +14,10 @@ export default abstract class BaseBot {
     this.config = config;
   }
 
+  public get botId(): string {
+    return this.client.user?.id ?? "default-bot";
+  }
+
   protected abstract handleNewMessage(message: Message): Promise<void>;
   protected abstract handleNewInteraction(
     interaction: Interaction
