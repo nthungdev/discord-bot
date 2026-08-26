@@ -17,3 +17,7 @@ There are plans to add more directories to the root for other features; therefor
 - Customization
   - Define instructions to how the bot would respond to messages.
   - Define members' information (nickname, username, gender) so the bot can refer to and mention in messages.
+
+## Testing
+
+Testing is powered by [Vitest](https://vitest.dev/) with co-located unit tests (`app/src/**/*.test.ts`), integration suites (`app/tests/integration/`), and E2E simulation suites (`app/tests/e2e/`). Run `pnpm --prefix app test` to execute all tests.

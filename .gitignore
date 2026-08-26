@@ -4,3 +4,4 @@
 .test-data
 build
 node_modules
+coverage
