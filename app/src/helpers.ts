@@ -1,6 +1,6 @@
 export const validateEnvs = () => {
   const requiredEnvs = [
-    "TOKEN",
+    "CHATBOT_TOKEN",
     "POLICE_BOT_TOKEN",
     // 'SLEEP_REMINDER_SERVER_ID',
     "AI_API_KEY",

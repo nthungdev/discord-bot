@@ -17,6 +17,25 @@ export interface GuildMembersConfig {
   [guildId: string]: GuildMembersConfigMember[]
 }
 
+export interface BotGuildConfig {
+  replyChannelIds: string[]
+  ignoredChannelIds: string[]
+  respondToMentions: boolean
+}
+
+export interface BotGuildsConfig {
+  [guildId: string]: BotGuildConfig
+}
+
+export interface BotConfig {
+  guilds: BotGuildsConfig
+}
+
+export interface BotsConfig {
+  chatBot: BotConfig
+  policeBot: BotConfig
+}
+
 export interface AiSafetySettingsConfig {
   safetySettings: {
     category: string,

@@ -2,7 +2,7 @@
 
 ## Setup
 
-These 4 setup steps are required to run the chat bot.
+These 5 setup steps are required to run the chat bot.
 
 ### 1. Create Discord application
 
@@ -26,14 +26,54 @@ Create a `.env.development` file at [./app](./) with:
 
 ```env
 CLIENT_ID=<Discord application id>
-TOKEN=<the bot's token>
+CHATBOT_TOKEN=<the bot's token>
+POLICE_BOT_TOKEN=<the police bot token>
 AI_API_KEY=<Google Cloud API key>
 BEARER_TOKEN=<shared key to make requests to private RESTful APIs routes>
-ALLOWED_SERVERS=<comma list of server ids that the chatbot will respond to when mentioned>
-FREE_CHANNELS=<OMITTABLE comma list of channel ids that the chatbot will respond to without being mentioned>
 ```
 
 It's up to you to make up the value for `BEARER_TOKEN`. It should be something hard to guess so that only authorized users can make requests to the private routes.
+
+### 5. Configure bot routing
+
+Bot routing is configured per bot and per Discord server through Firebase Remote Config.
+
+Use [./src/config/bots.example.json](./src/config/bots.example.json) as the source for the `bots` Remote Config parameter. The shape is:
+
+```json
+{
+	"chatBot": {
+		"guilds": {
+			"<guild-id>": {
+				"replyChannelIds": ["<channel-id>"],
+				"ignoredChannelIds": ["<channel-id>"],
+				"respondToMentions": true
+			}
+		}
+	},
+	"policeBot": {
+		"guilds": {
+			"<guild-id>": {
+				"replyChannelIds": [],
+				"ignoredChannelIds": ["<channel-id>"],
+				"respondToMentions": true
+			}
+		}
+	}
+}
+```
+
+Rules:
+
+- `guilds` contains the guild-specific routing rules for a bot.
+- If a guild is missing from a bot's `guilds` config, that bot ignores the guild.
+- `replyChannelIds` are channels where the bot can reply without being mentioned.
+- `ignoredChannelIds` are channels where the bot never processes messages.
+- `respondToMentions` controls whether the bot replies when explicitly mentioned.
+
+This structure leaves room for future bot-level settings alongside `guilds`, without reshaping the guild policy model again.
+
+There is also a code default for this parameter in [./src/config/defaultConfig.json](./src/config/defaultConfig.json), but the intended runtime source is Firebase Remote Config.
 
 ## Get Started
 

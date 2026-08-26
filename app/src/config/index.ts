@@ -6,8 +6,9 @@ import {
   AiMaxOutputTokens,
   AiModelIdConfig,
   AiProjectIdConfig,
-  AiSafetySettingsConfig,
   AiProviderConfig,
+  AiSafetySettingsConfig,
+  BotsConfig,
   CheckInLeaderboardConfig,
   GuildEmojisConfig,
   GuildMembersConfig,
@@ -16,6 +17,7 @@ import {
 export enum ConfigParameter {
   guildEmojis = 'guildEmojis',
   guildMembers = 'guildMembers',
+  bots = 'bots',
   checkInLeaderboard = 'checkInLeaderboard',
   aiApiEndpoint = 'aiApiEndpoint',
   aiProjectId = 'aiProjectId',
@@ -46,6 +48,7 @@ export class Config {
       defaultConfig: {
         guildEmojis: JSON.stringify(defaultConfig.guildEmojis),
         guildMembers: JSON.stringify(defaultConfig.guildMembers),
+        bots: JSON.stringify(defaultConfig.bots),
         checkInLeaderboard: defaultConfig.checkInLeaderboard,
         aiApiEndpoint: defaultConfig.aiApiEndpoint,
         aiProjectId: defaultConfig.aiProjectId,
@@ -79,6 +82,8 @@ export class Config {
     key: T
   ): T extends ConfigParameter.guildEmojis
     ? GuildEmojisConfig
+    : T extends ConfigParameter.bots
+    ? BotsConfig
     : T extends ConfigParameter.checkInLeaderboard
     ? CheckInLeaderboardConfig
     : T extends ConfigParameter.guildMembers
@@ -100,6 +105,7 @@ export class Config {
     switch (key) {
       case ConfigParameter.guildEmojis:
       case ConfigParameter.guildMembers:
+      case ConfigParameter.bots:
       case ConfigParameter.aiSafetySettings:
         return JSON.parse(config.getValue(key).asString())
       case ConfigParameter.checkInLeaderboard:

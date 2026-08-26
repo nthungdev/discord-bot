@@ -208,7 +208,7 @@ export default class PoliceBot extends BaseBot {
     try {
       if (message.author.bot) return;
 
-      if (!message.inGuild()) return;
+      if (!this.shouldHandleMessage(message)) return;
 
       if (!message.channel.isSendable()) {
         console.log("Channel is not sendable, skipping message handling");
@@ -231,7 +231,7 @@ export default class PoliceBot extends BaseBot {
         return;
       }
 
-      if (message.mentions.members?.has(this.client.user!.id)) {
+      if (this.shouldReplyToMessage(message)) {
         await this.replyToMessage(message);
       }
     } catch (error) {
@@ -239,7 +239,11 @@ export default class PoliceBot extends BaseBot {
     }
   }
 
-  private async replyToMessage(message: Message<true>) {
+  private async replyToMessage(message: Message<boolean>) {
+    if (!message.inGuild()) {
+      return;
+    }
+
     let refMessage: Message<boolean> | null = null;
     if (message.reference !== null) {
       refMessage = await message.channel.messages.fetch(
@@ -299,9 +303,13 @@ export default class PoliceBot extends BaseBot {
   }
 
   private async handleViolatedMessage(
-    message: Message<true>,
+    message: Message<boolean>,
     violations: Violation[]
   ) {
+    if (!message.inGuild()) {
+      return;
+    }
+
     const censoredMessage = censorMessage(message.content, violations);
 
     await message.channel.sendTyping();
