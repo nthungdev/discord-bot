@@ -73,6 +73,10 @@ discord-bot/
   - `axios` & `axios-cache-interceptor`
   - `dotenv`
   - `firebase-admin`
+- **Testing Tech Stack**:
+  - `vitest` (v4+): Unified test runner for unit, integration, and E2E suites
+  - `@vitest/coverage-v8`: Native code coverage
+  - `supertest`: HTTP endpoint testing for Express API
 - **Linting & Code Style**: ESLint v9 (`eslint.config.mjs`) with `typescript-eslint`
 
 ---
@@ -94,6 +98,27 @@ pnpm --prefix app dev
 
 # Start development with inspect enabled (debugger on port 9229)
 pnpm --prefix app debug
+```
+
+### Testing
+```bash
+# Run all tests
+pnpm --prefix app test
+
+# Run tests in interactive watch mode
+pnpm --prefix app test:watch
+
+# Run co-located unit tests only
+pnpm --prefix app test:unit
+
+# Run integration tests only
+pnpm --prefix app test:integration
+
+# Run E2E simulation tests only
+pnpm --prefix app test:e2e
+
+# Generate test coverage report
+pnpm --prefix app test:coverage
 ```
 
 ### Build & Type Checking
@@ -132,6 +157,12 @@ pnpm --prefix app docker-prod
 - Add type declarations for new environment variables in `app/global.d.ts`.
 - Export shared interfaces/types from their respective domain directories or `src/types.ts`.
 
+### Testing Conventions & Structure
+- **Unit Tests**: Co-located in the same directory as the source files being tested under `app/src/` (e.g., `src/utils/emoji.test.ts`, `src/features/chatbot.test.ts`).
+- **Integration Tests**: Located under `app/tests/integration/` (e.g. testing Express routes and middleware with Supertest).
+- **E2E Simulation Tests**: Located under `app/tests/e2e/` (e.g. simulated Discord event lifecycle and complete API flow).
+- **Test Fixtures & Setup**: Shared mocks and global setup live in `app/tests/fixtures/` and `app/tests/setup.ts`.
+
 ### Bot Architecture
 - All Discord bots must extend `BaseBot` (`app/src/bots/base-bot.ts`).
 - Event listeners must be registered cleanly in the bot initialization lifecycle.
@@ -157,6 +188,7 @@ pnpm --prefix app docker-prod
 When implementing changes in this codebase, AI agents must adhere to the following rules:
 
 1. **Verify Before Completing**:
+   - Always run `pnpm --prefix app test` and ensure all tests pass.
    - Always run `pnpm --prefix app lint` and ensure there are no ESLint errors or warnings.
    - Always run `pnpm --prefix app build` (or `tsc --noEmit`) and verify that TypeScript compiles without errors.
 2. **Preserve Documentation & Comments**:

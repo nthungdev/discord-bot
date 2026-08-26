@@ -108,6 +108,34 @@ pnpm build
 pnpm start
 ```
 
+### Test
+
+The project uses [Vitest](https://vitest.dev/) for unit, integration, and end-to-end testing, alongside [Supertest](https://github.com/ladjs/supertest) for HTTP API validation:
+
+- **Unit Tests**: Co-located directly alongside source files in `src/` (e.g. `src/utils/emoji.test.ts`).
+- **Integration Tests**: Placed under `tests/integration/`.
+- **E2E Tests**: Placed under `tests/e2e/`.
+
+```shell
+# Run all tests
+pnpm test
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Run unit tests only
+pnpm test:unit
+
+# Run integration tests only
+pnpm test:integration
+
+# Run E2E tests only
+pnpm test:e2e
+
+# Generate code coverage report
+pnpm test:coverage
+```
+
 ### Debug with VS Code
 
 There are 2 debug configurations for VS Code
