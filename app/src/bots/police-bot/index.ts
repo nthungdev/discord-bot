@@ -114,6 +114,7 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
 
     try {
       const genAi = getGenAi({
+        apiKey: process.env.AI_API_KEY,
         guildId: message.guildId,
         systemInstruction: SYSTEM_INSTRUCTION,
       });
@@ -416,6 +417,7 @@ ${censoredMessage
     console.log(promptText);
 
     const genAi = getGenAi({
+      apiKey: process.env.AI_API_KEY,
       guildId: guild.id,
       systemInstruction: SYSTEM_INSTRUCTION,
       membersInstruction: " ",

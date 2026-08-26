@@ -1,0 +1,20 @@
+{
+  "chatBot": {
+    "guilds": {
+      "<guild-id>": {
+        "replyChannelIds": ["<channel-id>"],
+        "ignoredChannelIds": ["<channel-id>"],
+        "respondToMentions": true
+      }
+    }
+  },
+  "policeBot": {
+    "guilds": {
+      "<guild-id>": {
+        "replyChannelIds": [],
+        "ignoredChannelIds": ["<channel-id>"],
+        "respondToMentions": true
+      }
+    }
+  }
+}

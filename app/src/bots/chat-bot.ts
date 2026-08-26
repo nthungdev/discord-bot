@@ -106,7 +106,10 @@ const handleMessageTimeout = async (message: Message<boolean>) => {
     console.log(`promptText: ${prompt.text}`);
 
     try {
-      const genAi = getGenAi({ guildId: message.guildId });
+      const genAi = getGenAi({
+        apiKey: process.env.AI_API_KEY,
+        guildId: message.guildId
+      });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
         genAi,

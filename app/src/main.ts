@@ -29,7 +29,7 @@ const main = async () => {
   // Init Firebase
   admin.initializeApp({
     credential: admin.credential.cert(
-      serviceAccountKey as admin.ServiceAccount
+      serviceAccountKey as admin.ServiceAccount,
     ),
   });
 
@@ -38,12 +38,16 @@ const main = async () => {
   await remoteConfig.init();
   const botPolicies = remoteConfig.getConfigValue(ConfigParameter.bots);
 
-  const policeBot = new PoliceBot({
-    token: POLICE_BOT_TOKEN as string,
-    botConfig: botPolicies.policeBot,
-  });
-  await policeBot.login();
-  policeBot.listenToNewMessages();
+  if (!POLICE_BOT_TOKEN) {
+    console.error("POLICE_BOT_TOKEN is not defined");
+  } else {
+    const policeBot = new PoliceBot({
+      token: POLICE_BOT_TOKEN as string,
+      botConfig: botPolicies.policeBot,
+    });
+    await policeBot.login();
+    policeBot.listenToNewMessages();
+  }
 
   const chatBot = new ChatBot({
     token: CHATBOT_TOKEN as string,

@@ -1,5 +1,5 @@
 import { Guild } from "discord.js";
-import { GenAi, GenAiConfig } from "../genAi";
+import { GenAi, GenAiConfig, createGenAi } from "../genAi";
 import { ConfigParameter, Config } from "../config";
 import { GuildMembersConfigMember } from "../config/types";
 import { replaceWithUserMentions } from "../discord/helpers";
@@ -13,7 +13,7 @@ const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
   const membersString = shuffledMembers
     .map(
       ({ name, gender, username }) =>
-        `${name} (gender: ${gender}, username: @${username})`
+        `${name} (gender: ${gender}, username: @${username})`,
     )
     .join(", ");
   return `Some of the members are: ${membersString}`;
@@ -23,11 +23,18 @@ export interface GetGenAiConfig extends Partial<GenAiConfig> {
   guildId?: string | null;
 }
 
+const DEFAULT_AI_PROVIDER: GetGenAiConfig["provider"] = "google-genai";
+
 /**
  * @return GenAi with config values from Config
  */
 export const getGenAi = (config: GetGenAiConfig = {}) => {
   const remoteConfig = Config.getInstance();
+  const apiKey = config.apiKey;
+  const provider =
+    config.provider ||
+    remoteConfig.getConfigValue(ConfigParameter.aiProvider) ||
+    DEFAULT_AI_PROVIDER;
   const apiEndpoint =
     config.apiEndpoint ||
     remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);
@@ -53,9 +60,12 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
   const members = config.guildId
     ? remoteConfig.getConfigValue(ConfigParameter.guildMembers)[config.guildId]
     : [];
-  const membersInstruction = config.membersInstruction || formatMembersInstruction(members);
+  const membersInstruction =
+    config.membersInstruction || formatMembersInstruction(members);
 
-  const genAiConfig = {
+  const genAiConfig: GenAiConfig = {
+    apiKey,
+    provider,
     apiEndpoint,
     locationId,
     maxOutputTokens,
@@ -66,7 +76,7 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     systemInstruction,
   };
 
-  const genAi = new GenAi(genAiConfig);
+  const genAi: GenAi = createGenAi(genAiConfig);
 
   return genAi;
 };
@@ -75,7 +85,7 @@ export const generateChatMessageWithGenAi = async (
   genAi: GenAi,
   prompt: AiPrompt,
   users: DiscordUser[],
-  guild?: Guild | null
+  guild?: Guild | null,
 ) => {
   await genAi.init();
   console.log(prompt.files);

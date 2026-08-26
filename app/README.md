@@ -2,7 +2,7 @@
 
 ## Setup
 
-These 4 setup steps are required to run the chat bot.
+These 5 setup steps are required to run the chat bot.
 
 ### 1. Create Discord application
 
@@ -38,7 +38,7 @@ It's up to you to make up the value for `BEARER_TOKEN`. It should be something h
 
 Bot routing is configured per bot and per Discord server through Firebase Remote Config.
 
-Use [./config/bots.example.json](./config/bots.example.json) as the source for the `bots` Remote Config parameter. The shape is:
+Use [./src/config/bots.example.json](./src/config/bots.example.json) as the source for the `bots` Remote Config parameter. The shape is:
 
 ```json
 {
