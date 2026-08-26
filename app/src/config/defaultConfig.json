@@ -36,5 +36,7 @@
   "aiMaxOutputTokens": 1024,
   "aiLocationId": "",
   "aiProvider": "google-genai",
-  "aiApiEndpoint": ""
+  "aiApiEndpoint": "",
+  "aiMaxConversationHistory": 60,
+  "memoryStoreType": "local"
 }

@@ -42,6 +42,7 @@ const main = async () => {
     console.error("POLICE_BOT_TOKEN is not defined");
   } else {
     const policeBot = new PoliceBot({
+      id: "policeBot",
       token: POLICE_BOT_TOKEN as string,
       botConfig: botPolicies.policeBot,
     });
@@ -50,6 +51,7 @@ const main = async () => {
   }
 
   const chatBot = new ChatBot({
+    id: "chatBot",
     token: CHATBOT_TOKEN as string,
     botConfig: botPolicies.chatBot,
   });

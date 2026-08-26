@@ -1,2 +1,6 @@
 **/.DS_Store
 .pnpm-store
+.data
+.test-data
+build
+node_modules

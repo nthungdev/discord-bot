@@ -1,8 +1,37 @@
 import { ChatInputCommandInteraction } from "discord.js";
 
+export type UserActorInfo = {
+  userId?: string;
+  username?: string;
+  displayName?: string;
+};
+
 export type AiChatMessage = {
   author: "bot" | "user";
   content: string;
+  userId?: string;
+  username?: string;
+  displayName?: string;
+  timestamp?: number;
+};
+
+export type StoredAiChatMessage = {
+  author: "bot" | "user";
+  content: string;
+  userId?: string;
+  username?: string;
+  displayName?: string;
+  timestamp: number;
+};
+
+export type ConversationDocument = {
+  botId: string;
+  botType?: string;
+  channelId: string;
+  guildId?: string;
+  messages: StoredAiChatMessage[];
+  updatedAt: number | FirebaseFirestore.FieldValue;
+  createdAt?: number | FirebaseFirestore.FieldValue;
 };
 
 export type AiPromptResponse = {

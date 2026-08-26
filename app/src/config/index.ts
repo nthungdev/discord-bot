@@ -3,6 +3,7 @@ import defaultConfig from './defaultConfig.json'
 import {
   AiApiEndpointConfig,
   AiLocationIdConfig,
+  AiMaxConversationHistoryConfig,
   AiMaxOutputTokens,
   AiModelIdConfig,
   AiProjectIdConfig,
@@ -12,6 +13,7 @@ import {
   CheckInLeaderboardConfig,
   GuildEmojisConfig,
   GuildMembersConfig,
+  MemoryStoreTypeConfig,
 } from './types'
 
 export enum ConfigParameter {
@@ -27,6 +29,8 @@ export enum ConfigParameter {
   aiSystemInstruction = 'aiSystemInstruction',
   aiMaxOutputTokens = 'aiMaxOutputTokens',
   aiSafetySettings = 'aiSafetySettings',
+  aiMaxConversationHistory = 'aiMaxConversationHistory',
+  memoryStoreType = 'memoryStoreType',
 }
 
 export class Config {
@@ -58,6 +62,8 @@ export class Config {
         aiSystemInstruction: defaultConfig.aiSystemInstruction,
         aiMaxOutputTokens: defaultConfig.aiMaxOutputTokens,
         aiSafetySettings: JSON.stringify(defaultConfig.aiSafetySettings),
+        aiMaxConversationHistory: defaultConfig.aiMaxConversationHistory,
+        memoryStoreType: defaultConfig.memoryStoreType,
       },
     })
   }
@@ -100,6 +106,10 @@ export class Config {
     ? AiModelIdConfig
     : T extends ConfigParameter.aiMaxOutputTokens
     ? AiMaxOutputTokens
+    : T extends ConfigParameter.aiMaxConversationHistory
+    ? AiMaxConversationHistoryConfig
+    : T extends ConfigParameter.memoryStoreType
+    ? MemoryStoreTypeConfig
     : AiProjectIdConfig {
     const config = this.getConfig()
     switch (key) {
@@ -115,8 +125,10 @@ export class Config {
       case ConfigParameter.aiProjectId:
       case ConfigParameter.aiProvider:
       case ConfigParameter.aiSystemInstruction:
+      case ConfigParameter.memoryStoreType:
         return config.getString(key) as never
       case ConfigParameter.aiMaxOutputTokens:
+      case ConfigParameter.aiMaxConversationHistory:
         return config.getNumber(key) as never
       default:
         throw new Error('Invalid key')
