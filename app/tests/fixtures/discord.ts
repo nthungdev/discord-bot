@@ -10,6 +10,15 @@ import {
   type GuildMember,
 } from "discord.js";
 
+const createMockCollection = <K, V>(initialEntries: [K, V][] = []) => {
+  const map = new Map<K, V>(initialEntries);
+  Object.assign(map, {
+    toJSON: () => Array.from(map.values()),
+    first: () => Array.from(map.values())[0],
+  });
+  return map;
+};
+
 export const createMockUser = (overrides?: Record<string, unknown>): User => {
   return {
     id: "user-123",
@@ -22,22 +31,26 @@ export const createMockUser = (overrides?: Record<string, unknown>): User => {
 };
 
 export const createMockGuild = (overrides?: Record<string, unknown>): Guild => {
-  const memberMap = new Map();
-  memberMap.set("user-123", {
-    id: "user-123",
-    nickname: "Test User",
-    displayName: "Test User",
-    user: createMockUser(),
-  });
+  const memberMap = createMockCollection([
+    [
+      "user-123",
+      {
+        id: "user-123",
+        nickname: "Test User",
+        displayName: "Test User",
+        user: createMockUser(),
+      },
+    ],
+  ]);
 
   return {
     id: "guild-123",
     name: "Test Guild",
     emojis: {
-      cache: new Map(),
+      cache: createMockCollection(),
     },
     channels: {
-      cache: new Map(),
+      cache: createMockCollection(),
     },
     members: {
       cache: memberMap,
@@ -56,6 +69,9 @@ export const createMockChannel = (
     isSendable: vi.fn().mockReturnValue(true),
     send: vi.fn().mockResolvedValue({}),
     sendTyping: vi.fn().mockResolvedValue({}),
+    messages: {
+      fetch: vi.fn().mockResolvedValue(createMockCollection()),
+    },
     ...overrides,
   } as unknown as TextChannel;
 };
@@ -140,10 +156,10 @@ export const createMockClient = (
   return {
     user,
     channels: {
-      cache: new Map(),
+      cache: createMockCollection(),
     },
     guilds: {
-      cache: new Map(),
+      cache: createMockCollection(),
     },
     on: vi.fn().mockReturnThis(),
     once: vi.fn().mockReturnThis(),
