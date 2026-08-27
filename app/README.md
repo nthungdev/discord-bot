@@ -18,7 +18,7 @@ Save the API Key to be used as the environment variable.
 
 Follow Google Cloud documentation to create a new service account: <https://cloud.google.com/iam/docs/service-accounts-create>.
 
-Download the service account key (JSON file) and save it as `service-account-key.json` at [./app](./).
+Download the service account key (JSON file) and save it as `service-account.json` at [./app](./) (see [./service-account.example.json](./service-account.example.json) for reference).
 
 ### 4. Define environment variables
 
