@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --prefix app install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm --prefix app lint
+
+  build:
+    name: Build & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --prefix app install --frozen-lockfile
+
+      - name: Build TypeScript project
+        run: pnpm --prefix app build
+
+  test:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --prefix app install --frozen-lockfile
+
+      - name: Run tests with coverage
+        run: pnpm --prefix app test:coverage
+
+      - name: Generate Coverage Summary
+        if: always()
+        run: |
+          node -e '
+          const fs = require("fs");
+          const summaryPath = "app/coverage/coverage-summary.json";
+          if (fs.existsSync(summaryPath)) {
+            const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+            const total = summary.total;
+            const formatPct = (pct) => `${pct.toFixed(2)}%`;
+            const md = [
+              "## 📊 Test Coverage Summary",
+              "",
+              "| Category | Covered / Total | Percentage |",
+              "| :--- | :--- | :--- |",
+              `| **Lines** | ${total.lines.covered} / ${total.lines.total} | ${formatPct(total.lines.pct)} |`,
+              `| **Statements** | ${total.statements.covered} / ${total.statements.total} | ${formatPct(total.statements.pct)} |`,
+              `| **Functions** | ${total.functions.covered} / ${total.functions.total} | ${formatPct(total.functions.pct)} |`,
+              `| **Branches** | ${total.branches.covered} / ${total.branches.total} | ${formatPct(total.branches.pct)} |`,
+              ""
+            ].join("\n");
+            if (process.env.GITHUB_STEP_SUMMARY) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+            }
+            console.log(md);
+          } else {
+            console.log("No coverage summary file found at " + summaryPath);
+          }
+          '
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: app/coverage/
+          if-no-files-found: warn
