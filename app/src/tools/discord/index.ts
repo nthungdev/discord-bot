@@ -3,7 +3,10 @@ import {
   discordGetServerInfoTool,
   discordGetServerOwnerTool,
 } from "./server";
-import { discordGetMemberInfoTool } from "./member";
+import {
+  discordGetMemberInfoTool,
+  discordSearchMembersTool,
+} from "./member";
 import {
   discordListChannelsTool,
   discordGetChannelInfoTool,
@@ -19,7 +22,9 @@ export const discordTools: ToolDefinition[] = [
   discordGetServerInfoTool as ToolDefinition,
   discordGetServerOwnerTool as ToolDefinition,
   discordGetMemberInfoTool as ToolDefinition,
+  discordSearchMembersTool as unknown as ToolDefinition,
   discordListChannelsTool as ToolDefinition,
   discordGetChannelInfoTool as ToolDefinition,
   discordListRolesTool as ToolDefinition,
 ];
+
