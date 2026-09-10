@@ -21,7 +21,7 @@ export function createMemoryStore(
       ConfigParameter.memoryStoreType
     ) as MemoryStoreType;
   } catch {
-    // Remote config might not be initialized yet
+    console.warn("Remote config might not be initialized yet")
   }
 
   const selectedType: MemoryStoreType =
@@ -190,7 +190,18 @@ export class ConversationMemoryService {
   }
 }
 
-export const memoryService = new ConversationMemoryService();
+let _memoryService: ConversationMemoryService | undefined;
+
+/** Returns the shared ConversationMemoryService, creating it on first access.
+ *  Must be called after Config has been initialized so that the memory store
+ *  type can be resolved correctly from remote config.
+ */
+export function getMemoryService(): ConversationMemoryService {
+  if (!_memoryService) {
+    _memoryService = new ConversationMemoryService();
+  }
+  return _memoryService;
+}
 export * from "./types";
 export * from "./local-store";
 export * from "./firestore-store";

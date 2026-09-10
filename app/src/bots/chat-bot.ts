@@ -11,7 +11,7 @@ import BaseBot, { BaseBotConfig } from "./base-bot";
 import { chatbotActions, store } from "../store";
 import { AiPrompt, AppCommand, DiscordMessage, UserActorInfo } from "../types";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
-import { memoryService } from "../services/memory";
+import { getMemoryService } from "../services/memory";
 import { splitEndingEmojis } from "../utils/emoji";
 import { isAxiosError } from "axios";
 import { parseCommands } from "../discord/helpers";
@@ -101,7 +101,7 @@ const handleMessageTimeout = async (
       ...messages.flatMap((m) => m.reference?.attachments ?? []),
     ];
 
-    const history = await memoryService.getHistory(botId, channel.id);
+    const history = await getMemoryService().getHistory(botId, channel.id);
 
     const prompt = {
       text: textWithUsername,
@@ -155,7 +155,7 @@ const handleMessageTimeout = async (
         displayName: lastMessage.authorDisplayName,
       };
 
-      await memoryService.addTurn(
+      await getMemoryService().addTurn(
         botId,
         channel.id,
         text,
