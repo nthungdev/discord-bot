@@ -4,6 +4,9 @@ node_modules
 build
 coverage
 service-account.json
+config.json
+config.*.json
+!config.example.json
 predict-request.json
 /config
 /tools

@@ -1,0 +1,66 @@
+{
+  "guildEmojis": {
+    "YOUR_GUILD_ID": {
+      "😀": ["custom_emoji_name_1", "custom_emoji_name_2"]
+    }
+  },
+  "guildMembers": {
+    "YOUR_GUILD_ID": [
+      {
+        "username": "example_username",
+        "name": "Display Name",
+        "gender": "male"
+      }
+    ]
+  },
+  "bots": {
+    "chatBot": {
+      "guilds": {
+        "YOUR_GUILD_ID": {
+          "replyChannelIds": ["YOUR_CHANNEL_ID_1", "YOUR_CHANNEL_ID_2"],
+          "ignoredChannelIds": [],
+          "respondToMentions": true
+        }
+      }
+    },
+    "policeBot": {
+      "guilds": {
+        "YOUR_GUILD_ID": {
+          "replyChannelIds": [],
+          "ignoredChannelIds": [],
+          "respondToMentions": true
+        }
+      }
+    }
+  },
+  "checkInLeaderboard": "",
+  "aiSafetySettings": {
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_HATE_SPEECH",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
+  },
+  "aiSystemInstruction": "You are a helpful Discord chatbot.",
+  "aiProjectId": "your-gcp-project-id",
+  "aiModelId": "gemini-3.6-flash",
+  "aiMaxOutputTokens": 8192,
+  "aiLocationId": "us-central1",
+  "aiProvider": "google-genai",
+  "aiApiEndpoint": "us-central1-aiplatform.googleapis.com",
+  "aiMaxConversationHistory": 60,
+  "memoryStoreType": "firestore"
+}
