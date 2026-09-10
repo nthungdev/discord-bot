@@ -7,9 +7,9 @@ vi.mock("../../../src/discord/deployCommands", () => ({
 }));
 
 vi.mock("../../../src/services/memory", () => ({
-  memoryService: {
+  getMemoryService: vi.fn().mockReturnValue({
     clearHistory: vi.fn().mockResolvedValue(undefined),
-  },
+  }),
 }));
 
 describe("Utility Router Integration", () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { data, execute } from "./checkIn";
 import { createMockInteraction } from "../../../../tests/fixtures/discord";
 import * as genAiUtils from "../../../utils/genAi";
-import { memoryService } from "../../../services/memory";
+import { getMemoryService } from "../../../services/memory";
 
 vi.mock("../../../utils/genAi", () => ({
   getGenAi: vi.fn().mockReturnValue({
@@ -14,9 +14,9 @@ vi.mock("../../../utils/genAi", () => ({
 }));
 
 vi.mock("../../../services/memory", () => ({
-  memoryService: {
+  getMemoryService: vi.fn().mockReturnValue({
     addTurn: vi.fn().mockResolvedValue(undefined),
-  },
+  }),
 }));
 
 describe("checkIn command", () => {
@@ -72,6 +72,6 @@ describe("checkIn command", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       "*Test User checked in completed task*\nGood job checking in!",
     );
-    expect(memoryService.addTurn).toHaveBeenCalled();
+    expect(getMemoryService().addTurn).toHaveBeenCalled();
   });
 });
