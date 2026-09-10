@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { discordGetMemberInfoTool } from "./member";
+import {
+  discordGetMemberInfoTool,
+  discordSearchMembersTool,
+} from "./member";
 import { ToolExecutionContext } from "../types";
 
 describe("discord_get_member_info", () => {
@@ -90,3 +93,66 @@ describe("discord_get_member_info", () => {
     ).rejects.toThrow("could not be found in this server");
   });
 });
+
+describe("discord_search_members", () => {
+  const memberAlice = {
+    id: "user-alice-123",
+    user: { username: "alice_dev", displayName: "Alice Wonderland", bot: false },
+    displayName: "Alice Wonderland",
+    nickname: "Alicia",
+    roles: { cache: [{ id: "role-2", name: "Developer" }] },
+  };
+
+  const memberBot = {
+    id: "user-bot-789",
+    user: { username: "helpful_bot", displayName: "Helper Bot", bot: true },
+    displayName: "Helper Bot",
+    nickname: null,
+    roles: { cache: [] },
+  };
+
+  const mockGuild = {
+    members: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cache: new Map<string, any>([
+        ["user-alice-123", memberAlice],
+        ["user-bot-789", memberBot],
+      ]),
+      fetch: vi.fn().mockImplementation(() => Promise.resolve([memberAlice, memberBot])),
+    },
+  };
+
+  const context: ToolExecutionContext = {
+    botId: "bot-1",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    guild: mockGuild as any,
+  };
+
+  it("should search members by display name", async () => {
+    const result = await discordSearchMembersTool.execute({ query: "Alice" }, context);
+    expect(result.count).toBe(1);
+    expect(result.members[0]).toMatchObject({
+      id: "user-alice-123",
+      username: "alice_dev",
+      displayName: "Alice Wonderland",
+      isBot: false,
+    });
+  });
+
+  it("should search and identify bot members", async () => {
+    const result = await discordSearchMembersTool.execute({ query: "Helper" }, context);
+    expect(result.count).toBe(1);
+    expect(result.members[0]).toMatchObject({
+      id: "user-bot-789",
+      username: "helpful_bot",
+      isBot: true,
+    });
+  });
+
+  it("should throw error if search query is empty", async () => {
+    await expect(
+      discordSearchMembersTool.execute({ query: "   " }, context),
+    ).rejects.toThrow("Search query must not be empty.");
+  });
+});
+
