@@ -61,10 +61,13 @@ jobs:
       - name: Install dependencies
         run: pnpm --prefix app install --frozen-lockfile
 
-      - name: Provision mock service account
+      - name: Provision mock credentials and config
         run: |
           if [ ! -f app/service-account.json ]; then
             cp app/service-account.example.json app/service-account.json
+          fi
+          if [ ! -f app/config.json ]; then
+            cp app/config.example.json app/config.json
           fi
 
       - name: Build TypeScript project
@@ -92,10 +95,13 @@ jobs:
       - name: Install dependencies
         run: pnpm --prefix app install --frozen-lockfile
 
-      - name: Provision mock service account
+      - name: Provision mock credentials and config
         run: |
           if [ ! -f app/service-account.json ]; then
             cp app/service-account.example.json app/service-account.json
+          fi
+          if [ ! -f app/config.json ]; then
+            cp app/config.example.json app/config.json
           fi
 
       - name: Run tests with coverage

@@ -61,8 +61,6 @@ export const resolveConfigPath = (customPath?: string): string | null => {
     path.resolve(process.cwd(), "config.json"),
     path.resolve(process.cwd(), "app/config.json"),
     path.resolve(__dirname, "../../config.json"),
-    path.resolve(__dirname, "../../../config.json"),
-    path.resolve(__dirname, "../../../../config.json"),
   ].filter((p): p is string => Boolean(p));
 
   for (const candidate of candidatePaths) {
@@ -80,7 +78,7 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
   const configPath = resolveConfigPath(customPath);
   if (!configPath) {
     throw new Error(
-      "Configuration file 'config.json' not found. Please create 'config.json' at the project or repo root (see config.example.json for reference)."
+      "Configuration file 'config.json' not found. Please create 'app/config.json' (see app/config.example.json for reference)."
     );
   }
 

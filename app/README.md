@@ -39,10 +39,10 @@ Key variables:
 
 ### 5. Create `config.json`
 
-The codebase requires a `config.json` configuration file to run. Copy [./config.example.json](./config.example.json) (or from the repository root) to `config.json` and customize it with your guild IDs, routing rules, and parameters:
+The codebase requires a `config.json` configuration file to run. Copy [./config.example.json](./config.example.json) to `config.json` in the `app/` directory and customize it with your guild IDs, routing rules, and parameters:
 
 ```bash
-# In the app/ directory (or root)
+# In the app/ directory
 cp config.example.json config.json
 ```
 
