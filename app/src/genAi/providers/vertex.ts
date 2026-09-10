@@ -119,20 +119,28 @@ export class VertexGenAi implements GenAi {
           break;
         }
 
+        console.info(
+          `[VertexGenAI] Model requested ${functionCallParts.length} tool call(s) on iteration ${i + 1}:`,
+          functionCallParts.map((p) => p.functionCall.name),
+        );
+
         const responseParts = [];
         for (const callPart of functionCallParts) {
           const call = callPart.functionCall;
           const tool = prompt.tools?.find((t) => t.name === call.name);
           let output: unknown;
           if (tool && prompt.toolContext) {
+            console.info(`[VertexGenAI] Invoking tool: ${call.name}`, { args: call.args });
             try {
               output = await tool.execute(call.args ?? {}, prompt.toolContext);
+              console.info(`[VertexGenAI] Tool '${call.name}' completed`, { output });
             } catch (err: unknown) {
-              output = {
-                error: err instanceof Error ? err.message : String(err),
-              };
+              const errorMsg = err instanceof Error ? err.message : String(err);
+              console.error(`[VertexGenAI] Tool '${call.name}' failed: ${errorMsg}`);
+              output = { error: errorMsg };
             }
           } else {
+            console.warn(`[VertexGenAI] Tool '${call.name}' not found or no tool context provided.`);
             output = {
               error: `Tool ${call.name} not found or no tool context provided.`,
             };
