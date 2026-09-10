@@ -1,4 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
+import { ToolDefinition, ToolExecutionContext } from "./tools/types";
 
 export type UserActorInfo = {
   userId?: string;
@@ -49,6 +50,8 @@ export type AiPrompt = {
   text: string;
   files?: AiPromptFile[];
   history?: AiChatMessage[];
+  tools?: ToolDefinition[];
+  toolContext?: ToolExecutionContext;
 };
 
 export type DiscordUser = {
