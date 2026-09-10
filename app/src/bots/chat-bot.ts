@@ -15,6 +15,8 @@ import { getMemoryService } from "../services/memory";
 import { splitEndingEmojis } from "../utils/emoji";
 import { isAxiosError } from "axios";
 import { parseCommands } from "../discord/helpers";
+import { ToolExecutionContext } from "../tools/types";
+import { getToolRegistry } from "../tools/registry";
 
 const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
@@ -53,13 +55,22 @@ const handleMessageTimeout = async (
 ) => {
   console.log(`---handleMessageTimeout---`);
 
+  if (!message.channel.isSendable()) {
+    return;
+  }
+
+  // Capture the narrowed sendable channel so the interval callback retains
+  // the correct type (isSendable narrowing doesn't propagate into closures).
+  const sendableChannel = message.channel;
+
+  // Discord's typing indicator expires after ~10s, so refresh it every 8s.
+  // try/finally guarantees the interval is always cleared on exit.
+  await sendableChannel.sendTyping();
+  const typingInterval = setInterval(() => {
+    sendableChannel.sendTyping().catch(() => {});
+  }, 8000);
+
   try {
-    if (!message.channel.isSendable()) {
-      return;
-    }
-
-    await message.channel.sendTyping();
-
     const { channel } = message;
     const { messageBuffer } = store.getState().chatbot;
 
@@ -104,10 +115,25 @@ const handleMessageTimeout = async (
 
     const history = await getMemoryService().getHistory(botId, channel.id);
 
+    const toolContext: ToolExecutionContext = {
+      botId,
+      client: message.client,
+      guild: message.guild,
+      channel: message.channel,
+      author: {
+        id: lastMessage.authorId,
+        username: lastMessage.authorUsername,
+        displayName: lastMessage.authorDisplayName,
+      },
+    };
+    const tools = await getToolRegistry().getAvailableTools(toolContext);
+
     const prompt = {
       text: textWithUsername,
       files,
       history,
+      tools,
+      toolContext,
     } as AiPrompt;
 
     console.log(`promptText: ${prompt.text}`);
@@ -183,6 +209,8 @@ const handleMessageTimeout = async (
     }
   } catch (error: unknown) {
     console.error("Error handleMessageTimeout", error);
+  } finally {
+    clearInterval(typingInterval);
   }
 };
 
