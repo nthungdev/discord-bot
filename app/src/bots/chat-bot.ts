@@ -55,13 +55,22 @@ const handleMessageTimeout = async (
 ) => {
   console.log(`---handleMessageTimeout---`);
 
+  if (!message.channel.isSendable()) {
+    return;
+  }
+
+  // Capture the narrowed sendable channel so the interval callback retains
+  // the correct type (isSendable narrowing doesn't propagate into closures).
+  const sendableChannel = message.channel;
+
+  // Discord's typing indicator expires after ~10s, so refresh it every 8s.
+  // try/finally guarantees the interval is always cleared on exit.
+  await sendableChannel.sendTyping();
+  const typingInterval = setInterval(() => {
+    sendableChannel.sendTyping().catch(() => {});
+  }, 8000);
+
   try {
-    if (!message.channel.isSendable()) {
-      return;
-    }
-
-    await message.channel.sendTyping();
-
     const { channel } = message;
     const { messageBuffer } = store.getState().chatbot;
 
@@ -200,6 +209,8 @@ const handleMessageTimeout = async (
     }
   } catch (error: unknown) {
     console.error("Error handleMessageTimeout", error);
+  } finally {
+    clearInterval(typingInterval);
   }
 };
 
