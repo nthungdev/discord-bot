@@ -37,35 +37,21 @@ export function getRandomPoliceGif() {
   return gifs[randomIndex];
 }
 
+export { buildRegexFromTerms, createFlexiblePattern } from "./detector";
+
 export function censorMessage(message: string, violations: Violation[]) {
-  let consoredMessage = message;
+  let censoredMessage = message;
   for (const { terms } of violations) {
     for (const term of terms) {
-      const regex = buildRegexFromTerms([term]);
-      consoredMessage = consoredMessage.replaceAll(
-        regex,
-        censorCharacter.repeat(term.length)
+      if (!term) continue;
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "giu");
+      censoredMessage = censoredMessage.replaceAll(regex, (match) =>
+        censorCharacter.repeat(match.length)
       );
     }
   }
-  return consoredMessage;
-}
-
-/**
- * Support regex for terms with accented characters and spaces
- */
-export function buildRegexFromTerms(terms: (string | RegExp)[]) {
-  const escapedTerms = terms.map((term) => {
-    if (term instanceof RegExp) return term.source;
-
-    // Escape special regex characters, and normalize spaces
-    const escaped = term
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-      .replace(/\s+/g, "\\s+");
-    return `(?<!\\p{L})${escaped}(?!\\p{L})`;
-  });
-
-  return new RegExp(escapedTerms.join("|"), "giu"); // g = global, i = ignore case, u = Unicode
+  return censoredMessage;
 }
 
 export async function getWordleAnswers() {

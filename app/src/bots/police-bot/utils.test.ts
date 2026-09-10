@@ -41,6 +41,30 @@ describe("police-bot utils", () => {
       const result = censorMessage("You are a badword", violations);
       expect(result).toBe("You are a ▓▓▓▓▓▓▓");
     });
+
+    it("should censor multiple matching terms of different lengths", () => {
+      const violations = [
+        {
+          reason: "racism",
+          terms: ["mọi đen", "nigger"],
+        },
+      ];
+
+      const result = censorMessage("Stop saying mọi đen and nigger", violations);
+      expect(result).toBe("Stop saying ▓▓▓▓▓▓▓ and ▓▓▓▓▓▓");
+    });
+
+    it("should handle regex special characters in terms safely", () => {
+      const violations = [
+        {
+          reason: "pattern",
+          terms: ["n.i.g.g.a"],
+        },
+      ];
+
+      const result = censorMessage("Saying n.i.g.g.a is blocked", violations);
+      expect(result).toBe("Saying ▓▓▓▓▓▓▓▓▓ is blocked");
+    });
   });
 
   describe("getWordleAnswers", () => {
