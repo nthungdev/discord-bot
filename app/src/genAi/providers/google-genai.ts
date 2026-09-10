@@ -40,6 +40,9 @@ export class MyGoogleGenAI implements GenAi {
         systemInstruction: this.getSystemInstruction(),
         maxOutputTokens: this.config.maxOutputTokens,
         tools: toolsConfig,
+        toolConfig: {
+          includeServerSideToolInvocations: true,
+        }
       },
     });
 
