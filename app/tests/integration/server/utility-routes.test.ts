@@ -1,6 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import request from "supertest";
-import app from "../../../src/server";
 
 vi.mock("../../../src/discord/deployCommands", () => ({
   deployGuildCommands: vi.fn().mockResolvedValue(undefined),
@@ -11,6 +9,9 @@ vi.mock("../../../src/services/memory", () => ({
     clearHistory: vi.fn().mockResolvedValue(undefined),
   }),
 }));
+
+import request from "supertest";
+import app from "../../../src/server";
 
 describe("Utility Router Integration", () => {
   const authHeader = `Bearer ${process.env.BEARER_TOKEN}`;
