@@ -173,7 +173,7 @@ Gemini and Vertex AI multi-turn chat APIs accept messages with roles `"user"` an
 ## 4. Sliding Window & Configurable Limits
 
 - **Configurable Limits**:
-  - `aiMaxConversationHistory` added to `ConfigParameter` and `defaultConfig.json` (Default: `60` messages / 30 turns).
+  - `aiMaxConversationHistory` added to `ConfigParameter` and `config.json` (Default: `60` messages / 30 turns).
   - Can be adjusted via Firebase Remote Config in production without redeploying.
 - **Smooth Sliding Window Pruning**:
   ```typescript

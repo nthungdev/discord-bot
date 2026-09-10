@@ -37,32 +37,83 @@ Key variables:
 - `BEARER_TOKEN` — a hard-to-guess shared secret that gates access to the private REST API routes (make up your own value).
 - `SLEEP_REMINDER_SERVER_ID` — the guild id where the sleep-reminder feature is active (optional).
 
-### 5. Configure bot routing
+### 5. Create `config.json`
 
-Bot routing is configured per bot and per Discord server through Firebase Remote Config.
+The codebase requires a `config.json` configuration file to run. Copy [./config.example.json](./config.example.json) to `config.json` in the `app/` directory and customize it with your guild IDs, routing rules, and parameters:
 
-Use [./src/config/bots.example.json](./src/config/bots.example.json) as the source for the `bots` Remote Config parameter. The shape is:
+```bash
+# In the app/ directory
+cp config.example.json config.json
+```
+
+The configuration schema includes:
 
 ```json
 {
-  "chatBot": {
-    "guilds": {
-      "<guild-id>": {
-        "replyChannelIds": ["<channel-id>"],
-        "ignoredChannelIds": ["<channel-id>"],
-        "respondToMentions": true
+  "guildEmojis": {
+    "<guild-id>": {
+      "😀": ["custom_emoji_name_1", "custom_emoji_name_2"]
+    }
+  },
+  "guildMembers": {
+    "<guild-id>": [
+      {
+        "username": "example_username",
+        "name": "Display Name",
+        "gender": "male"
+      }
+    ]
+  },
+  "bots": {
+    "chatBot": {
+      "guilds": {
+        "<guild-id>": {
+          "replyChannelIds": ["<channel-id>"],
+          "ignoredChannelIds": ["<channel-id>"],
+          "respondToMentions": true
+        }
+      }
+    },
+    "policeBot": {
+      "guilds": {
+        "<guild-id>": {
+          "replyChannelIds": [],
+          "ignoredChannelIds": ["<channel-id>"],
+          "respondToMentions": true
+        }
       }
     }
   },
-  "policeBot": {
-    "guilds": {
-      "<guild-id>": {
-        "replyChannelIds": [],
-        "ignoredChannelIds": ["<channel-id>"],
-        "respondToMentions": true
+  "checkInLeaderboard": "",
+  "aiSafetySettings": {
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_HATE_SPEECH",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      },
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
       }
-    }
-  }
+    ]
+  },
+  "aiSystemInstruction": "You are a conversation chatbot.",
+  "aiProjectId": "your-gcp-project-id",
+  "aiModelId": "gemini-3.6-flash",
+  "aiMaxOutputTokens": 8192,
+  "aiLocationId": "us-central1",
+  "aiProvider": "google-genai",
+  "aiApiEndpoint": "us-central1-aiplatform.googleapis.com",
+  "aiMaxConversationHistory": 60,
+  "memoryStoreType": "firestore"
 }
 ```
 
@@ -74,44 +125,40 @@ Rules:
 - `ignoredChannelIds` — channels where the bot never processes messages.
 - `respondToMentions` — whether the bot replies when directly @mentioned outside reply channels.
 
-The `bots` parameter is one of many Remote Config parameters. Other notable parameters (all tunable at runtime without redeploying):
+Key configuration parameters (which can also be managed dynamically via Firebase Remote Config):
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `aiSystemInstruction` | string | `"You are a conversation chatbot."` | System prompt for the AI model |
 | `aiProvider` | string | `"google-genai"` | AI provider: `google-genai` or `vertex` |
-| `aiModelId` | string | `""` | Model ID override (e.g. `gemini-2.0-flash`) |
-| `aiMaxOutputTokens` | number | `1024` | Max tokens per AI response |
+| `aiModelId` | string | `"gemini-3.6-flash"` | Model ID (e.g. `gemini-3.6-flash`) |
+| `aiMaxOutputTokens` | number | `8192` | Max tokens per AI response |
 | `aiMaxConversationHistory` | number | `60` | Sliding-window message limit for conversation memory |
-| `memoryStoreType` | string | `"local"` | Persistence backend: `local` or `firestore` (see Step 6) |
+| `memoryStoreType` | string | `"firestore"` | Persistence backend: `local` or `firestore` (see Step 6) |
 | `guildMembers` | JSON | `{}` | Member metadata (nickname, username, gender) per guild |
 | `guildEmojis` | JSON | `{}` | Custom emoji mappings per guild |
-
-There is a code default for every parameter in [./src/config/defaultConfig.json](./src/config/defaultConfig.json), but the intended runtime source is Firebase Remote Config.
 
 ### 6. Configure persistence (conversation memory)
 
 The bot supports two memory store backends for persisting conversation history across restarts.
 
-#### Local file store (development default)
+#### Local file store (development)
 
-No extra setup needed. When `NODE_ENV=development` (the default for `pnpm dev`), the bot automatically writes conversation history to a local JSON file at `app/.data/conversations.json`. The `.data/` directory is created automatically if it does not exist.
+When `NODE_ENV=development` or when `memoryStoreType` is `"local"`, the bot automatically writes conversation history to a local JSON file at `app/.data/conversations.json`. The `.data/` directory is created automatically if it does not exist.
 
-To force local storage in any environment, set the `memoryStoreType` Remote Config parameter to `"local"` (or leave it at its default in `defaultConfig.json`).
+#### Cloud Firestore store (production)
 
-#### Cloud Firestore store (production default)
-
-When `NODE_ENV=production`, the bot uses Cloud Firestore. Make sure:
+When `NODE_ENV=production` or when `memoryStoreType` is `"firestore"`, the bot uses Cloud Firestore. Make sure:
 
 1. Firestore is enabled in your Google Cloud project.
 2. The service account (`service-account.json`) has the **Cloud Datastore User** (or **Firebase Admin SDK Administrator**) IAM role.
-3. Set the `memoryStoreType` Remote Config parameter to `"firestore"`.
+3. Set `memoryStoreType` to `"firestore"` in `config.json` or Remote Config.
 
 Conversations are stored in the `conversations` Firestore collection with document IDs in the format `<botId>_<channelId>` (e.g. `1087094723984572416_123456789012345678`).
 
 #### Overriding the store type via environment variable
 
-You can override Remote Config by setting `MEMORY_STORE_TYPE` in your `.env` file:
+You can override Remote Config or `config.json` by setting `MEMORY_STORE_TYPE` in your `.env` file:
 
 ```env
 # Force local file store regardless of environment
@@ -120,8 +167,6 @@ MEMORY_STORE_TYPE=local
 # Force Firestore store
 MEMORY_STORE_TYPE=firestore
 ```
-
-If `MEMORY_STORE_TYPE` is not set, the store type falls back to the `memoryStoreType` Remote Config parameter, which itself falls back to `defaultConfig.json` (`"local"` in development, `"firestore"` in production).
 
 ## Get Started
 
