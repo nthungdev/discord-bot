@@ -17,12 +17,18 @@ export interface GuildMembersConfig {
   [guildId: string]: GuildMembersConfigMember[]
 }
 
+export interface BotGuildToolsConfig {
+  googleSearch?: boolean;
+  discord?: boolean;
+}
+
 export interface BotGuildConfig {
   replyChannelIds: string[];
   ignoredChannelIds: string[];
   respondToMentions: boolean;
   systemInstruction?: string;
   replyDelay?: number;
+  tools?: BotGuildToolsConfig;
 }
 
 export interface BotGuildsConfig {

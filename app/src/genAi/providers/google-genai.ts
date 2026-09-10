@@ -24,7 +24,10 @@ export class MyGoogleGenAI implements GenAi {
       throw new Error("AI API not initialized");
     }
 
-    const toolsConfig: Tool[] = [{ googleSearch: {} }];
+    const toolsConfig: Tool[] = [];
+    if (prompt.enableGoogleSearch) {
+      toolsConfig.push({ googleSearch: {} });
+    }
     if (prompt.tools && prompt.tools.length > 0) {
       const functionDeclarations = prompt.tools.map((t) => ({
         name: t.name,
@@ -39,10 +42,14 @@ export class MyGoogleGenAI implements GenAi {
       config: {
         systemInstruction: this.getSystemInstruction(),
         maxOutputTokens: this.config.maxOutputTokens,
-        tools: toolsConfig,
-        toolConfig: {
-          includeServerSideToolInvocations: true,
-        }
+        ...(toolsConfig.length > 0
+          ? {
+              tools: toolsConfig,
+              toolConfig: {
+                includeServerSideToolInvocations: true,
+              },
+            }
+          : {}),
       },
     });
 

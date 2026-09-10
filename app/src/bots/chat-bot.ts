@@ -15,8 +15,9 @@ import { getMemoryService } from "../services/memory";
 import { splitEndingEmojis } from "../utils/emoji";
 import { isAxiosError } from "axios";
 import { parseCommands } from "../discord/helpers";
-import { ToolExecutionContext } from "../tools/types";
+import { ToolDefinition, ToolExecutionContext } from "../tools/types";
 import { getToolRegistry } from "../tools/registry";
+import { BotGuildConfig } from "../config/types";
 
 const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
@@ -51,7 +52,7 @@ const clearMessageTimeout = (channelId: string) => {
 const handleMessageTimeout = async (
   message: Message<boolean>,
   botId: string,
-  systemInstruction?: string
+  guildConfig?: BotGuildConfig
 ) => {
   console.log(`---handleMessageTimeout---`);
 
@@ -115,19 +116,27 @@ const handleMessageTimeout = async (
 
     const history = await getMemoryService().getHistory(botId, channel.id);
 
-    const toolContext: ToolExecutionContext = {
-      botId,
-      client: message.client,
-      guild: message.guild,
-      channel: message.channel,
-      messageId: message.id,
-      author: {
-        id: lastMessage.authorId,
-        username: lastMessage.authorUsername,
-        displayName: lastMessage.authorDisplayName,
-      },
-    };
-    const tools = await getToolRegistry().getAvailableTools(toolContext);
+    const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
+    const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
+
+    let tools: ToolDefinition[] | undefined = undefined;
+    let toolContext: ToolExecutionContext | undefined = undefined;
+
+    if (enableDiscordTools) {
+      toolContext = {
+        botId,
+        client: message.client,
+        guild: message.guild,
+        channel: message.channel,
+        messageId: message.id,
+        author: {
+          id: lastMessage.authorId,
+          username: lastMessage.authorUsername,
+          displayName: lastMessage.authorDisplayName,
+        },
+      };
+      tools = await getToolRegistry().getAvailableTools(toolContext);
+    }
 
     const prompt = {
       text: textWithUsername,
@@ -135,6 +144,7 @@ const handleMessageTimeout = async (
       history,
       tools,
       toolContext,
+      enableGoogleSearch,
     } as AiPrompt;
 
     console.log(`promptText: ${prompt.text}`);
@@ -143,7 +153,7 @@ const handleMessageTimeout = async (
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
         guildId: message.guildId,
-        systemInstruction,
+        systemInstruction: guildConfig?.systemInstruction,
       });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
@@ -354,7 +364,7 @@ export default class ChatBot extends BaseBot {
     setMessageTimeout({
       channelId: message.channelId,
       timeout: setTimeout(
-        () => handleMessageTimeout(message, this.id, guildConfig?.systemInstruction),
+        () => handleMessageTimeout(message, this.id, guildConfig),
         replyDelay
       ),
     });

@@ -11,6 +11,9 @@ import BaseBot, { BaseBotConfig } from "./../base-bot";
 import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
 import { policeBotActions, store } from "../../store";
 import { AiPrompt, DiscordMessage, UserActorInfo } from "../../types";
+import { ToolDefinition, ToolExecutionContext } from "../../tools/types";
+import { getToolRegistry } from "../../tools/registry";
+import { BotGuildConfig } from "../../config/types";
 import { getMemoryService } from "../../services/memory";
 import { splitEndingEmojis } from "../../utils/emoji";
 import { isAxiosError } from "axios";
@@ -56,7 +59,7 @@ const clearMessageTimeout = (channelId: string) => {
 const handleMessageTimeout = async (
   message: Message<boolean>,
   botId: string,
-  systemInstruction?: string
+  guildConfig?: BotGuildConfig
 ) => {
   console.log(`---handleMessageTimeout---`);
 
@@ -111,10 +114,35 @@ const handleMessageTimeout = async (
 
     const history = await getMemoryService().getHistory(botId, channel.id);
 
+    const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
+    const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
+
+    let tools: ToolDefinition[] | undefined = undefined;
+    let toolContext: ToolExecutionContext | undefined = undefined;
+
+    if (enableDiscordTools) {
+      toolContext = {
+        botId,
+        client: message.client,
+        guild: message.guild,
+        channel: message.channel,
+        messageId: message.id,
+        author: {
+          id: lastMessage.authorId,
+          username: lastMessage.authorUsername,
+          displayName: lastMessage.authorDisplayName,
+        },
+      };
+      tools = await getToolRegistry().getAvailableTools(toolContext);
+    }
+
     const prompt = {
       text: textWithUsername,
       files,
       history,
+      tools,
+      toolContext,
+      enableGoogleSearch,
     } as AiPrompt;
 
     console.log(`promptText: ${prompt.text}`);
@@ -123,7 +151,7 @@ const handleMessageTimeout = async (
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
         guildId: message.guildId,
-        systemInstruction,
+        systemInstruction: guildConfig?.systemInstruction,
       });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
@@ -313,7 +341,7 @@ export default class PoliceBot extends BaseBot {
     setMessageTimeout({
       channelId: message.channelId,
       timeout: setTimeout(
-        () => handleMessageTimeout(message, this.id, guildConfig?.systemInstruction),
+        () => handleMessageTimeout(message, this.id, guildConfig),
         replyDelay
       ),
     });
