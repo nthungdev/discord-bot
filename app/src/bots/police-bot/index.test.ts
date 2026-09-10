@@ -45,4 +45,20 @@ describe("PoliceBot", () => {
     const policeBot = new PoliceBot(botConfig);
     expect(policeBot.id).toBe("policeBot");
   });
+
+  it("should detect violations in message content via analyzeMessageContent", async () => {
+    const policeBot = new PoliceBot(botConfig);
+    // Access private method for unit testing
+    // @ts-expect-error testing private method
+    const violations = await policeBot.analyzeMessageContent("stop saying nigger");
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations[0].terms).toContain("nigger");
+  });
+
+  it("should return empty violations for innocent message content", async () => {
+    const policeBot = new PoliceBot(botConfig);
+    // @ts-expect-error testing private method
+    const violations = await policeBot.analyzeMessageContent("Chào mọi người nhé");
+    expect(violations).toEqual([]);
+  });
 });

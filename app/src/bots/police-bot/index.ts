@@ -21,6 +21,7 @@ import {
   getRandomPoliceGif,
   getWordleAnswers,
 } from "./utils";
+import { detectRacistViolations } from "./detector";
 
 const SYSTEM_INSTRUCTION = `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật, ngoại từ bản thân bạn. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn không ngần ngại mắng người khác. Bạn phạt người bị report làm việc sai trái. Bạn chỉ dùng emoji ở cuối cùng.`;
 const BOT_REPLY_DELAY = 5000; // 5s
@@ -351,69 +352,57 @@ ${censoredMessage
   }
 
   private async analyzeMessageContent(message: string) {
-    const bans: { reason: string; terms: (string | RegExp)[] }[] = [
-      {
-        reason: `từ ngữ phân biệt chủng tộc tới người da đen`,
-        terms: [/n+i+g+e+r+s*/, /n+i+g+a*r*s*/],
-      },
-      // {
-      //   reason: `dùng từ cấm`,
-      //   terms: ["3 que"],
-      // },
-      // {
-      //   reason: `dùng từ bậy`,
-      //   terms: [
-      //     /s+h+(i|j)+t+/,
-      //     /b+(i|j)+t+c+h+(e+s+)*/,
-      //     /f+u+c*k+/,
-      //     /a+s+\s*h+(o|0)+l+e+s*/,
-      //     "faggot",
-      //     "dit me",
-      //     "địt mẹ",
-      //     "du me",
-      //     "đụ mẹ",
-      //     "ditme",
-      //     "đĩ",
-      //     "điếm",
-      //     "dit con me",
-      //     "địt con mẹ",
-      //     "địt con đĩ",
-      //     "địt con điếm",
-      //     "du ma",
-      //     "đụ má",
-      //     "chó đẻ",
-      //     "chó đái",
-      //     "chó chết",
-      //     "lồn",
-      //     /l+(o|0)+z+/,
-      //     "cai lon",
-      //     "lon tao",
-      //     "cặc",
-      //     "con cac",
-      //   ],
-      // },
-    ];
+    const violations: Violation[] = [...detectRacistViolations(message)];
+
+    // Future ban categories preserved for reference:
+    // {
+    //   reason: `dùng từ cấm`,
+    //   terms: ["3 que"],
+    // },
+    // {
+    //   reason: `dùng từ bậy`,
+    //   terms: [
+    //     /s+h+(i|j)+t+/,
+    //     /b+(i|j)+t+c+h+(e+s+)*/,
+    //     /f+u+c*k+/,
+    //     /a+s+\s*h+(o|0)+l+e+s*/,
+    //     "faggot",
+    //     "dit me",
+    //     "địt mẹ",
+    //     "du me",
+    //     "đụ mẹ",
+    //     "ditme",
+    //     "đĩ",
+    //     "điếm",
+    //     "dit con me",
+    //     "địt con mẹ",
+    //     "địt con đĩ",
+    //     "địt con điếm",
+    //     "du ma",
+    //     "đụ má",
+    //     "chó đẻ",
+    //     "chó đái",
+    //     "chó chết",
+    //     "lồn",
+    //     /l+(o|0)+z+/,
+    //     "cai lon",
+    //     "lon tao",
+    //     "cặc",
+    //     "con cac",
+    //   ],
+    // },
 
     const wordleAnswers = await getWordleAnswers();
 
     if (wordleAnswers.length) {
-      bans.push({
-        reason: "spoil wordle answer",
-        terms: wordleAnswers,
-      });
-    }
-
-    const violations: Violation[] = [];
-    for (const { reason, terms } of bans) {
-      const violatedTerms = [];
-      const regex = buildRegexFromTerms(terms);
+      const regex = buildRegexFromTerms(wordleAnswers);
       const matches = [...message.matchAll(regex)];
-      if (matches.length === 0) continue;
-      violatedTerms.push(...matches.map((m) => m[0]));
-      violations.push({
-        reason,
-        terms: violatedTerms,
-      });
+      if (matches.length > 0) {
+        violations.push({
+          reason: "spoil wordle answer",
+          terms: [...new Set(matches.map((m) => m[0]))],
+        });
+      }
     }
 
     return violations;
