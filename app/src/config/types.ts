@@ -34,8 +34,9 @@ export interface BotConfig {
 }
 
 export interface BotsConfig {
-  chatBot: BotConfig
-  policeBot: BotConfig
+  chatBot: BotConfig;
+  policeBot: BotConfig;
+  [botId: string]: BotConfig;
 }
 
 export interface AiSafetySettingsConfig {

@@ -69,6 +69,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const genAi = getGenAi({
       apiKey: process.env.AI_API_KEY,
       guildId: interaction.guildId,
+      botId: "chatBot",
     });
     await genAi.init();
     const { content } = await generateChatMessageWithGenAi(

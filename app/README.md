@@ -109,7 +109,6 @@ The configuration schema includes:
       }
     ]
   },
-  "aiSystemInstruction": "You are a conversation chatbot.",
   "aiProjectId": "your-gcp-project-id",
   "aiModelId": "gemini-3.6-flash",
   "aiMaxOutputTokens": 8192,
@@ -128,12 +127,13 @@ Rules:
 - `replyChannelIds` — channels where the bot replies without needing to be @mentioned.
 - `ignoredChannelIds` — channels where the bot never processes messages.
 - `respondToMentions` — whether the bot replies when directly @mentioned outside reply channels.
+- `systemInstruction` (optional) — per-guild bot persona or system instruction prompt.
+- `replyDelay` (optional) — per-guild message debounce delay in milliseconds (defaults to 5000ms).
 
 Key configuration parameters (which can also be managed dynamically via Firebase Remote Config):
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `aiSystemInstruction` | string | `"You are a conversation chatbot."` | System prompt for the AI model |
 | `aiProvider` | string | `"google-genai"` | AI provider: `google-genai` or `vertex` |
 | `aiModelId` | string | `"gemini-3.6-flash"` | Model ID (e.g. `gemini-3.6-flash`) |
 | `aiMaxOutputTokens` | number | `8192` | Max tokens per AI response |
