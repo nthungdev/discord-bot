@@ -5,6 +5,7 @@ export interface ToolExecutionContext {
   client?: Client;
   guild?: Guild | null;
   channel?: TextBasedChannel | null;
+  messageId?: string;
   author?: {
     id: string;
     username: string;

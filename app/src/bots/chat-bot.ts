@@ -120,6 +120,7 @@ const handleMessageTimeout = async (
       client: message.client,
       guild: message.guild,
       channel: message.channel,
+      messageId: message.id,
       author: {
         id: lastMessage.authorId,
         username: lastMessage.authorUsername,

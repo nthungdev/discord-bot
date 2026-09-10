@@ -3,6 +3,7 @@ import { ChannelType } from "discord.js";
 import {
   discordListChannelsTool,
   discordGetChannelInfoTool,
+  discordGetChannelMembersTool,
 } from "./channel";
 import { ToolExecutionContext } from "../types";
 
@@ -110,4 +111,64 @@ describe("Discord Channel Tools", () => {
       ).rejects.toThrow("could not be found");
     });
   });
+
+  describe("discord_get_channel_members", () => {
+    const memberUser = {
+      id: "user-1",
+      user: { username: "alice", displayName: "Alice", bot: false },
+      displayName: "Alice",
+      nickname: null,
+      roles: { cache: [{ id: "r1", name: "Member" }] },
+    };
+
+    const memberBot = {
+      id: "user-2",
+      user: { username: "botty", displayName: "Botty", bot: true },
+      displayName: "Botty",
+      nickname: "Bot Assistant",
+      roles: { cache: [{ id: "r2", name: "Bot Role" }] },
+    };
+
+    const channelWithMembers = {
+      id: "chan-1",
+      name: "general",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      members: new Map<string, any>([
+        ["user-1", memberUser],
+        ["user-2", memberBot],
+      ]),
+    };
+
+    const memberContext: ToolExecutionContext = {
+      botId: "bot-1",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      channel: channelWithMembers as any,
+    };
+
+    it("should return all members in the channel", async () => {
+      const result = await discordGetChannelMembersTool.execute({}, memberContext);
+      expect(result.count).toBe(2);
+      expect(result.channelName).toBe("general");
+      expect(result.members[0]).toMatchObject({
+        id: "user-1",
+        username: "alice",
+        isBot: false,
+      });
+      expect(result.members[1]).toMatchObject({
+        id: "user-2",
+        username: "botty",
+        isBot: true,
+      });
+    });
+
+    it("should filter for bots only when botsOnly is true", async () => {
+      const result = await discordGetChannelMembersTool.execute(
+        { botsOnly: true },
+        memberContext,
+      );
+      expect(result.count).toBe(1);
+      expect(result.members[0].username).toBe("botty");
+    });
+  });
 });
+

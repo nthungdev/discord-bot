@@ -2,7 +2,7 @@ import { GoogleGenAI, FunctionDeclaration, Part, Tool } from "@google/genai";
 import { GenAi, GenAiConfig } from "../types";
 import { AiPrompt, AiPromptResponse } from "../../types";
 
-const MAX_TOOL_ITERATIONS = 5;
+const MAX_TOOL_ITERATIONS = 7;
 
 /**
  * This class implements the GenAi interface for the Google GenAI provider.
@@ -96,8 +96,42 @@ export class MyGoogleGenAI implements GenAi {
       });
     }
 
+    // Gracefully handle case where loop exited with pending functionCalls and no text
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      console.warn(
+        `[GoogleGenAI] Reached maximum tool iterations (${MAX_TOOL_ITERATIONS}) with pending function calls. Requesting final answer.`,
+      );
+      const terminationParts: Part[] = response.functionCalls.map((call) => ({
+        functionResponse: {
+          name: call.name ?? "",
+          response: {
+            error:
+              "Maximum tool call limit reached. Do not call any more tools. Summarize and provide your best final response to the user with the information gathered so far.",
+          },
+        },
+      }));
+      try {
+        response = await chat.sendMessage({
+          message: terminationParts,
+        });
+      } catch (err) {
+        console.error("[GoogleGenAI] Failed to get final text after tool limit:", err);
+      }
+    }
+
+    let content = "";
+    try {
+      content = response.text || "";
+    } catch {
+      content = "";
+    }
+
+    if (!content.trim()) {
+      content = "Xin lỗi, hiện tại mình không thể thu thập đủ thông tin để trả lời câu hỏi này.";
+    }
+
     return {
-      content: response.text || "",
+      content,
       data: response,
     };
   }
