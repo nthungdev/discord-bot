@@ -1,6 +1,7 @@
 import {
   ClientError,
   FinishReason,
+  FunctionDeclarationSchema,
   GenerativeModel,
   InlineDataPart,
   SafetySetting,
@@ -14,12 +15,13 @@ import { imageToBase64 } from "../../utils";
 import { IGNORED_CONTENT } from "../helpers";
 
 export class VertexGenAi implements GenAi {
+  private vertexAI: VertexAI | undefined;
   private aiAPI: GenerativeModel | undefined;
 
   constructor(private readonly config: GenAiConfig) {}
 
   async init() {
-    const vertexAI = new VertexAI({
+    this.vertexAI = new VertexAI({
       apiEndpoint: this.config.apiEndpoint,
       project: this.config.projectId,
       location: this.config.locationId,
@@ -31,7 +33,7 @@ export class VertexGenAi implements GenAi {
     const systemInstruction =
       this.config.systemInstruction + (this.config.membersInstruction || "");
 
-    const model = vertexAI.getGenerativeModel({
+    const model = this.vertexAI.getGenerativeModel({
       model: this.config.modelId,
       systemInstruction,
       generationConfig: {
@@ -43,11 +45,31 @@ export class VertexGenAi implements GenAi {
   }
 
   async generate(prompt: AiPrompt): Promise<AiPromptResponse> {
-    if (!this.aiAPI) {
+    if (!this.aiAPI || !this.vertexAI) {
       throw new Error("AI API not initialized");
     }
 
-    const model = this.aiAPI;
+    let model = this.aiAPI;
+
+    if (prompt.tools && prompt.tools.length > 0) {
+      const systemInstruction =
+        this.config.systemInstruction + (this.config.membersInstruction || "");
+      const functionDeclarations = prompt.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters as unknown as FunctionDeclarationSchema,
+      }));
+
+      model = this.vertexAI.getGenerativeModel({
+        model: this.config.modelId,
+        systemInstruction,
+        generationConfig: {
+          maxOutputTokens: this.config.maxOutputTokens,
+        },
+        safetySettings: this.config.safetySettings as SafetySetting[],
+        tools: [{ functionDeclarations }],
+      });
+    }
 
     const { text, history = [], files = [] } = prompt;
 
@@ -77,12 +99,66 @@ export class VertexGenAi implements GenAi {
     }
 
     try {
-      const result = await chat.sendMessage(parts);
+      let result = await chat.sendMessage(parts);
+      const MAX_TOOL_ITERATIONS = 5;
+
+      for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+        const candidate = result.response.candidates?.[0];
+        const functionCallParts = candidate?.content?.parts?.filter(
+          (part) => "functionCall" in part && Boolean(part.functionCall),
+        ) as
+          | {
+              functionCall: {
+                name: string;
+                args: Record<string, unknown>;
+              };
+            }[]
+          | undefined;
+
+        if (!functionCallParts || functionCallParts.length === 0) {
+          break;
+        }
+
+        const responseParts = [];
+        for (const callPart of functionCallParts) {
+          const call = callPart.functionCall;
+          const tool = prompt.tools?.find((t) => t.name === call.name);
+          let output: unknown;
+          if (tool && prompt.toolContext) {
+            try {
+              output = await tool.execute(call.args ?? {}, prompt.toolContext);
+            } catch (err: unknown) {
+              output = {
+                error: err instanceof Error ? err.message : String(err),
+              };
+            }
+          } else {
+            output = {
+              error: `Tool ${call.name} not found or no tool context provided.`,
+            };
+          }
+
+          responseParts.push({
+            functionResponse: {
+              name: call.name,
+              response: { output },
+            },
+          });
+        }
+
+        result = await chat.sendMessage(
+          responseParts as unknown as (InlineDataPart | TextPart)[],
+        );
+      }
 
       // get valid candidate
       const candidate = result.response.candidates?.find((candidate) => {
         // response stopped due to violating some guidelines
-        if (candidate.finishReason !== FinishReason.STOP) return false;
+        if (
+          candidate.finishReason &&
+          candidate.finishReason !== FinishReason.STOP
+        )
+          return false;
 
         return !!candidate.content.parts?.every((part) => {
           return !part.text?.includes(IGNORED_CONTENT);
