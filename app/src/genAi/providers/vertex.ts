@@ -100,7 +100,7 @@ export class VertexGenAi implements GenAi {
 
     try {
       let result = await chat.sendMessage(parts);
-      const MAX_TOOL_ITERATIONS = 5;
+      const MAX_TOOL_ITERATIONS = 7;
 
       for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
         const candidate = result.response.candidates?.[0];
@@ -159,6 +159,41 @@ export class VertexGenAi implements GenAi {
         );
       }
 
+      // If loop exited with pending functionCalls, gracefully send termination responses
+      const latestCandidate = result.response.candidates?.[0];
+      const pendingCalls = latestCandidate?.content?.parts?.filter(
+        (part) => "functionCall" in part && Boolean(part.functionCall),
+      ) as
+        | {
+            functionCall: {
+              name: string;
+              args: Record<string, unknown>;
+            };
+          }[]
+        | undefined;
+
+      if (pendingCalls && pendingCalls.length > 0) {
+        console.warn(
+          `[VertexGenAI] Reached maximum tool iterations (${MAX_TOOL_ITERATIONS}) with pending function calls. Requesting final answer.`,
+        );
+        const terminationParts = pendingCalls.map((p) => ({
+          functionResponse: {
+            name: p.functionCall.name,
+            response: {
+              error:
+                "Maximum tool call limit reached. Do not call any more tools. Summarize and provide your best final response to the user with the information gathered so far.",
+            },
+          },
+        }));
+        try {
+          result = await chat.sendMessage(
+            terminationParts as unknown as (InlineDataPart | TextPart)[],
+          );
+        } catch (err) {
+          console.error("[VertexGenAI] Failed to get final text after tool limit:", err);
+        }
+      }
+
       // get valid candidate
       const candidate = result.response.candidates?.find((candidate) => {
         // response stopped due to violating some guidelines
@@ -174,18 +209,22 @@ export class VertexGenAi implements GenAi {
       });
 
       if (!candidate) {
-        return { content: "", data: result.response };
+        return {
+          content: "Xin lỗi, hiện tại mình không thể xử lý yêu cầu này.",
+          data: result.response,
+        };
       }
 
       const candidateText = candidate.content.parts.find(
         (part) => part.text,
       )?.text;
 
-      if (!candidateText) {
-        return { content: "", data: result.response };
-      }
-
-      return { content: candidateText, data: result.response };
+      return {
+        content:
+          candidateText ||
+          "Xin lỗi, hiện tại mình không thể thu thập đủ thông tin để trả lời câu hỏi này.",
+        data: result.response,
+      };
     } catch (error: unknown) {
       if (error instanceof ClientError) {
         // TODO handle invalid argument error
