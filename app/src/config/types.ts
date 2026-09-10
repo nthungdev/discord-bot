@@ -18,9 +18,11 @@ export interface GuildMembersConfig {
 }
 
 export interface BotGuildConfig {
-  replyChannelIds: string[]
-  ignoredChannelIds: string[]
-  respondToMentions: boolean
+  replyChannelIds: string[];
+  ignoredChannelIds: string[];
+  respondToMentions: boolean;
+  systemInstruction?: string;
+  replyDelay?: number;
 }
 
 export interface BotGuildsConfig {

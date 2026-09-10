@@ -70,7 +70,9 @@ The configuration schema includes:
         "<guild-id>": {
           "replyChannelIds": ["<channel-id>"],
           "ignoredChannelIds": ["<channel-id>"],
-          "respondToMentions": true
+          "respondToMentions": true,
+          "replyDelay": 5000,
+          "systemInstruction": "Your name is Slavegon. You are a conversational chatbot in this Discord server."
         }
       }
     },
@@ -79,7 +81,9 @@ The configuration schema includes:
         "<guild-id>": {
           "replyChannelIds": [],
           "ignoredChannelIds": ["<channel-id>"],
-          "respondToMentions": true
+          "respondToMentions": true,
+          "replyDelay": 5000,
+          "systemInstruction": "You are Popogon, a moderation police bot. You enforce server rules with sarcasm and wit."
         }
       }
     }

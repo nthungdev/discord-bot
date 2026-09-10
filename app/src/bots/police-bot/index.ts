@@ -23,8 +23,7 @@ import {
 } from "./utils";
 import { detectRacistViolations } from "./detector";
 
-const SYSTEM_INSTRUCTION = `Bạn là Popogon. Bạn là một police bot. Bạn đảm bảo mọi người trong Discord server tuân thủ luật, ngoại từ bản thân bạn. Bạn nói chuyện bằng tiếng Việt. Bạn châm biếm, hài hước, và mỉa mai. Bạn gọi người khác là sir và gọi bản thân là tôi. Bạn nói chuyện ngắn gọn nhưng xúc tích. Bạn không lập lại từ cấm của người khác. Bạn không ngần ngại mắng người khác. Bạn phạt người bị report làm việc sai trái. Bạn chỉ dùng emoji ở cuối cùng.`;
-const BOT_REPLY_DELAY = 5000; // 5s
+const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 /** Fetch up-to-date member list to cache */
@@ -56,7 +55,8 @@ const clearMessageTimeout = (channelId: string) => {
 
 const handleMessageTimeout = async (
   message: Message<boolean>,
-  botId: string
+  botId: string,
+  systemInstruction?: string
 ) => {
   console.log(`---handleMessageTimeout---`);
 
@@ -123,7 +123,7 @@ const handleMessageTimeout = async (
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
         guildId: message.guildId,
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction,
       });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
@@ -306,12 +306,15 @@ export default class PoliceBot extends BaseBot {
       })
     );
 
+    const guildConfig = this.getGuildConfig(message.guildId);
+    const replyDelay = guildConfig?.replyDelay ?? DEFAULT_BOT_REPLY_DELAY;
+
     clearMessageTimeout(message.channelId);
     setMessageTimeout({
       channelId: message.channelId,
       timeout: setTimeout(
-        () => handleMessageTimeout(message, this.id),
-        BOT_REPLY_DELAY
+        () => handleMessageTimeout(message, this.id, guildConfig?.systemInstruction),
+        replyDelay
       ),
     });
   }
@@ -418,10 +421,12 @@ ${censoredMessage
 
     console.log(promptText);
 
+    const guildConfig = this.getGuildConfig(guild.id);
+
     const genAi = getGenAi({
       apiKey: process.env.AI_API_KEY,
       guildId: guild.id,
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: guildConfig?.systemInstruction,
       membersInstruction: " ",
     });
     await genAi.init();
