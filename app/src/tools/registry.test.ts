@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ToolRegistry, getToolRegistry, setToolRegistry } from "./registry";
+import { registerDefaultTools } from "./index";
 import { ToolDefinition, ToolExecutionContext } from "./types";
 
 describe("ToolRegistry", () => {
@@ -61,14 +62,24 @@ describe("ToolRegistry", () => {
     expect(availableWithGuild).toEqual([sampleTool, restrictedTool]);
   });
 
-  it("should initialize default singleton registry with discord tools", () => {
+  it("should initialize empty default singleton registry and populate via registerDefaultTools", () => {
     const registry = getToolRegistry();
     expect(registry).toBeDefined();
+    expect(registry.getAllTools()).toHaveLength(0);
+
+    registerDefaultTools(registry);
     expect(registry.getTool("discord_get_server_info")).toBeDefined();
     expect(registry.getTool("discord_get_server_owner")).toBeDefined();
     expect(registry.getTool("discord_get_member_info")).toBeDefined();
+    expect(registry.getTool("discord_search_members")).toBeDefined();
     expect(registry.getTool("discord_list_channels")).toBeDefined();
     expect(registry.getTool("discord_get_channel_info")).toBeDefined();
+    expect(registry.getTool("discord_get_channel_members")).toBeDefined();
     expect(registry.getTool("discord_list_roles")).toBeDefined();
+    expect(registry.getTool("discord_get_voice_channel_state")).toBeDefined();
+    expect(registry.getTool("discord_get_recent_messages")).toBeDefined();
+    expect(registry.getTool("discord_get_pinned_messages")).toBeDefined();
+    expect(registry.getTool("discord_react_to_message")).toBeDefined();
+    expect(registry.getTool("discord_get_scheduled_events")).toBeDefined();
   });
 });

@@ -52,6 +52,7 @@ export type AiPrompt = {
   history?: AiChatMessage[];
   tools?: ToolDefinition[];
   toolContext?: ToolExecutionContext;
+  enableGoogleSearch?: boolean;
 };
 
 export type DiscordUser = {

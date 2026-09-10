@@ -21,7 +21,11 @@
           "ignoredChannelIds": [],
           "respondToMentions": true,
           "replyDelay": 5000,
-          "systemInstruction": "Your name is <Chat Bot Name>. You are a conversational chatbot in this Discord server."
+          "systemInstruction": "Your name is <Chat Bot Name>. You are a conversational chatbot in this Discord server.",
+          "tools": {
+            "googleSearch": true,
+            "discord": true
+          }
         }
       }
     },
@@ -32,7 +36,11 @@
           "ignoredChannelIds": [],
           "respondToMentions": true,
           "replyDelay": 5000,
-          "systemInstruction": "You are <Police Bot Name>, a moderation police bot. You enforce server rules with sarcasm and wit."
+          "systemInstruction": "You are <Police Bot Name>, a moderation police bot. You enforce server rules with sarcasm and wit.",
+          "tools": {
+            "googleSearch": false,
+            "discord": false
+          }
         }
       }
     }

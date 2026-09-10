@@ -14,6 +14,7 @@ import { Config, ConfigParameter } from "./config";
 import serviceAccountKey from "../service-account.json";
 import PoliceBot from "./bots/police-bot";
 import ChatBot from "./bots/chat-bot";
+import { registerDefaultTools } from "./tools";
 
 const { CHATBOT_TOKEN, POLICE_BOT_TOKEN, PORT, NODE_ENV } = process.env;
 const port: number | string = PORT || 3001;
@@ -25,6 +26,9 @@ const main = async () => {
   if (!validEnvs) {
     process.exit(1);
   }
+
+  // Register default tools into registry
+  registerDefaultTools();
 
   // Init Firebase
   admin.initializeApp({

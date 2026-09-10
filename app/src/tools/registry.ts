@@ -1,5 +1,4 @@
 import { ToolDefinition, ToolExecutionContext } from "./types";
-import { discordTools } from "./discord";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition>();
@@ -45,7 +44,6 @@ let defaultRegistry: ToolRegistry | null = null;
 export const getToolRegistry = (): ToolRegistry => {
   if (!defaultRegistry) {
     defaultRegistry = new ToolRegistry();
-    defaultRegistry.registerBatch(discordTools);
   }
   return defaultRegistry;
 };
