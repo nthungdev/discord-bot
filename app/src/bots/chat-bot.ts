@@ -15,6 +15,8 @@ import { getMemoryService } from "../services/memory";
 import { splitEndingEmojis } from "../utils/emoji";
 import { isAxiosError } from "axios";
 import { parseCommands } from "../discord/helpers";
+import { ToolExecutionContext } from "../tools/types";
+import { getToolRegistry } from "../tools/registry";
 
 const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
@@ -104,10 +106,25 @@ const handleMessageTimeout = async (
 
     const history = await getMemoryService().getHistory(botId, channel.id);
 
+    const toolContext: ToolExecutionContext = {
+      botId,
+      client: message.client,
+      guild: message.guild,
+      channel: message.channel,
+      author: {
+        id: lastMessage.authorId,
+        username: lastMessage.authorUsername,
+        displayName: lastMessage.authorDisplayName,
+      },
+    };
+    const tools = await getToolRegistry().getAvailableTools(toolContext);
+
     const prompt = {
       text: textWithUsername,
       files,
       history,
+      tools,
+      toolContext,
     } as AiPrompt;
 
     console.log(`promptText: ${prompt.text}`);
