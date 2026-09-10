@@ -41,6 +41,9 @@ export const parseCommands = async () => {
   const commandFolders = fs.readdirSync(foldersPath);
 
   for (const folder of commandFolders) {
+    // Skip helper folders that contain utilities, not slash command definitions
+    if (folder === "utilities") continue;
+
     // Grab all the command files from the commands directory
     const commandsPath = path.join(foldersPath, folder);
     const commandFiles = fs
