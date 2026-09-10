@@ -1,11 +1,12 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, FunctionDeclaration, Part, Tool } from "@google/genai";
 import { GenAi, GenAiConfig } from "../types";
 import { AiPrompt, AiPromptResponse } from "../../types";
 
+const MAX_TOOL_ITERATIONS = 5;
+
 /**
  * This class implements the GenAi interface for the Google GenAI provider.
- * It has the following tools enabled:
- * - Google Search
+ * Supports Google Search and dynamic Function Calling tools.
  */
 export class MyGoogleGenAI implements GenAi {
   private aiAPI: GoogleGenAI | undefined;
@@ -23,19 +24,78 @@ export class MyGoogleGenAI implements GenAi {
       throw new Error("AI API not initialized");
     }
 
-    const interaction = await this.aiAPI.interactions.create({
+    const toolsConfig: Tool[] = [{ googleSearch: {} }];
+    if (prompt.tools && prompt.tools.length > 0) {
+      const functionDeclarations = prompt.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters as unknown as FunctionDeclaration["parameters"],
+      }));
+      toolsConfig.push({ functionDeclarations });
+    }
+
+    const chat = this.aiAPI.chats.create({
       model: this.config.modelId,
-      input: prompt.text,
-      system_instruction: this.getSystemInstruction(),
-      tools: [{ type: "google_search" }],
+      config: {
+        systemInstruction: this.getSystemInstruction(),
+        maxOutputTokens: this.config.maxOutputTokens,
+        tools: toolsConfig,
+      },
     });
 
+    let response = await chat.sendMessage({ message: prompt.text });
+
+    for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+      const functionCalls = response.functionCalls;
+      if (!functionCalls || functionCalls.length === 0) {
+        break;
+      }
+
+      const responseParts: Part[] = [];
+      for (const call of functionCalls) {
+        const tool = prompt.tools?.find((t) => t.name === call.name);
+        let output: unknown;
+        if (tool && prompt.toolContext) {
+          try {
+            output = await tool.execute(
+              (call.args as Record<string, unknown>) ?? {},
+              prompt.toolContext,
+            );
+          } catch (err: unknown) {
+            output = {
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
+        } else {
+          output = {
+            error: `Tool ${call.name} not found or no tool context provided.`,
+          };
+        }
+
+        responseParts.push({
+          functionResponse: {
+            name: call.name ?? "",
+            response: { output },
+          },
+        });
+      }
+
+      response = await chat.sendMessage({
+        message: responseParts,
+      });
+    }
+
     return {
-      content: interaction.output_text || "",
+      content: response.text || "",
+      data: response,
     };
   }
 
   private getSystemInstruction(): string {
-    return this.config.systemInstruction + (this.config.membersInstruction || "");
+    return (
+      (this.config.systemInstruction || "") +
+      (this.config.membersInstruction || "")
+    );
   }
 }
+
