@@ -16,7 +16,7 @@ import { splitEndingEmojis } from "../utils/emoji";
 import { isAxiosError } from "axios";
 import { parseCommands } from "../discord/helpers";
 
-const BOT_REPLY_DELAY = 5000; // 5s
+const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 /** Fetch up-to-date member list to cache */
@@ -48,7 +48,8 @@ const clearMessageTimeout = (channelId: string) => {
 
 const handleMessageTimeout = async (
   message: Message<boolean>,
-  botId: string
+  botId: string,
+  systemInstruction?: string
 ) => {
   console.log(`---handleMessageTimeout---`);
 
@@ -115,6 +116,7 @@ const handleMessageTimeout = async (
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
         guildId: message.guildId,
+        systemInstruction,
       });
       await genAi.init();
       const { content, data } = await generateChatMessageWithGenAi(
@@ -316,12 +318,15 @@ export default class ChatBot extends BaseBot {
       })
     );
 
+    const guildConfig = this.getGuildConfig(message.guildId);
+    const replyDelay = guildConfig?.replyDelay ?? DEFAULT_BOT_REPLY_DELAY;
+
     clearMessageTimeout(message.channelId);
     setMessageTimeout({
       channelId: message.channelId,
       timeout: setTimeout(
-        () => handleMessageTimeout(message, this.id),
-        BOT_REPLY_DELAY
+        () => handleMessageTimeout(message, this.id, guildConfig?.systemInstruction),
+        replyDelay
       ),
     });
   }
