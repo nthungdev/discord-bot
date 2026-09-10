@@ -11,7 +11,7 @@ import BaseBot, { BaseBotConfig } from "./../base-bot";
 import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
 import { policeBotActions, store } from "../../store";
 import { AiPrompt, DiscordMessage, UserActorInfo } from "../../types";
-import { memoryService } from "../../services/memory";
+import { getMemoryService } from "../../services/memory";
 import { splitEndingEmojis } from "../../utils/emoji";
 import { isAxiosError } from "axios";
 import { Violation } from "./types";
@@ -109,7 +109,7 @@ const handleMessageTimeout = async (
       ...messages.flatMap((m) => m.reference?.attachments ?? []),
     ];
 
-    const history = await memoryService.getHistory(botId, channel.id);
+    const history = await getMemoryService().getHistory(botId, channel.id);
 
     const prompt = {
       text: textWithUsername,
@@ -164,7 +164,7 @@ const handleMessageTimeout = async (
         displayName: lastMessage.authorDisplayName,
       };
 
-      await memoryService.addTurn(
+      await getMemoryService().addTurn(
         botId,
         channel.id,
         text,

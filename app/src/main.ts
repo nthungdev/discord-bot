@@ -37,7 +37,7 @@ const main = async () => {
   const remoteConfig = Config.getInstance();
   await remoteConfig.init();
   const botPolicies = remoteConfig.getConfigValue(ConfigParameter.bots);
-
+  
   if (!POLICE_BOT_TOKEN) {
     console.error("POLICE_BOT_TOKEN is not defined");
   } else {

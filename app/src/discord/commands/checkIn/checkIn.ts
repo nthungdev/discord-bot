@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { DiscordCommand } from "../../constants";
 import { generateChatMessageWithGenAi, getGenAi } from "../../../utils/genAi";
 import { AiPrompt } from "../../../types";
-import { memoryService } from "../../../services/memory";
+import { getMemoryService } from "../../../services/memory";
 
 enum CommandCheckInOption {
   what = "what",
@@ -85,7 +85,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const message = `*${interaction.user.displayName} checked in ${purpose}*\n${content}`;
     await interaction.editReply(message);
 
-    await memoryService.addTurn(
+    await getMemoryService().addTurn(
       interaction.client.user.id,
       interaction.channelId,
       prompt.text,

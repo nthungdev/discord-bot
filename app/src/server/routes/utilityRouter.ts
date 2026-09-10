@@ -2,7 +2,7 @@ import { Router } from "express";
 import { deployGuildCommands } from "../../discord/deployCommands";
 import { chatbotActions, policeBotActions, store } from "../../store";
 import { Config, ConfigParameter } from "../../config";
-import { memoryService } from "../../services/memory";
+import { getMemoryService } from "../../services/memory";
 
 const utilityRouter = Router();
 
@@ -28,7 +28,7 @@ utilityRouter.post("/clearHistory", async (req, res, next) => {
   const { channelId, botId } = req.body;
 
   try {
-    await memoryService.clearHistory(botId, channelId);
+    await getMemoryService().clearHistory(botId, channelId);
     store.dispatch(chatbotActions.clearMessageHistory({ channelId }));
     store.dispatch(policeBotActions.clearMessageHistory({ channelId }));
     res.json({ ok: true });
