@@ -21,6 +21,7 @@ const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
 
 export interface GetGenAiConfig extends Partial<GenAiConfig> {
   guildId?: string | null;
+  botId?: string | null;
 }
 
 const DEFAULT_AI_PROVIDER: GetGenAiConfig["provider"] = "google-genai";
@@ -53,9 +54,11 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     config.safetySettings ||
     remoteConfig.getConfigValue(ConfigParameter.aiSafetySettings)
       .safetySettings;
-  const systemInstruction =
-    config.systemInstruction ||
-    remoteConfig.getConfigValue(ConfigParameter.aiSystemInstruction);
+  let systemInstruction = config.systemInstruction;
+  if (!systemInstruction && config.guildId && config.botId) {
+    const bots = remoteConfig.getConfigValue(ConfigParameter.bots);
+    systemInstruction = bots[config.botId]?.guilds?.[config.guildId]?.systemInstruction;
+  }
 
   const members = config.guildId
     ? remoteConfig.getConfigValue(ConfigParameter.guildMembers)[config.guildId]

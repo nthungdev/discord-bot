@@ -10,7 +10,6 @@ const mockTestConfig: AppConfigData = {
   },
   checkInLeaderboard: "",
   aiSafetySettings: { safetySettings: [] },
-  aiSystemInstruction: "You are a conversation chatbot.",
   aiProjectId: "test-project",
   aiModelId: "gemini-3.6-flash",
   aiMaxOutputTokens: 1024,

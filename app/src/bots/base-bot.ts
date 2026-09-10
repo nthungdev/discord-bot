@@ -36,6 +36,8 @@ export default abstract class BaseBot {
       replyChannelIds: guildConfig.replyChannelIds ?? [],
       ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
       respondToMentions: guildConfig.respondToMentions ?? false,
+      systemInstruction: guildConfig.systemInstruction,
+      replyDelay: guildConfig.replyDelay,
     };
   }
 

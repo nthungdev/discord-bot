@@ -46,77 +46,6 @@ The codebase requires a `config.json` configuration file to run. Copy [./config.
 cp config.example.json config.json
 ```
 
-The configuration schema includes:
-
-```json
-{
-  "guildEmojis": {
-    "<guild-id>": {
-      "😀": ["custom_emoji_name_1", "custom_emoji_name_2"]
-    }
-  },
-  "guildMembers": {
-    "<guild-id>": [
-      {
-        "username": "example_username",
-        "name": "Display Name",
-        "gender": "male"
-      }
-    ]
-  },
-  "bots": {
-    "chatBot": {
-      "guilds": {
-        "<guild-id>": {
-          "replyChannelIds": ["<channel-id>"],
-          "ignoredChannelIds": ["<channel-id>"],
-          "respondToMentions": true
-        }
-      }
-    },
-    "policeBot": {
-      "guilds": {
-        "<guild-id>": {
-          "replyChannelIds": [],
-          "ignoredChannelIds": ["<channel-id>"],
-          "respondToMentions": true
-        }
-      }
-    }
-  },
-  "checkInLeaderboard": "",
-  "aiSafetySettings": {
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_HATE_SPEECH",
-        "threshold": "BLOCK_ONLY_HIGH"
-      },
-      {
-        "category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      },
-      {
-        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      },
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  },
-  "aiSystemInstruction": "You are a conversation chatbot.",
-  "aiProjectId": "your-gcp-project-id",
-  "aiModelId": "gemini-3.6-flash",
-  "aiMaxOutputTokens": 8192,
-  "aiLocationId": "us-central1",
-  "aiProvider": "google-genai",
-  "aiApiEndpoint": "us-central1-aiplatform.googleapis.com",
-  "aiMaxConversationHistory": 60,
-  "memoryStoreType": "firestore"
-}
-```
-
 Rules:
 
 - `guilds` contains the guild-specific routing rules for a bot.
@@ -124,12 +53,13 @@ Rules:
 - `replyChannelIds` — channels where the bot replies without needing to be @mentioned.
 - `ignoredChannelIds` — channels where the bot never processes messages.
 - `respondToMentions` — whether the bot replies when directly @mentioned outside reply channels.
+- `systemInstruction` (optional) — per-guild bot persona or system instruction prompt.
+- `replyDelay` (optional) — per-guild message debounce delay in milliseconds (defaults to 5000ms).
 
 Key configuration parameters (which can also be managed dynamically via Firebase Remote Config):
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `aiSystemInstruction` | string | `"You are a conversation chatbot."` | System prompt for the AI model |
 | `aiProvider` | string | `"google-genai"` | AI provider: `google-genai` or `vertex` |
 | `aiModelId` | string | `"gemini-3.6-flash"` | Model ID (e.g. `gemini-3.6-flash`) |
 | `aiMaxOutputTokens` | number | `8192` | Max tokens per AI response |

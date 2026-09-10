@@ -18,9 +18,11 @@ export interface GuildMembersConfig {
 }
 
 export interface BotGuildConfig {
-  replyChannelIds: string[]
-  ignoredChannelIds: string[]
-  respondToMentions: boolean
+  replyChannelIds: string[];
+  ignoredChannelIds: string[];
+  respondToMentions: boolean;
+  systemInstruction?: string;
+  replyDelay?: number;
 }
 
 export interface BotGuildsConfig {
@@ -32,8 +34,9 @@ export interface BotConfig {
 }
 
 export interface BotsConfig {
-  chatBot: BotConfig
-  policeBot: BotConfig
+  chatBot: BotConfig;
+  policeBot: BotConfig;
+  [botId: string]: BotConfig;
 }
 
 export interface AiSafetySettingsConfig {

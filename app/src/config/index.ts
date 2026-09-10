@@ -27,7 +27,6 @@ export enum ConfigParameter {
   aiModelId = "aiModelId",
   aiLocationId = "aiLocationId",
   aiProvider = "aiProvider",
-  aiSystemInstruction = "aiSystemInstruction",
   aiMaxOutputTokens = "aiMaxOutputTokens",
   aiSafetySettings = "aiSafetySettings",
   aiMaxConversationHistory = "aiMaxConversationHistory",
@@ -40,7 +39,6 @@ export interface AppConfigData {
   bots: BotsConfig;
   checkInLeaderboard: CheckInLeaderboardConfig;
   aiSafetySettings: AiSafetySettingsConfig;
-  aiSystemInstruction: string;
   aiProjectId: AiProjectIdConfig;
   aiModelId: AiModelIdConfig;
   aiMaxOutputTokens: AiMaxOutputTokens;
@@ -92,7 +90,6 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
       bots: parsed.bots ?? { chatBot: { guilds: {} }, policeBot: { guilds: {} } },
       checkInLeaderboard: parsed.checkInLeaderboard ?? "",
       aiSafetySettings: parsed.aiSafetySettings ?? { safetySettings: [] },
-      aiSystemInstruction: parsed.aiSystemInstruction ?? "You are a conversation chatbot.",
       aiProjectId: parsed.aiProjectId ?? "",
       aiModelId: parsed.aiModelId ?? "gemini-3.6-flash",
       aiMaxOutputTokens: parsed.aiMaxOutputTokens ?? 8192,
@@ -138,7 +135,6 @@ export class Config {
         aiModelId: this.localConfig.aiModelId,
         aiLocationId: this.localConfig.aiLocationId,
         aiProvider: this.localConfig.aiProvider,
-        aiSystemInstruction: this.localConfig.aiSystemInstruction,
         aiMaxOutputTokens: this.localConfig.aiMaxOutputTokens,
         aiSafetySettings: JSON.stringify(this.localConfig.aiSafetySettings),
         aiMaxConversationHistory: this.localConfig.aiMaxConversationHistory,
@@ -213,7 +209,6 @@ export class Config {
       case ConfigParameter.aiModelId:
       case ConfigParameter.aiProjectId:
       case ConfigParameter.aiProvider:
-      case ConfigParameter.aiSystemInstruction:
       case ConfigParameter.memoryStoreType:
         return config.getString(key) as never;
       case ConfigParameter.aiMaxOutputTokens:

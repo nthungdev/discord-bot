@@ -53,6 +53,8 @@ describe("BaseBot", () => {
           replyChannelIds: ["channel-1"],
           ignoredChannelIds: ["channel-ignored"],
           respondToMentions: true,
+          systemInstruction: "Custom bot instruction",
+          replyDelay: 3000,
         },
       },
     },
@@ -65,6 +67,8 @@ describe("BaseBot", () => {
       replyChannelIds: ["channel-1"],
       ignoredChannelIds: ["channel-ignored"],
       respondToMentions: true,
+      systemInstruction: "Custom bot instruction",
+      replyDelay: 3000,
     });
   });
 
