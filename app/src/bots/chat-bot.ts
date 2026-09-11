@@ -295,18 +295,53 @@ export async function fetchAmbientChannelSnapshot(
 }
 
 /**
- * Dispatches the generated response using the configured reply strategy (hybrid reply default).
+ * Determines whether the bot is addressing or answering multiple distinct users at once.
  */
-async function dispatchBotReply(
+export function isAnsweringMultipleUsers(
+  messages: DiscordMessage[],
+  content: string,
+): boolean {
+  const uniqueAuthorIds = new Set(messages.map((m) => m.authorId));
+  if (uniqueAuthorIds.size > 1) {
+    return true;
+  }
+
+  // Matches Discord mentions (<@123>, <@!123>) or username vocatives (@username)
+  const mentionMatches = content.match(/<@!?\d+>|@[a-zA-Z0-9_.-]+/g);
+  if (mentionMatches) {
+    const uniqueMentions = new Set(mentionMatches);
+    if (uniqueMentions.size > 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Dispatches the generated response using the configured reply strategy.
+ * When replyStrategy is 'hybrid' and multiple users are being answered at once,
+ * it sends a normal channel message instead of a message.reply.
+ */
+export async function dispatchBotReply(
   message: Message<boolean>,
   content: string,
   guildConfig?: BotGuildConfig,
+  messages?: DiscordMessage[],
 ): Promise<void> {
   const [finalMessage, endingEmoji] = splitEndingEmojis(content);
   const textToSend = finalMessage || "?";
   const replyStrategy = guildConfig?.smartReply?.replyStrategy ?? "hybrid";
 
-  if (replyStrategy === "coalesced" && message.channel.isSendable()) {
+  const isMultiUser = messages
+    ? isAnsweringMultipleUsers(messages, content)
+    : false;
+
+  const shouldSendAsChannelMessage =
+    replyStrategy === "coalesced" ||
+    (replyStrategy === "hybrid" && isMultiUser);
+
+  if (shouldSendAsChannelMessage && message.channel.isSendable()) {
     await message.channel.send(textToSend);
   } else {
     try {
@@ -478,7 +513,7 @@ const handleUserBatchExecution = async (
         guildConfig,
       );
 
-      await dispatchBotReply(message, content, guildConfig);
+      await dispatchBotReply(message, content, guildConfig, userBatch.messages);
 
       console.info(
         `[SmartReply:Reply:Dispatched] Reply sent via "${guildConfig?.smartReply?.replyStrategy ?? "hybrid"}" (${content?.length ?? 0} chars) to channel ${channelId}`,
