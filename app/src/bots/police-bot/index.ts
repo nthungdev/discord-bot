@@ -70,36 +70,32 @@ const handleMessageTimeout = async (
 
     await message.channel.sendTyping();
 
-    const { channel } = message;
-    const { messageBuffer } = store.getState().policeBot;
+    const channelId = message.channelId;
+    const userId = message.author.id;
+    const channelBatches =
+      store.getState().policeBot.userMessageBatches[channelId];
+    const userBatch = channelBatches?.[userId];
 
-    // get the messages from the user who last messaged
-    const lastMessage = messageBuffer[channel.id]?.at(-1);
-    if (!lastMessage) {
-      console.log("No message in message buffer");
+    if (!userBatch || userBatch.messages.length === 0) {
+      console.log("No message in user message buffer");
       return;
     }
 
-    const messages: DiscordMessage[] = (messageBuffer[channel.id] ?? [])
-      .filter((m) => m.authorId === lastMessage.authorId)
-      .toReversed();
+    const messages = userBatch.messages;
+    const lastMessage = messages[messages.length - 1];
 
     const text = messages
-      .map((message) => {
-        const authorQuote = `${message.authorUsername} says ${message.cleanContent}`;
-        if (message.reference) {
-          // TODO parse and replace nicknames in reference with usernames
-          return `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`;
+      .map((msg) => {
+        const authorQuote = `${msg.authorUsername} says ${msg.cleanContent}`;
+        if (msg.reference) {
+          return `In reply to @${msg.reference.authorUsername} saying "${msg.reference.cleanContent}", ${authorQuote}`;
         }
         return authorQuote;
       })
       .join("\n");
 
     const messageMentions = messages.flatMap((m) => m.mentions);
-    // replace nicknames in prompt with username so that the model returns back with references to username
-    // then username is replaced with formatted mentions in the final message
     const textWithUsername = messageMentions.reduce((acc, mention) => {
-      // return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`);
       return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
     }, text);
 
@@ -108,7 +104,7 @@ const handleMessageTimeout = async (
       ...messages.flatMap((m) => m.reference?.attachments ?? []),
     ];
 
-    const history = await getMemoryService().getHistory(botId, channel.id);
+    const history = await getMemoryService().getHistory(botId, channelId);
 
     const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
     const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
@@ -141,8 +137,6 @@ const handleMessageTimeout = async (
       enableGoogleSearch,
     } as AiPrompt;
 
-    console.log(`promptText: ${prompt.text}`);
-
     try {
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
@@ -161,12 +155,7 @@ const handleMessageTimeout = async (
         message.guild,
       );
 
-      console.log({
-        user: textWithUsername,
-        bot: content,
-      });
-
-      store.dispatch(policeBotActions.clearMessageBuffer(channel.id));
+      store.dispatch(policeBotActions.clearUserBatch({ channelId, userId }));
 
       if (content === "") {
         console.log({ data: JSON.stringify(data) });
@@ -174,14 +163,12 @@ const handleMessageTimeout = async (
 
       const [finalMessage, endingEmoji] = splitEndingEmojis(content);
 
-      // TODO is this a good answer when model doesn't have a reply?
-      await channel.send(finalMessage || "?");
+      await message.channel.send(finalMessage || "?");
       if (endingEmoji) {
-        await channel.sendTyping();
-        await channel.send(endingEmoji);
+        await message.channel.sendTyping();
+        await message.channel.send(endingEmoji);
       }
 
-      // save conversation into persistent memory
       const actor: UserActorInfo = {
         userId: lastMessage.authorId,
         username: lastMessage.authorUsername,
@@ -190,7 +177,7 @@ const handleMessageTimeout = async (
 
       await getMemoryService().addTurn(
         botId,
-        channel.id,
+        channelId,
         text,
         content || "?",
         actor,
@@ -199,9 +186,7 @@ const handleMessageTimeout = async (
       );
 
       // debug
-      console.log(
-        `history updated for botId: ${botId}, channel: ${channel.id}`,
-      );
+      console.log(`history updated for botId: ${botId}, channel: ${channelId}`);
     } catch (error) {
       console.error("Error generateContent");
       if (isAxiosError(error)) {
@@ -326,9 +311,12 @@ export default class PoliceBot extends BaseBot {
     };
 
     store.dispatch(
-      policeBotActions.addMessageBuffer({
-        message: discordMessage,
+      policeBotActions.appendUserMessage({
         channelId: message.channelId,
+        userId: message.author.id,
+        authorUsername: message.author.username,
+        authorDisplayName: guildMember?.nickname ?? message.author.displayName,
+        message: discordMessage,
       }),
     );
 

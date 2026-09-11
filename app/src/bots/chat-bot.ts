@@ -25,35 +25,55 @@ import { splitEndingEmojis } from "../utils/emoji";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
 import BaseBot, { type BaseBotConfig } from "./base-bot";
 
-const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
-const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
+export const DEFAULT_DEBOUNCE_DELAY_MS = 3500;
+export const DEFAULT_MAX_DEBOUNCE_DELAY_MS = 8000;
+export const TYPING_REFRESH_INTERVAL_MS = 8000;
+export const MEMBER_FETCH_AGE_MS = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 /** Fetch up-to-date member list to cache */
-const validateServerMembersCache = async (guild: Guild) => {
+const validateServerMembersCache = async (guild: Guild): Promise<void> => {
   const { lastMemberFetch } = store.getState().chatbot;
-  if (!lastMemberFetch || lastMemberFetch + MEMBER_FETCH_AGE < Date.now()) {
+  if (!lastMemberFetch || lastMemberFetch + MEMBER_FETCH_AGE_MS < Date.now()) {
     await guild.members.fetch();
     store.dispatch(
-      chatbotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE),
+      chatbotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE_MS),
     );
   }
 };
 
-// not recommended to store non-serialized objects in redux store,
-// hence this is what we have
-const messageTimeout: Record<string, NodeJS.Timeout> = {};
-const setMessageTimeout = ({
-  channelId,
-  timeout,
-}: {
-  channelId: string;
-  timeout: NodeJS.Timeout;
-}) => {
-  messageTimeout[channelId] = timeout;
-};
-const clearMessageTimeout = (channelId: string) => {
-  clearTimeout(messageTimeout[channelId]);
-};
+/** Keyed by `${channelId}:${userId}` */
+const slidingTimers = new Map<string, NodeJS.Timeout>();
+const ceilingTimers = new Map<string, NodeJS.Timeout>();
+
+export function getBatchKey(channelId: string, userId: string): string {
+  return `${channelId}:${userId}`;
+}
+
+export function clearBatchTimers(channelId: string, userId: string): void {
+  const key = getBatchKey(channelId, userId);
+  const sliding = slidingTimers.get(key);
+  if (sliding) {
+    clearTimeout(sliding);
+    slidingTimers.delete(key);
+  }
+  const ceiling = ceilingTimers.get(key);
+  if (ceiling) {
+    clearTimeout(ceiling);
+    ceilingTimers.delete(key);
+  }
+}
+
+export function clearAllBatchTimers(): void {
+  for (const timeout of slidingTimers.values()) {
+    clearTimeout(timeout);
+  }
+  slidingTimers.clear();
+
+  for (const timeout of ceilingTimers.values()) {
+    clearTimeout(timeout);
+  }
+  ceilingTimers.clear();
+}
 
 /**
  * Formats buffered discord messages into prompt text.
@@ -63,7 +83,6 @@ function buildPromptText(messages: DiscordMessage[]): string {
     .map((message) => {
       const authorQuote = `${message.authorUsername} says ${message.cleanContent}`;
       if (message.reference) {
-        // TODO parse and replace nicknames in reference with usernames
         return `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`;
       }
       return authorQuote;
@@ -71,8 +90,6 @@ function buildPromptText(messages: DiscordMessage[]): string {
     .join("\n");
 
   const messageMentions = messages.flatMap((m) => m.mentions);
-  // replace nicknames in prompt with username so that the model returns back with references to username
-  // then username is replaced with formatted mentions in the final message
   return messageMentions.reduce((acc, mention) => {
     return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
   }, text);
@@ -115,43 +132,142 @@ function buildGuildMemberInfoList(message: Message<boolean>): DiscordUser[] {
   );
 }
 
-const handleMessageTimeout = async (
+/**
+ * Determines whether a message qualifies as high-certainty to trigger immediate typing feedback.
+ */
+function isHighCertaintyTrigger(
+  message: Message<boolean>,
+  botUserId?: string,
+): boolean {
+  if (!botUserId) return false;
+  const users = message.mentions?.users;
+  if (users) {
+    if (typeof users.has === "function" && users.has(botUserId)) {
+      return true;
+    }
+    if (
+      typeof users.toJSON === "function" &&
+      users.toJSON().some((u) => u.id === botUserId)
+    ) {
+      return true;
+    }
+  }
+  if (
+    typeof message.channel?.isThread === "function" &&
+    message.channel.isThread() &&
+    message.channel.ownerId === botUserId
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if a discord message meets the basic eligibility requirements for handling.
+ */
+function isMessageEligible(message: Message<boolean>): boolean {
+  if (!message.channel.isSendable()) {
+    return false;
+  }
+  if (message.author.bot || message.stickers.size !== 0) {
+    return false;
+  }
+  if (![MessageType.Default, MessageType.Reply].includes(message.type)) {
+    return false;
+  }
+  if (!message.inGuild()) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Transforms Discord attachments into application format safely.
+ */
+function mapAttachments(
+  attachments: Collection<string, { url: string; contentType: string | null }>,
+) {
+  return attachments
+    .toJSON()
+    .filter(
+      (a): a is { url: string; contentType: string } => a.contentType !== null,
+    )
+    .map((a) => ({
+      uri: a.url,
+      mimeType: a.contentType,
+    }));
+}
+
+/**
+ * Converts a raw Discord message into our normalized DiscordMessage format.
+ */
+function parseDiscordMessage(
+  message: Message<boolean>,
+  refMessage: Message<boolean> | null,
+  displayName: string,
+): DiscordMessage {
+  return {
+    authorId: message.author.id,
+    content: message.content,
+    authorUsername: message.author.username,
+    authorDisplayName: displayName,
+    cleanContent: message.cleanContent,
+    reference: !refMessage
+      ? undefined
+      : {
+          authorUsername: refMessage.author.username,
+          content: refMessage.content,
+          cleanContent: refMessage.cleanContent,
+          attachments: mapAttachments(refMessage.attachments),
+        },
+    mentions: message.mentions.users.toJSON().map((u) => ({
+      id: u.id,
+      nickname:
+        message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
+      username: u.username,
+    })),
+    attachments: mapAttachments(message.attachments),
+  };
+}
+
+const handleUserBatchExecution = async (
   message: Message<boolean>,
   botId: string,
   guildConfig?: BotGuildConfig,
-) => {
-  console.log(`---handleMessageTimeout---`);
+): Promise<void> => {
+  const channelId = message.channelId;
+  const userId = message.author.id;
+
+  clearBatchTimers(channelId, userId);
 
   if (!message.channel.isSendable()) {
     return;
   }
 
-  // Capture the narrowed sendable channel so the interval callback retains
-  // the correct type (isSendable narrowing doesn't propagate into closures).
   const sendableChannel = message.channel;
+  const channelBatches = store.getState().chatbot.userMessageBatches[channelId];
+  const userBatch = channelBatches?.[userId];
 
-  // Discord's typing indicator expires after ~10s, so refresh it every 8s.
-  // try/finally guarantees the interval is always cleared on exit.
+  if (!userBatch || userBatch.isProcessing || userBatch.messages.length === 0) {
+    return;
+  }
+
+  store.dispatch(
+    chatbotActions.setUserBatchProcessing({
+      channelId,
+      userId,
+      isProcessing: true,
+    }),
+  );
+
   await sendableChannel.sendTyping();
   const typingInterval = setInterval(() => {
     sendableChannel.sendTyping().catch(() => {});
-  }, 8000);
+  }, TYPING_REFRESH_INTERVAL_MS);
 
   try {
-    const { channel } = message;
-    const { messageBuffer } = store.getState().chatbot;
-
-    // get the messages from the user who last messaged
-    const lastMessage = messageBuffer[channel.id]?.at(-1);
-    if (!lastMessage) {
-      console.log("No message in message buffer");
-      return;
-    }
-
-    const messages: DiscordMessage[] = (messageBuffer[channel.id] ?? [])
-      .filter((m) => m.authorId === lastMessage.authorId)
-      .toReversed();
-
+    const messages = userBatch.messages;
+    const lastMessage = messages[messages.length - 1];
     const textWithUsername = buildPromptText(messages);
 
     const files = [
@@ -159,7 +275,7 @@ const handleMessageTimeout = async (
       ...messages.flatMap((m) => m.reference?.attachments ?? []),
     ];
 
-    const history = await getMemoryService().getHistory(botId, channel.id);
+    const history = await getMemoryService().getHistory(botId, channelId);
 
     const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
     const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
@@ -182,8 +298,6 @@ const handleMessageTimeout = async (
       enableGoogleSearch,
     } as AiPrompt;
 
-    console.log(`promptText: ${prompt.text}`);
-
     try {
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
@@ -191,34 +305,21 @@ const handleMessageTimeout = async (
         systemInstruction: guildConfig?.systemInstruction,
       });
       await genAi.init();
-      const { content, data } = await generateChatMessageWithGenAi(
+      const { content } = await generateChatMessageWithGenAi(
         genAi,
         prompt,
         buildGuildMemberInfoList(message),
         message.guild,
       );
 
-      console.log({
-        user: textWithUsername,
-        bot: content,
-      });
-
-      store.dispatch(chatbotActions.clearMessageBuffer(channel.id));
-
-      if (content === "") {
-        console.log({ data: JSON.stringify(data) });
-      }
-
       const [finalMessage, endingEmoji] = splitEndingEmojis(content);
 
-      // TODO is this a good answer when model doesn't have a reply?
-      await channel.send(finalMessage || "?");
+      await sendableChannel.send(finalMessage || "?");
       if (endingEmoji) {
-        await channel.sendTyping();
-        await channel.send(endingEmoji);
+        await sendableChannel.sendTyping();
+        await sendableChannel.send(endingEmoji);
       }
 
-      // save conversation into persistent memory
       const actor: UserActorInfo = {
         userId: lastMessage.authorId,
         username: lastMessage.authorUsername,
@@ -227,32 +328,28 @@ const handleMessageTimeout = async (
 
       await getMemoryService().addTurn(
         botId,
-        channel.id,
+        channelId,
         textWithUsername,
         content || "?",
         actor,
         message.guildId ?? undefined,
         "chatBot",
       );
-
-      // debug
-      console.log(
-        `history updated for botId: ${botId}, channel: ${channel.id}`,
-      );
     } catch (error) {
-      console.error("Error generateContent");
+      console.error("Error generating chatbot response", error);
       if (isAxiosError(error)) {
         console.error({
           name: error.name,
           message: error.message,
           error: error.toJSON(),
         });
-      } else {
-        console.error({ error });
       }
+    } finally {
+      store.dispatch(chatbotActions.clearUserBatch({ channelId, userId }));
     }
   } catch (error: unknown) {
-    console.error("Error handleMessageTimeout", error);
+    console.error("Error handleUserBatchExecution", error);
+    store.dispatch(chatbotActions.clearUserBatch({ channelId, userId }));
   } finally {
     clearInterval(typingInterval);
   }
@@ -268,7 +365,6 @@ export default class ChatBot extends BaseBot {
     this.config = config;
     this.client = new Client({
       intents: [
-        // TODO make sure to only use the intents needed
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildVoiceStates,
@@ -279,7 +375,7 @@ export default class ChatBot extends BaseBot {
     this.handleNewMessage = this.handleNewMessage.bind(this);
   }
 
-  async loadCommands() {
+  async loadCommands(): Promise<void> {
     const commandsToReg = await parseCommands();
     commandsToReg.forEach((command) => {
       this.commands.set(command.data.name, command);
@@ -287,7 +383,9 @@ export default class ChatBot extends BaseBot {
     console.log(`Loaded ${this.commands.size} commands.`);
   }
 
-  protected async handleNewInteraction(interaction: Interaction) {
+  protected async handleNewInteraction(
+    interaction: Interaction,
+  ): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
 
     const command = this.commands.get(interaction.commandName);
@@ -317,88 +415,87 @@ export default class ChatBot extends BaseBot {
     }
   }
 
-  protected async handleNewMessage(message: Message<boolean>) {
-    if (!message.channel.isSendable()) {
-      console.log("Channel is not sendable, skipping message handling");
+  protected async handleNewMessage(message: Message<boolean>): Promise<void> {
+    if (!(isMessageEligible(message) && this.shouldReplyToMessage(message))) {
       return;
     }
-
-    if (message.author.bot) return;
-
-    // has attachment (haven't supported yet)
-    // message.attachments.size !== 0 ||
-    // has sticker (handling stickers not supported)
-    if (message.stickers.size !== 0) return;
-
-    // not a supported message type
-    if (![MessageType.Default, MessageType.Reply].includes(message.type))
-      return;
-
-    if (!this.shouldReplyToMessage(message)) return;
-
-    if (!message.inGuild()) return;
 
     let refMessage: Message<boolean> | null = null;
-    if (message.reference !== null) {
-      refMessage = await message.channel.messages.fetch(
-        message.reference.messageId!,
-      );
+    if (message.reference?.messageId) {
+      refMessage = await message.channel.messages
+        .fetch(message.reference.messageId)
+        .catch(() => null);
     }
 
-    await validateServerMembersCache(message.guild);
-    const guildMember = message.guild.members.cache.get(message.author.id);
-    const discordMessage: DiscordMessage = {
-      authorId: message.author.id,
-      content: message.content,
-      authorUsername: message.author.username,
-      authorDisplayName: guildMember?.nickname ?? message.author.displayName,
-      cleanContent: message.cleanContent,
-      reference: !refMessage
-        ? undefined
-        : {
-            authorUsername: refMessage.author.username,
-            content: refMessage.content,
-            cleanContent: refMessage.cleanContent,
-            attachments: refMessage.attachments
-              .toJSON()
-              .filter((a) => a.contentType !== null)
-              .map((a) => ({
-                uri: a.url,
-                mimeType: a.contentType!,
-              })),
-          },
-      mentions: message.mentions.users.toJSON().map((u) => ({
-        id: u.id,
-        nickname:
-          message.guild?.members.cache.get(u.id)?.nickname ?? u.displayName,
-        username: u.username,
-      })),
-      attachments: message.attachments
-        .toJSON()
-        .filter((a) => a.contentType !== null)
-        .map((a) => ({
-          uri: a.url,
-          mimeType: a.contentType!,
-        })),
-    };
+    if (message.guild) {
+      await validateServerMembersCache(message.guild);
+    }
+
+    const guildMember = message.guild?.members.cache.get(message.author.id);
+    const authorDisplayName =
+      guildMember?.nickname ?? message.author.displayName;
+    const discordMessage = parseDiscordMessage(
+      message,
+      refMessage,
+      authorDisplayName,
+    );
+
+    const channelId = message.channelId;
+    const userId = message.author.id;
+    const guildConfig = this.getGuildConfig(message.guildId);
 
     store.dispatch(
-      chatbotActions.addMessageBuffer({
+      chatbotActions.appendUserMessage({
+        channelId,
+        userId,
+        authorUsername: message.author.username,
+        authorDisplayName,
         message: discordMessage,
-        channelId: message.channelId,
+      }),
+    );
+    store.dispatch(
+      chatbotActions.recordUserActivity({
+        channelId,
+        userId,
       }),
     );
 
-    const guildConfig = this.getGuildConfig(message.guildId);
-    const replyDelay = guildConfig?.replyDelay ?? DEFAULT_BOT_REPLY_DELAY;
+    if (
+      isHighCertaintyTrigger(message, this.client.user?.id) &&
+      message.channel.isSendable()
+    ) {
+      message.channel.sendTyping().catch(() => {});
+    }
 
-    clearMessageTimeout(message.channelId);
-    setMessageTimeout({
-      channelId: message.channelId,
-      timeout: setTimeout(
-        () => handleMessageTimeout(message, this.id, guildConfig),
+    const replyDelay =
+      guildConfig?.replyDelay ??
+      guildConfig?.smartReply?.debounceMs ??
+      DEFAULT_DEBOUNCE_DELAY_MS;
+    const maxDebounceDelay =
+      guildConfig?.smartReply?.maxDebounceMs ?? DEFAULT_MAX_DEBOUNCE_DELAY_MS;
+
+    const key = getBatchKey(channelId, userId);
+
+    const existingSliding = slidingTimers.get(key);
+    if (existingSliding) {
+      clearTimeout(existingSliding);
+    }
+    slidingTimers.set(
+      key,
+      setTimeout(
+        () => handleUserBatchExecution(message, this.id, guildConfig),
         replyDelay,
       ),
-    });
+    );
+
+    if (!ceilingTimers.has(key)) {
+      ceilingTimers.set(
+        key,
+        setTimeout(
+          () => handleUserBatchExecution(message, this.id, guildConfig),
+          maxDebounceDelay,
+        ),
+      );
+    }
   }
 }
