@@ -10,6 +10,7 @@ import {
 } from "discord.js";
 import type { BotGuildConfig } from "../config/types";
 import { parseCommands } from "../discord/helpers";
+import { getAddresseeService } from "../services/addressee";
 import { getMemoryService } from "../services/memory";
 import { chatbotActions, store } from "../store";
 import { getToolRegistry } from "../tools/registry";
@@ -416,7 +417,7 @@ export default class ChatBot extends BaseBot {
   }
 
   protected async handleNewMessage(message: Message<boolean>): Promise<void> {
-    if (!(isMessageEligible(message) && this.shouldReplyToMessage(message))) {
+    if (!isMessageEligible(message)) {
       return;
     }
 
@@ -425,6 +426,29 @@ export default class ChatBot extends BaseBot {
       refMessage = await message.channel.messages
         .fetch(message.reference.messageId)
         .catch(() => null);
+    }
+
+    const channelId = message.channelId;
+    const userId = message.author.id;
+    const guildConfig = this.getGuildConfig(message.guildId);
+
+    const channelSilencedUntil =
+      store.getState().chatbot.channelSilenceCooldowns[channelId];
+    const activeSessionTimestamp =
+      store.getState().chatbot.activeUserSessions[channelId]?.[userId];
+
+    const addresseeDecision = await getAddresseeService().resolveAddressee({
+      message,
+      botUserId: this.client.user?.id ?? "",
+      botName: guildConfig?.botName,
+      guildConfig,
+      refMessage,
+      activeSessionTimestamp,
+      channelSilencedUntil,
+    });
+
+    if (addresseeDecision.decision === "ignore") {
+      return;
     }
 
     if (message.guild) {
@@ -439,10 +463,6 @@ export default class ChatBot extends BaseBot {
       refMessage,
       authorDisplayName,
     );
-
-    const channelId = message.channelId;
-    const userId = message.author.id;
-    const guildConfig = this.getGuildConfig(message.guildId);
 
     store.dispatch(
       chatbotActions.appendUserMessage({

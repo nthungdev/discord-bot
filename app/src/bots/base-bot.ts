@@ -50,6 +50,8 @@ export default abstract class BaseBot {
       }
 
       return {
+        botName: guildConfig.botName,
+        personalization: guildConfig.personalization,
         replyChannelIds: guildConfig.replyChannelIds ?? [],
         ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
         respondToMentions: guildConfig.respondToMentions ?? false,
@@ -65,6 +67,8 @@ export default abstract class BaseBot {
       }
 
       return {
+        botName: guildConfig.botName,
+        personalization: guildConfig.personalization,
         replyChannelIds: guildConfig.replyChannelIds ?? [],
         ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
         respondToMentions: guildConfig.respondToMentions ?? false,
@@ -89,7 +93,7 @@ export default abstract class BaseBot {
     return !guildConfig.ignoredChannelIds.includes(message.channelId);
   }
 
-  protected shouldReplyToMessage(message: Message) {
+  protected shouldReplyToMessage(message: Message): boolean {
     if (!this.shouldHandleMessage(message)) {
       return false;
     }
@@ -102,9 +106,17 @@ export default abstract class BaseBot {
     const respondsInChannel = guildConfig.replyChannelIds.includes(
       message.channelId,
     );
-    const respondsToMention =
-      guildConfig.respondToMentions &&
-      !!message.mentions.members?.has(this.client.user?.id ?? "");
+    const botUserId = this.client.user?.id ?? "";
+    const users = message.mentions.users;
+    const mentionsBot =
+      users &&
+      ((typeof users.has === "function" && users.has(botUserId)) ||
+        (typeof users.toJSON === "function" &&
+          users.toJSON().some((u) => u.id === botUserId)));
+
+    const respondsToMention = Boolean(
+      guildConfig.respondToMentions && mentionsBot,
+    );
 
     return respondsInChannel || respondsToMention;
   }

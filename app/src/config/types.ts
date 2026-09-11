@@ -45,6 +45,8 @@ export interface SmartReplyConfig {
 }
 
 export interface BotGuildConfig {
+  botName?: string;
+  personalization?: string;
   replyChannelIds: string[];
   ignoredChannelIds: string[];
   respondToMentions: boolean;
