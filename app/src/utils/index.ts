@@ -1,9 +1,7 @@
 import axios from "axios";
 
 const formatMemberIds = (memberIds: string[]): string =>
-  memberIds
-    .reduce((acc, curr) => [...acc, `<@${curr}>`], [] as string[])
-    .join(" ");
+  memberIds.map((curr) => `<@${curr}>`).join(" ");
 
 const message1 = (memberIds: string[]): string => {
   const members = formatMemberIds(memberIds);
