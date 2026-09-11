@@ -86,10 +86,11 @@ describe("E2E: Bot Lifecycle & Interaction", () => {
     // Wait for async message handling to complete and update Redux state
     await vi.waitFor(() => {
       const state = store.getState().chatbot;
-      expect(state.messageBuffer["channel-123"]).toBeDefined();
-      expect(state.messageBuffer["channel-123"]?.[0]?.content).toBe(
-        "Hello chatbot",
-      );
+      expect(state.userMessageBatches["channel-123"]).toBeDefined();
+      expect(
+        state.userMessageBatches["channel-123"]?.[mockMessage.author.id]
+          ?.messages[0]?.content,
+      ).toBe("Hello chatbot");
     });
   });
 

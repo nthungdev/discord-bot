@@ -22,6 +22,28 @@ export interface BotGuildToolsConfig {
   discord?: boolean;
 }
 
+export interface SmartReplyConfig {
+  enabled?: boolean;
+  mode?: "disabled" | "mentions_and_vocative" | "ambient_intent";
+  ambientConfidenceThreshold?: number;
+  debounceMs?: number;
+  maxDebounceMs?: number;
+  sessionTtlSeconds?: number;
+  replyStrategy?: "independent" | "coalesced" | "hybrid";
+  coalesceWindowMs?: number;
+  silenceDurationMinutes?: number;
+  ambientRateLimitSeconds?: number;
+  ambientSnapshotLimit?: number;
+  enableKeywordDismissal?: boolean;
+  enableReactionDismissal?: boolean;
+  sendTypingBehavior?:
+    | "immediate_for_all"
+    | "deferred_for_ambient"
+    | "disabled";
+  threadAutoListen?: boolean;
+  optOutTopicTag?: string;
+}
+
 export interface BotGuildConfig {
   replyChannelIds: string[];
   ignoredChannelIds: string[];
@@ -29,6 +51,7 @@ export interface BotGuildConfig {
   systemInstruction?: string;
   replyDelay?: number;
   tools?: BotGuildToolsConfig;
+  smartReply?: SmartReplyConfig;
 }
 
 export interface BotGuildsConfig {

@@ -5,7 +5,7 @@ import {
   type Message,
 } from "discord.js";
 import { Config, ConfigParameter } from "../config";
-import type { BotConfig } from "../config/types";
+import type { BotConfig, BotGuildConfig } from "../config/types";
 
 export interface BaseBotConfig {
   id: string;
@@ -28,7 +28,9 @@ export default abstract class BaseBot {
     interaction: Interaction,
   ): Promise<void>;
 
-  protected getGuildConfig(guildId?: string | null) {
+  protected getGuildConfig(
+    guildId?: string | null,
+  ): BotGuildConfig | undefined {
     if (!guildId) {
       return undefined;
     }
@@ -54,6 +56,7 @@ export default abstract class BaseBot {
         systemInstruction: guildConfig.systemInstruction,
         replyDelay: guildConfig.replyDelay,
         tools: guildConfig.tools,
+        smartReply: guildConfig.smartReply,
       };
     } catch {
       const guildConfig = this.config.botConfig.guilds?.[guildId];
@@ -68,6 +71,7 @@ export default abstract class BaseBot {
         systemInstruction: guildConfig.systemInstruction,
         replyDelay: guildConfig.replyDelay,
         tools: guildConfig.tools,
+        smartReply: guildConfig.smartReply,
       };
     }
   }
