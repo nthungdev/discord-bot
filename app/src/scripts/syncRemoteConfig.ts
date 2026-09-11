@@ -23,9 +23,6 @@ export function determineValueType(val: unknown): RemoteConfigValueType {
 
 export function resolveDefaultConfigFile(): string {
   const candidates = [
-    path.resolve(process.cwd(), "config.production.json"),
-    path.resolve(process.cwd(), "app/config.production.json"),
-    path.resolve(__dirname, "../../config.production.json"),
     path.resolve(process.cwd(), "config.json"),
     path.resolve(process.cwd(), "app/config.json"),
     path.resolve(__dirname, "../../config.json"),

@@ -403,7 +403,7 @@ async function executeChatBotGeneration(
 
   const chatBotModelConfig =
     guildConfig?.smartReply?.chatBotModel ?? guildConfig?.chatBotModel;
-  const modelId = chatBotModelConfig?.modelId ?? "gemini-2.5-flash";
+  const modelId = chatBotModelConfig?.modelId;
   const maxOutputTokens = chatBotModelConfig?.maxOutputTokens;
 
   const genAi = getGenAi({

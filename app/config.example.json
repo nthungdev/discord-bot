@@ -20,7 +20,7 @@
           "botName": "<Chat Bot Name>",
           "personalization": "You are <Chat Bot Name>, an intelligent Discord assistant.",
           "chatBotModel": {
-            "modelId": "gemini-2.5-flash",
+            "modelId": "gemini-3.5-flash",
             "temperature": 0.7,
             "maxOutputTokens": 8192
           },
@@ -37,12 +37,12 @@
             "enabled": true,
             "mode": "ambient_intent",
             "classifierModel": {
-              "modelId": "gemini-2.5-flash-lite",
+              "modelId": "gemini-3.5-flash-lite",
               "temperature": 0.1,
               "maxOutputTokens": 80
             },
             "chatBotModel": {
-              "modelId": "gemini-2.5-flash",
+              "modelId": "gemini-3.5-flash",
               "temperature": 0.7,
               "maxOutputTokens": 8192
             },

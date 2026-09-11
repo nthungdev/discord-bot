@@ -3,7 +3,7 @@ import { getGenAi } from "../../utils/genAi";
 import type { AddresseeEvaluationContext, AddresseeResult } from "./types";
 
 export const DEFAULT_CLASSIFIER_MODEL: SupportedGenAiModel =
-  "gemini-2.5-flash-lite";
+  "gemini-3.5-flash-lite";
 export const DEFAULT_CLASSIFIER_TEMPERATURE = 0.1;
 export const DEFAULT_CLASSIFIER_MAX_OUTPUT_TOKENS = 80;
 export const DEFAULT_AMBIENT_CONFIDENCE_THRESHOLD = 0.75;
