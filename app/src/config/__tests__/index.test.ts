@@ -31,12 +31,21 @@ describe("Config", () => {
       expect(resolved).toBe("/custom/config.json");
     });
 
-    it("should prioritize config.local.json over config.json", () => {
+    it("should resolve CONFIG_PATH when set and exists", () => {
+      const originalEnv = process.env.CONFIG_PATH;
+      process.env.CONFIG_PATH = "/env/config.json";
+      vi.spyOn(fs, "existsSync").mockReturnValue(true);
+      const resolved = resolveConfigPath();
+      expect(resolved).toBe("/env/config.json");
+      process.env.CONFIG_PATH = originalEnv;
+    });
+
+    it("should resolve config.json when exists", () => {
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
-        return String(p).endsWith("config.local.json");
+        return String(p).endsWith("config.json");
       });
       const resolved = resolveConfigPath();
-      expect(resolved).toContain("config.local.json");
+      expect(resolved).toContain("config.json");
     });
 
     it("should return null if no candidate file exists", () => {

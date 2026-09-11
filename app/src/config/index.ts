@@ -59,9 +59,6 @@ export const resolveConfigPath = (customPath?: string): string | null => {
   const candidatePaths = [
     customPath,
     process.env.CONFIG_PATH,
-    path.resolve(process.cwd(), "config.local.json"),
-    path.resolve(process.cwd(), "app/config.local.json"),
-    path.resolve(__dirname, "../../config.local.json"),
     path.resolve(process.cwd(), "config.json"),
     path.resolve(process.cwd(), "app/config.json"),
     path.resolve(__dirname, "../../config.json"),
