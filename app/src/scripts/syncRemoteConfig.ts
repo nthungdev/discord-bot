@@ -195,14 +195,8 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
   console.log("\n[RemoteConfig Sync] Successfully finished!");
 }
 
-function parseCliArgs(args: string[]): SyncOptions {
-  const options: SyncOptions = {};
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (arg === "--help" || arg === "-h") {
-      console.log(`
+function printCliHelp(): never {
+  console.log(`
 Usage: pnpm run sync-config [options]
 
 Options:
@@ -214,31 +208,55 @@ Options:
   --dry-run                     Validate parameters without uploading
   -h, --help                    Show this help message
 `);
-      process.exit(0);
-    } else if (arg === "--file" || arg === "-f") {
-      options.configFile = args[++i];
-    } else if (arg === "--service-account" || arg === "-s") {
-      options.serviceAccountFile = args[++i];
-    } else if (arg === "--target" || arg === "-t") {
-      const targetVal = args[++i];
-      if (
-        targetVal === "server" ||
-        targetVal === "client" ||
-        targetVal === "both"
-      ) {
-        options.target = targetVal;
-      } else {
-        console.error(
-          `Invalid target: ${targetVal}. Allowed values: server, client, both.`,
-        );
-        process.exit(1);
-      }
-    } else if (arg === "--clear-client") {
-      options.clearClient = true;
-    } else if (arg === "--clear-server") {
-      options.clearServer = true;
-    } else if (arg === "--dry-run") {
-      options.dryRun = true;
+  process.exit(0);
+}
+
+function parseTargetArg(targetVal: string): "server" | "client" | "both" {
+  if (
+    targetVal === "server" ||
+    targetVal === "client" ||
+    targetVal === "both"
+  ) {
+    return targetVal;
+  }
+  console.error(
+    `Invalid target: ${targetVal}. Allowed values: server, client, both.`,
+  );
+  process.exit(1);
+}
+
+function parseCliArgs(args: string[]): SyncOptions {
+  const options: SyncOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    switch (arg) {
+      case "--help":
+      case "-h":
+        printCliHelp();
+        break;
+      case "--file":
+      case "-f":
+        options.configFile = args[++i];
+        break;
+      case "--service-account":
+      case "-s":
+        options.serviceAccountFile = args[++i];
+        break;
+      case "--target":
+      case "-t":
+        options.target = parseTargetArg(args[++i]);
+        break;
+      case "--clear-client":
+        options.clearClient = true;
+        break;
+      case "--clear-server":
+        options.clearServer = true;
+        break;
+      case "--dry-run":
+        options.dryRun = true;
+        break;
     }
   }
 
