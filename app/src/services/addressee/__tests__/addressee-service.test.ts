@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createMockMessage,
   createMockUser,
 } from "../../../../tests/fixtures/discord";
+import * as genAiUtils from "../../../utils/genAi";
 import { AddresseeService } from "../index";
 
 describe("AddresseeService", () => {
@@ -42,7 +43,23 @@ describe("AddresseeService", () => {
     expect(result.reason).toBe("bot_author");
   });
 
-  it("should return classify_ambient for ambiguous candidate when smartReply.mode is ambient_intent", async () => {
+  it("should return respond decision when Tier 2 classifier identifies ambient intent", async () => {
+    const mockGenAi = {
+      init: vi.fn().mockResolvedValue(undefined),
+      generate: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
+          isAddressedToBot: true,
+          confidence: 0.95,
+          targetAudience: "bot",
+          reason: "User is asking a programming question",
+        }),
+      }),
+    };
+
+    vi.spyOn(genAiUtils, "getGenAi").mockReturnValue(
+      mockGenAi as unknown as ReturnType<typeof genAiUtils.getGenAi>,
+    );
+
     const msg = createMockMessage({
       content: "Does anyone know how to deploy Docker?",
     });
@@ -60,9 +77,9 @@ describe("AddresseeService", () => {
       },
     });
 
-    expect(result.decision).toBe("classify_ambient");
+    expect(result.decision).toBe("respond");
     expect(result.tier).toBe("tier2_classifier");
-    expect(result.reason).toBe("ambient_candidate");
+    expect(result.confidence).toBe(0.95);
   });
 
   it("should return ignore for ambiguous message when mode is not ambient_intent", async () => {
