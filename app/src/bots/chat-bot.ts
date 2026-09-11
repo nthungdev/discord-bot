@@ -468,6 +468,10 @@ const handleUserBatchExecution = async (
       );
 
     try {
+      console.info(
+        `[SmartReply:Batch:Execute] Generating response for @${lastMessage.authorUsername} in channel ${channelId} (${userBatch.messages.length} message(s))`,
+      );
+
       const content = await executeChatBotGeneration(
         message,
         prompt,
@@ -475,6 +479,10 @@ const handleUserBatchExecution = async (
       );
 
       await dispatchBotReply(message, content, guildConfig);
+
+      console.info(
+        `[SmartReply:Reply:Dispatched] Reply sent via "${guildConfig?.smartReply?.replyStrategy ?? "hybrid"}" (${content?.length ?? 0} chars) to channel ${channelId}`,
+      );
 
       const actor: UserActorInfo = {
         userId: lastMessage.authorId,
@@ -528,6 +536,9 @@ function handleKeywordDismissal(
 
   const silenceMinutes =
     guildConfig?.smartReply?.silenceDurationMinutes ?? DEFAULT_SILENCE_MINUTES;
+  console.info(
+    `[SmartReply:Annoyance] Silencing channel ${channelId} for ${silenceMinutes}m due to keyword dismissal ("${message.cleanContent}")`,
+  );
   store.dispatch(
     chatbotActions.silenceChannel({
       channelId,
@@ -555,6 +566,9 @@ function isAmbientRateThrottled(
   const now = Date.now();
 
   if (now - lastAmbientTime < rateLimitSeconds * 1000) {
+    console.info(
+      `[SmartReply:RateLimit] Throttled ambient reply in channel ${channelId} (${rateLimitSeconds}s rate limit active, ${Math.round((now - lastAmbientTime) / 1000)}s elapsed)`,
+    );
     return true;
   }
 
@@ -578,6 +592,9 @@ function scheduleDebounceTimers(
   if (existingSliding) {
     clearTimeout(existingSliding);
   }
+  console.info(
+    `[SmartReply:Debounce] Scheduled batch timer for user ${userId} in channel ${channelId} (sliding: ${replyDelay}ms, ceiling: ${maxDebounceDelay}ms)`,
+  );
   slidingTimers.set(key, setTimeout(executeBatch, replyDelay));
 
   if (!ceilingTimers.has(key)) {
@@ -626,6 +643,9 @@ export default class ChatBot extends BaseBot {
       const silenceMinutes =
         guildConfig?.smartReply?.silenceDurationMinutes ??
         DEFAULT_SILENCE_MINUTES;
+      console.info(
+        `[SmartReply:Annoyance] Silencing channel ${channelId} for ${silenceMinutes}m due to reaction dismissal (${emojiName}) by user ${user.id}`,
+      );
       store.dispatch(
         chatbotActions.silenceChannel({
           channelId,

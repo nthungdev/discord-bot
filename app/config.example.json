@@ -19,6 +19,7 @@
         "YOUR_GUILD_ID": {
           "botName": "<Chat Bot Name>",
           "personalization": "You are <Chat Bot Name>, an intelligent Discord assistant.",
+          "personalizationMode": "overwrite_identity",
           "chatBotModel": {
             "modelId": "gemini-3.5-flash",
             "temperature": 0.7,
@@ -28,7 +29,6 @@
           "ignoredChannelIds": [],
           "respondToMentions": true,
           "replyDelay": 5000,
-          "systemInstruction": "Your name is <Chat Bot Name>. You are a conversational chatbot in this Discord server.",
           "tools": {
             "googleSearch": true,
             "discord": true
@@ -40,11 +40,6 @@
               "modelId": "gemini-3.5-flash-lite",
               "temperature": 0.1,
               "maxOutputTokens": 80
-            },
-            "chatBotModel": {
-              "modelId": "gemini-3.5-flash",
-              "temperature": 0.7,
-              "maxOutputTokens": 8192
             },
             "ambientConfidenceThreshold": 0.75,
             "debounceMs": 3500,
@@ -68,11 +63,17 @@
       "guilds": {
         "YOUR_GUILD_ID": {
           "botName": "<Police Bot Name>",
+          "personalization": "You are <Police Bot Name>, a moderation police bot. You enforce server rules with sarcasm and wit.",
+          "personalizationMode": "overwrite_identity",
+          "chatBotModel": {
+            "modelId": "gemini-3.5-flash",
+            "temperature": 0.7,
+            "maxOutputTokens": 8192
+          },
           "replyChannelIds": [],
           "ignoredChannelIds": [],
           "respondToMentions": true,
           "replyDelay": 5000,
-          "systemInstruction": "You are <Police Bot Name>, a moderation police bot. You enforce server rules with sarcasm and wit.",
           "tools": {
             "googleSearch": false,
             "discord": false

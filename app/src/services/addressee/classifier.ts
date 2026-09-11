@@ -80,6 +80,7 @@ export async function classifyAmbientIntent(
     classifierConfig?.maxOutputTokens ?? DEFAULT_CLASSIFIER_MAX_OUTPUT_TOKENS;
   const systemInstruction = buildClassifierSystemInstruction(botName);
 
+  const startTime = Date.now();
   try {
     const genAi = getGenAi({
       apiKey: process.env.AI_API_KEY,
@@ -96,8 +97,12 @@ export async function classifyAmbientIntent(
       text: promptText,
     });
 
+    const durationMs = Date.now() - startTime;
     const parsed = parseClassifierOutput(response.content);
     if (!parsed) {
+      console.warn(
+        `[SmartReply:Classifier] (${durationMs}ms) Failed to parse JSON classifier response: "${response.content}"`,
+      );
       return {
         decision: "ignore",
         tier: "tier2_classifier",
@@ -106,7 +111,17 @@ export async function classifyAmbientIntent(
       };
     }
 
-    if (parsed.isAddressedToBot && parsed.confidence >= confidenceThreshold) {
+    const isAccepted =
+      parsed.isAddressedToBot && parsed.confidence >= confidenceThreshold;
+
+    console.info(
+      `[SmartReply:Classifier] (${durationMs}ms) [model: ${modelId}] ` +
+        `decision: ${isAccepted ? "ACCEPT (respond)" : "REJECT (ignore)"} | ` +
+        `confidence: ${parsed.confidence.toFixed(2)} (threshold: ${confidenceThreshold}) | ` +
+        `addressed: ${parsed.isAddressedToBot} | audience: "${parsed.targetAudience}" | reason: "${parsed.reason}"`,
+    );
+
+    if (isAccepted) {
       return {
         decision: "respond",
         tier: "tier2_classifier",
@@ -122,7 +137,11 @@ export async function classifyAmbientIntent(
       confidence: parsed.confidence,
     };
   } catch (error) {
-    console.error("Error executing ambient intent classifier:", error);
+    const durationMs = Date.now() - startTime;
+    console.error(
+      `[SmartReply:Classifier] (${durationMs}ms) Error executing ambient intent classifier:`,
+      error,
+    );
     return {
       decision: "ignore",
       tier: "tier2_classifier",
