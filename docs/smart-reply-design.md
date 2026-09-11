@@ -41,7 +41,7 @@ The current chatbot implementation (`app/src/bots/chat-bot.ts`) relies on rigid 
    * Enforce ambient rate capping to prevent runaway bot chatter in active channels.
 5. **Standardized Model Configuration & Selectable Classifier**:
    * Standardize Model Configuration (`ModelConfig`) across global, ChatBot generation, and Tier 2 Classification models.
-   * Support selectable classification models (`classifierModel`) so administrators can pick between ultra-fast models (`gemini-2.5-flash-lite`) and high-capacity models.
+   * Support selectable classification models (`classifierModel`) so administrators can pick between ultra-fast models (`gemini-3.5-flash-lite`) and high-capacity models.
    * Universal configurability with production-hardened recommended defaults (`replyStrategy: "hybrid"`).
 
 ---
@@ -207,7 +207,7 @@ When users open a Discord Thread from a bot message or create a thread dedicated
 * **Impact**: Completely bypasses Tier 2 ambient classification inside threads, eliminating false negative drops and saving classification tokens.
 
 ### 3.3 Tier 2: Contextual Ambient Classifier
-When a message passes Tier 1 without an explicit trigger (e.g. ambient inquiries in channels where `smartReply.mode = "ambient_intent"`), it is evaluated by a fast classification prompt using the configured `classifierModel` (default: `gemini-2.5-flash-lite`) with structured schema output:
+When a message passes Tier 1 without an explicit trigger (e.g. ambient inquiries in channels where `smartReply.mode = "ambient_intent"`), it is evaluated by a fast classification prompt using the configured `classifierModel` (default: `gemini-3.5-flash-lite`) with structured schema output:
 
 ```ts
 interface IntentClassificationResult {
@@ -487,22 +487,19 @@ To standardize model selection across ChatBot generation and Tier 2 Classificati
 
 ```ts
 export type SupportedGenAiModel =
-  | "gemini-2.5-flash-lite"
-  | "gemini-2.5-flash"
-  | "gemini-2.5-pro"
+  | "gemini-3.5-flash-lite"
+  | "gemini-3-flash-preview"
+  | "gemini-3.5-flash"
   | "gemini-3.6-flash"
-  | "gemini-2.0-flash"
-  | "gemini-1.5-flash-8b"
   | (string & {});
 ```
 
 | Model ID | Provider Support | Avg. Latency | Cost Tier | Recommended Use Case |
 | :--- | :--- | :--- | :--- | :--- |
-| **`gemini-2.5-flash-lite`** | `google-genai`, `vertex` | ~150–250ms | Very Low | **Recommended Default for Tier 2 Classifier**. Ultra-fast, minimal overhead. |
-| **`gemini-2.5-flash`** | `google-genai`, `vertex` | ~300–500ms | Low | **Recommended Default for ChatBot Generation**. Great tool support and speed. |
-| **`gemini-2.5-pro`** | `google-genai`, `vertex` | ~800–1500ms | Medium | Complex reasoning, long context analysis, and multi-tool orchestration. |
+| **`gemini-3.5-flash-lite`** | `google-genai`, `vertex` | ~150–250ms | Very Low | **Recommended Default for Tier 2 Classifier**. Ultra-fast, minimal overhead. |
+| **`gemini-3.5-flash`** | `google-genai`, `vertex` | ~300–500ms | Low | **Recommended Default for ChatBot Generation**. Great tool support and speed. |
+| **`gemini-3-flash-preview`** | `google-genai`, `vertex` | ~250–450ms | Low | Preview generation model for next-gen reasoning & conversational speed. |
 | **`gemini-3.6-flash`** | `google-genai`, `vertex` | ~300–500ms | Low | High-capacity flash variant for fast conversational generation. |
-| **`gemini-1.5-flash-8b`** | `google-genai`, `vertex` | ~150–200ms | Very Low | Legacy ultra-fast classifier fallback. |
 
 ### 11.2 Standardized `ModelConfig` Schema
 
@@ -527,7 +524,7 @@ export interface ModelConfig {
 /** Default configuration for Tier 2 Classification */
 export const DEFAULT_CLASSIFIER_MODEL_CONFIG: ModelConfig = {
   provider: "google-genai",
-  modelId: "gemini-2.5-flash-lite",
+  modelId: "gemini-3.5-flash-lite",
   temperature: 0.1,
   maxOutputTokens: 50,
 };
@@ -535,7 +532,7 @@ export const DEFAULT_CLASSIFIER_MODEL_CONFIG: ModelConfig = {
 /** Default configuration for ChatBot Generation */
 export const DEFAULT_CHATBOT_MODEL_CONFIG: ModelConfig = {
   provider: "google-genai",
-  modelId: "gemini-2.5-flash",
+  modelId: "gemini-3.5-flash",
   temperature: 0.7,
   maxOutputTokens: 2048,
 };
@@ -608,8 +605,8 @@ export interface BotGuildConfig {
 | :--- | :--- | :--- | :--- | :--- |
 | **`botName`** | `string` | *(Required)* | Non-empty string | **Mandatory** bot identity name (e.g. `"ChatBot"`, `"Jarvis"`). |
 | `personalization` | `string` | `undefined` | Any sentence | Custom persona string replacing Line 1 of the system instruction. |
-| `chatBotModel` | `ModelConfig` | `{ modelId: "gemini-2.5-flash" }` | `ModelConfig` | Selectable LLM configuration for ChatBot response generation. |
-| `smartReply.classifierModel` | `ModelConfig` | `{ modelId: "gemini-2.5-flash-lite" }` | `ModelConfig` | **Selectable LLM configuration for Tier 2 ambient classification**. |
+| `chatBotModel` | `ModelConfig` | `{ modelId: "gemini-3.5-flash" }` | `ModelConfig` | Selectable LLM configuration for ChatBot response generation. |
+| `smartReply.classifierModel` | `ModelConfig` | `{ modelId: "gemini-3.5-flash-lite" }` | `ModelConfig` | **Selectable LLM configuration for Tier 2 ambient classification**. |
 | `enabled` | `boolean` | **`true`** | `true`, `false` | Master toggle for smart reply features. |
 | `mode` | `string` | **`"ambient_intent"`** | `"disabled"`, `"mentions_and_vocative"`, `"ambient_intent"` | Mode of unprompted listening. `"ambient_intent"` enables Tier 2 LLM classifier. |
 | `ambientConfidenceThreshold`| `number` | **`0.75`** | `0.0 - 1.0` | Minimum classifier confidence score required to trigger an ambient reply. |
@@ -665,7 +662,7 @@ Upon approval of this design doc, ticket **OMA-69** will be tracked and delivere
 
 ### Phase 3: Selectable Ambient Intent Classifier (Tier 2) & Annoyance Controls
 * Implement `ModelConfig` registry in `app/src/genAi/types.ts`.
-* Implement classification module using the configured `smartReply.classifierModel` (defaulting to `gemini-2.5-flash-lite`).
+* Implement classification module using the configured `smartReply.classifierModel` (defaulting to `gemini-3.5-flash-lite`).
 * Integrate into `AddresseeService` for channels with `smartReply.mode: "ambient_intent"`.
 * Implement the "Quiet / Snooze" negative feedback listener (keywords + 🤫/🛑 reactions).
 * Add ambient rate limit throttling (`ambientRateLimitSeconds`).
@@ -675,7 +672,7 @@ Upon approval of this design doc, ticket **OMA-69** will be tracked and delivere
 * Enhance prompt builder with two-tier context assembly:
   1. Persistent dialogue history from `MemoryService`.
   2. Ambient channel snapshot (ephemeral last `ambientSnapshotLimit` channel messages).
-* Implement `ReplyDispatcher` using `chatBotModel` (defaulting to `gemini-2.5-flash`) with **hybrid reply strategy as default**:
+* Implement `ReplyDispatcher` using `chatBotModel` (defaulting to `gemini-3.5-flash`) with **hybrid reply strategy as default**:
   * Default `message.reply()` targeted responses for individual user turns.
   * Group coalescing logic for concurrent collaborative turns ($\Delta t \le coalesceWindowMs$).
 * Ensure `ToolExecutionContext` maps cleanly to the correct triggering user.
