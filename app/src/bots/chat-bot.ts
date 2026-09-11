@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import type { BotGuildConfig } from "../config/types";
 import { parseCommands } from "../discord/helpers";
+import { buildChatBotSystemInstruction } from "../genAi/helpers";
 import { getAddresseeService } from "../services/addressee";
 import { getMemoryService } from "../services/memory";
 import { chatbotActions, store } from "../store";
@@ -33,6 +34,7 @@ export const TYPING_REFRESH_INTERVAL_MS = 8000;
 export const MEMBER_FETCH_AGE_MS = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 export const DEFAULT_AMBIENT_RATE_LIMIT_SECONDS = 120;
 export const DEFAULT_SILENCE_MINUTES = 10;
+export const DEFAULT_AMBIENT_SNAPSHOT_LIMIT = 5;
 
 /** Fetch up-to-date member list to cache */
 const validateServerMembersCache = async (guild: Guild): Promise<void> => {
@@ -258,6 +260,168 @@ function parseDiscordMessage(
   };
 }
 
+/**
+ * Fetches recent ambient channel messages before the trigger message for context grounding.
+ */
+export async function fetchAmbientChannelSnapshot(
+  channel: Message<boolean>["channel"],
+  beforeMessageId: string,
+  limit: number = DEFAULT_AMBIENT_SNAPSHOT_LIMIT,
+): Promise<string> {
+  if (!channel.isTextBased() || limit <= 0) {
+    return "";
+  }
+  try {
+    const fetched = await channel.messages.fetch({
+      limit,
+      before: beforeMessageId,
+    });
+    if (fetched.size === 0) {
+      return "";
+    }
+    const messages = fetched.toJSON().reverse();
+    const formatted = messages
+      .map((m) => {
+        const time = m.createdAt.toISOString().substring(11, 19);
+        const name =
+          m.member?.nickname ?? m.author.displayName ?? m.author.username;
+        return `[${time}] @${m.author.username} (${name}): "${m.cleanContent}"`;
+      })
+      .join("\n");
+    return `--- Recent Channel Activity (for context reference only) ---\n${formatted}\n--- End Recent Channel Activity ---`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Dispatches the generated response using the configured reply strategy (hybrid reply default).
+ */
+async function dispatchBotReply(
+  message: Message<boolean>,
+  content: string,
+  guildConfig?: BotGuildConfig,
+): Promise<void> {
+  const [finalMessage, endingEmoji] = splitEndingEmojis(content);
+  const textToSend = finalMessage || "?";
+  const replyStrategy = guildConfig?.smartReply?.replyStrategy ?? "hybrid";
+
+  if (replyStrategy === "coalesced" && message.channel.isSendable()) {
+    await message.channel.send(textToSend);
+  } else {
+    try {
+      await message.reply(textToSend);
+    } catch {
+      if (message.channel.isSendable()) {
+        await message.channel.send(textToSend);
+      }
+    }
+  }
+
+  if (endingEmoji && message.channel.isSendable()) {
+    await message.channel.sendTyping();
+    await message.channel.send(endingEmoji);
+  }
+}
+
+/**
+ * Assembles the full prompt, attachments, history, and tools for the chat turn.
+ */
+async function preparePromptAndTools(
+  message: Message<boolean>,
+  messages: DiscordMessage[],
+  botId: string,
+  guildConfig?: BotGuildConfig,
+): Promise<{
+  prompt: AiPrompt;
+  textWithUsername: string;
+  lastMessage: DiscordMessage;
+}> {
+  const lastMessage = messages[messages.length - 1];
+  const textWithUsername = buildPromptText(messages);
+
+  const files = [
+    ...messages.flatMap((m) => m.attachments),
+    ...messages.flatMap((m) => m.reference?.attachments ?? []),
+  ];
+
+  const history = await getMemoryService().getHistory(botId, message.channelId);
+
+  const ambientLimit =
+    guildConfig?.smartReply?.ambientSnapshotLimit ??
+    DEFAULT_AMBIENT_SNAPSHOT_LIMIT;
+  const ambientSnapshot = await fetchAmbientChannelSnapshot(
+    message.channel,
+    message.id,
+    ambientLimit,
+  );
+
+  const fullPromptText = ambientSnapshot
+    ? `${ambientSnapshot}\n\n${textWithUsername}`
+    : textWithUsername;
+
+  const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
+  const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
+
+  let tools: ToolDefinition[] | undefined;
+  let toolContext: ToolExecutionContext | undefined;
+
+  if (enableDiscordTools) {
+    const toolData = await buildToolContext(botId, message, lastMessage);
+    tools = toolData.tools;
+    toolContext = toolData.toolContext;
+  }
+
+  const prompt = {
+    text: fullPromptText,
+    files,
+    history,
+    tools,
+    toolContext,
+    enableGoogleSearch,
+  } as AiPrompt;
+
+  return { prompt, textWithUsername, lastMessage };
+}
+
+/**
+ * Initializes GenAI with guild configuration and generates chatbot response.
+ */
+async function executeChatBotGeneration(
+  message: Message<boolean>,
+  prompt: AiPrompt,
+  guildConfig?: BotGuildConfig,
+): Promise<string> {
+  const systemInstruction = guildConfig?.botName
+    ? buildChatBotSystemInstruction({
+        botName: guildConfig.botName,
+        personalization:
+          guildConfig.personalization ?? guildConfig.systemInstruction,
+      })
+    : guildConfig?.systemInstruction;
+
+  const chatBotModelConfig =
+    guildConfig?.smartReply?.chatBotModel ?? guildConfig?.chatBotModel;
+  const modelId = chatBotModelConfig?.modelId ?? "gemini-2.5-flash";
+  const maxOutputTokens = chatBotModelConfig?.maxOutputTokens;
+
+  const genAi = getGenAi({
+    apiKey: process.env.AI_API_KEY,
+    guildId: message.guildId,
+    systemInstruction,
+    modelId,
+    maxOutputTokens,
+  });
+  await genAi.init();
+  const { content } = await generateChatMessageWithGenAi(
+    genAi,
+    prompt,
+    buildGuildMemberInfoList(message),
+    message.guild,
+  );
+  return content;
+}
+
 const handleUserBatchExecution = async (
   message: Message<boolean>,
   botId: string,
@@ -294,59 +458,22 @@ const handleUserBatchExecution = async (
   }, TYPING_REFRESH_INTERVAL_MS);
 
   try {
-    const messages = userBatch.messages;
-    const lastMessage = messages[messages.length - 1];
-    const textWithUsername = buildPromptText(messages);
-
-    const files = [
-      ...messages.flatMap((m) => m.attachments),
-      ...messages.flatMap((m) => m.reference?.attachments ?? []),
-    ];
-
-    const history = await getMemoryService().getHistory(botId, channelId);
-
-    const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
-    const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
-
-    let tools: ToolDefinition[] | undefined;
-    let toolContext: ToolExecutionContext | undefined;
-
-    if (enableDiscordTools) {
-      const toolData = await buildToolContext(botId, message, lastMessage);
-      tools = toolData.tools;
-      toolContext = toolData.toolContext;
-    }
-
-    const prompt = {
-      text: textWithUsername,
-      files,
-      history,
-      tools,
-      toolContext,
-      enableGoogleSearch,
-    } as AiPrompt;
-
-    try {
-      const genAi = getGenAi({
-        apiKey: process.env.AI_API_KEY,
-        guildId: message.guildId,
-        systemInstruction: guildConfig?.systemInstruction,
-      });
-      await genAi.init();
-      const { content } = await generateChatMessageWithGenAi(
-        genAi,
-        prompt,
-        buildGuildMemberInfoList(message),
-        message.guild,
+    const { prompt, textWithUsername, lastMessage } =
+      await preparePromptAndTools(
+        message,
+        userBatch.messages,
+        botId,
+        guildConfig,
       );
 
-      const [finalMessage, endingEmoji] = splitEndingEmojis(content);
+    try {
+      const content = await executeChatBotGeneration(
+        message,
+        prompt,
+        guildConfig,
+      );
 
-      await sendableChannel.send(finalMessage || "?");
-      if (endingEmoji) {
-        await sendableChannel.sendTyping();
-        await sendableChannel.send(endingEmoji);
-      }
+      await dispatchBotReply(message, content, guildConfig);
 
       const actor: UserActorInfo = {
         userId: lastMessage.authorId,
