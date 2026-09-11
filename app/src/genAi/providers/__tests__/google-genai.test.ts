@@ -26,7 +26,7 @@ describe("MyGoogleGenAI", () => {
     apiEndpoint: "endpoint",
     projectId: "project-1",
     locationId: "us-central1",
-    modelId: "gemini-2.5-flash",
+    modelId: "gemini-3.5-flash",
     maxOutputTokens: 1000,
     systemInstruction: "You are a friendly bot.",
   };
@@ -55,7 +55,7 @@ describe("MyGoogleGenAI", () => {
     expect(response.content).toBe("Generated response from Google GenAI");
     expect(mockCreateChat).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.5-flash",
       }),
     );
   });

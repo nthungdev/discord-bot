@@ -106,4 +106,177 @@ describe("ChatBot", () => {
     expect(snapshot).toContain('@bob (BobTester): "Can you help fix that?"');
     expect(snapshot).toContain("--- End Recent Channel Activity ---");
   });
+
+  describe("isAnsweringMultipleUsers & dispatchBotReply", () => {
+    it("should detect multiple users from message authors or response mentions", async () => {
+      const { isAnsweringMultipleUsers } = await import("../chat-bot");
+
+      const singleUserMessages = [
+        {
+          id: "1",
+          authorId: "user-1",
+          authorUsername: "alice",
+          authorDisplayName: "Alice",
+          content: "hello",
+          cleanContent: "hello",
+          attachments: [],
+          mentions: [],
+          createdAt: new Date(),
+        },
+      ];
+
+      const multiUserMessages = [
+        {
+          id: "1",
+          authorId: "user-1",
+          authorUsername: "alice",
+          authorDisplayName: "Alice",
+          content: "hello",
+          cleanContent: "hello",
+          attachments: [],
+          mentions: [],
+          createdAt: new Date(),
+        },
+        {
+          id: "2",
+          authorId: "user-2",
+          authorUsername: "bob",
+          authorDisplayName: "Bob",
+          content: "hey there",
+          cleanContent: "hey there",
+          attachments: [],
+          mentions: [],
+          createdAt: new Date(),
+        },
+      ];
+
+      expect(
+        isAnsweringMultipleUsers(singleUserMessages, "Hello @alice!"),
+      ).toBe(false);
+      expect(
+        isAnsweringMultipleUsers(
+          singleUserMessages,
+          "Hello @alice and @bob, I can help both of you!",
+        ),
+      ).toBe(true);
+      expect(
+        isAnsweringMultipleUsers(
+          singleUserMessages,
+          "Hello <@12345> and <@67890>!",
+        ),
+      ).toBe(true);
+      expect(
+        isAnsweringMultipleUsers(multiUserMessages, "I can answer that."),
+      ).toBe(true);
+    });
+
+    it("should send a normal channel message instead of reply when hybrid strategy answers multiple users", async () => {
+      const { dispatchBotReply } = await import("../chat-bot");
+
+      const mockSend = vi.fn().mockResolvedValue({});
+      const mockReply = vi.fn().mockResolvedValue({});
+      const mockMessage = {
+        channel: {
+          isSendable: () => true,
+          send: mockSend,
+          sendTyping: vi.fn().mockResolvedValue({}),
+        },
+        reply: mockReply,
+      };
+
+      const multiUserMessages = [
+        {
+          id: "1",
+          authorId: "user-1",
+          authorUsername: "alice",
+          authorDisplayName: "Alice",
+          content: "question 1",
+          cleanContent: "question 1",
+          attachments: [],
+          mentions: [],
+          createdAt: new Date(),
+        },
+        {
+          id: "2",
+          authorId: "user-2",
+          authorUsername: "bob",
+          authorDisplayName: "Bob",
+          content: "question 2",
+          cleanContent: "question 2",
+          attachments: [],
+          mentions: [],
+          createdAt: new Date(),
+        },
+      ];
+
+      const guildConfig = {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+        smartReply: {
+          replyStrategy: "hybrid" as const,
+        },
+      };
+
+      await dispatchBotReply(
+        mockMessage as unknown as Parameters<typeof dispatchBotReply>[0],
+        "@alice here is for you. @bob here is for you.",
+        guildConfig,
+        multiUserMessages,
+      );
+
+      expect(mockSend).toHaveBeenCalledWith(
+        "@alice here is for you. @bob here is for you.",
+      );
+      expect(mockReply).not.toHaveBeenCalled();
+    });
+
+    it("should use reply feature when hybrid strategy answers a single user", async () => {
+      const { dispatchBotReply } = await import("../chat-bot");
+
+      const mockSend = vi.fn().mockResolvedValue({});
+      const mockReply = vi.fn().mockResolvedValue({});
+      const mockMessage = {
+        channel: {
+          isSendable: () => true,
+          send: mockSend,
+          sendTyping: vi.fn().mockResolvedValue({}),
+        },
+        reply: mockReply,
+      };
+
+      const singleUserMessages = [
+        {
+          id: "1",
+          authorId: "user-1",
+          authorUsername: "alice",
+          authorDisplayName: "Alice",
+          content: "single question",
+          cleanContent: "single question",
+          attachments: [],
+          mentions: [],
+          createdAt: new Date(),
+        },
+      ];
+
+      const guildConfig = {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+        smartReply: {
+          replyStrategy: "hybrid" as const,
+        },
+      };
+
+      await dispatchBotReply(
+        mockMessage as unknown as Parameters<typeof dispatchBotReply>[0],
+        "Here is your answer, Alice.",
+        guildConfig,
+        singleUserMessages,
+      );
+
+      expect(mockReply).toHaveBeenCalledWith("Here is your answer, Alice.");
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+  });
 });

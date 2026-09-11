@@ -2,48 +2,37 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "watch app",
-      "detail": "Debugging app in watch mode",
-      "type": "npm",
-      "script": "debug",
-      "path": "app",
-      "group": "build",
-      // isBackground + problemMatcher to magically make the task run in the background while not blocking the debugger from attaching
-      "isBackground": true,
-      "problemMatcher": [
-        {
-          "pattern": [
-            {
-              "regexp": ".",
-              "file": 1,
-              "location": 2,
-              "message": 3
-            }
-          ],
-          "background": {
-            "activeOnStart": false,
-            "beginsPattern": ".",
-            "endsPattern": "."
-          }
-        }
-      ]
-    },
-
-    {
-      "label": "terminate all tasks",
-      "detail": "Terminate all tasks",
-      "command": "echo ${input:terminateAllTasks}",
+      "label": "build",
+      "detail": "Compile TypeScript app with pnpm",
       "type": "shell",
-      "problemMatcher": []
-    }
-  ],
-
-  "inputs": [
+      "command": "pnpm",
+      "args": ["run", "build"],
+      "options": {
+        "cwd": "${workspaceFolder}/app"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$tsc"]
+    },
     {
-      "id": "terminateAllTasks",
-      "type": "command",
-      "command": "workbench.action.tasks.terminate",
-      "args": "terminateAll"
+      "label": "typecheck",
+      "detail": "Run TypeScript typecheck with pnpm",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "typecheck"],
+      "options": {
+        "cwd": "${workspaceFolder}/app"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "kill debug ports (9229, 3001)",
+      "detail": "Force kill any lingering processes on ports 9229 and 3001",
+      "type": "shell",
+      "command": "lsof -ti:9229,3001 | xargs kill -9 2>/dev/null || true",
+      "problemMatcher": []
     }
   ]
 }

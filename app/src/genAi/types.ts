@@ -1,12 +1,26 @@
 import type { AiPrompt, AiPromptResponse } from "../types";
 
-export type SupportedGenAiModel =
-  | "gemini-2.5-flash-lite"
+export type SupportedClassifierModel =
   | "gemini-2.5-flash"
-  | "gemini-2.5-pro"
+  | "gemini-3.5-flash-lite"
+  | "gemini-3-flash-preview"
+  | "gemini-3.5-flash"
   | "gemini-3.6-flash"
-  | "gemini-2.0-flash"
-  | "gemini-1.5-flash-8b"
+  | (string & {});
+
+export type SupportedChatBotModel =
+  | "gemini-3.5-flash-lite"
+  | "gemini-3-flash-preview"
+  | "gemini-3.5-flash"
+  | "gemini-3.6-flash"
+  | (string & {});
+
+export type SupportedGenAiModel =
+  | "gemini-2.5-flash"
+  | "gemini-3.5-flash-lite"
+  | "gemini-3-flash-preview"
+  | "gemini-3.5-flash"
+  | "gemini-3.6-flash"
   | (string & {});
 
 export interface ModelConfig {

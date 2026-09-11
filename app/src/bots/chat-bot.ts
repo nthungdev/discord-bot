@@ -295,18 +295,53 @@ export async function fetchAmbientChannelSnapshot(
 }
 
 /**
- * Dispatches the generated response using the configured reply strategy (hybrid reply default).
+ * Determines whether the bot is addressing or answering multiple distinct users at once.
  */
-async function dispatchBotReply(
+export function isAnsweringMultipleUsers(
+  messages: DiscordMessage[],
+  content: string,
+): boolean {
+  const uniqueAuthorIds = new Set(messages.map((m) => m.authorId));
+  if (uniqueAuthorIds.size > 1) {
+    return true;
+  }
+
+  // Matches Discord mentions (<@123>, <@!123>) or username vocatives (@username)
+  const mentionMatches = content.match(/<@!?\d+>|@[a-zA-Z0-9_.-]+/g);
+  if (mentionMatches) {
+    const uniqueMentions = new Set(mentionMatches);
+    if (uniqueMentions.size > 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Dispatches the generated response using the configured reply strategy.
+ * When replyStrategy is 'hybrid' and multiple users are being answered at once,
+ * it sends a normal channel message instead of a message.reply.
+ */
+export async function dispatchBotReply(
   message: Message<boolean>,
   content: string,
   guildConfig?: BotGuildConfig,
+  messages?: DiscordMessage[],
 ): Promise<void> {
   const [finalMessage, endingEmoji] = splitEndingEmojis(content);
   const textToSend = finalMessage || "?";
   const replyStrategy = guildConfig?.smartReply?.replyStrategy ?? "hybrid";
 
-  if (replyStrategy === "coalesced" && message.channel.isSendable()) {
+  const isMultiUser = messages
+    ? isAnsweringMultipleUsers(messages, content)
+    : false;
+
+  const shouldSendAsChannelMessage =
+    replyStrategy === "coalesced" ||
+    (replyStrategy === "hybrid" && isMultiUser);
+
+  if (shouldSendAsChannelMessage && message.channel.isSendable()) {
     await message.channel.send(textToSend);
   } else {
     try {
@@ -397,12 +432,13 @@ async function executeChatBotGeneration(
         botName: guildConfig.botName,
         personalization:
           guildConfig.personalization ?? guildConfig.systemInstruction,
+        mode: guildConfig.personalizationMode,
       })
     : guildConfig?.systemInstruction;
 
   const chatBotModelConfig =
     guildConfig?.smartReply?.chatBotModel ?? guildConfig?.chatBotModel;
-  const modelId = chatBotModelConfig?.modelId ?? "gemini-2.5-flash";
+  const modelId = chatBotModelConfig?.modelId;
   const maxOutputTokens = chatBotModelConfig?.maxOutputTokens;
 
   const genAi = getGenAi({
@@ -467,13 +503,21 @@ const handleUserBatchExecution = async (
       );
 
     try {
+      console.info(
+        `[SmartReply:Batch:Execute] Generating response for @${lastMessage.authorUsername} in channel ${channelId} (${userBatch.messages.length} message(s))`,
+      );
+
       const content = await executeChatBotGeneration(
         message,
         prompt,
         guildConfig,
       );
 
-      await dispatchBotReply(message, content, guildConfig);
+      await dispatchBotReply(message, content, guildConfig, userBatch.messages);
+
+      console.info(
+        `[SmartReply:Reply:Dispatched] Reply sent via "${guildConfig?.smartReply?.replyStrategy ?? "hybrid"}" (${content?.length ?? 0} chars) to channel ${channelId}`,
+      );
 
       const actor: UserActorInfo = {
         userId: lastMessage.authorId,
@@ -527,6 +571,9 @@ function handleKeywordDismissal(
 
   const silenceMinutes =
     guildConfig?.smartReply?.silenceDurationMinutes ?? DEFAULT_SILENCE_MINUTES;
+  console.info(
+    `[SmartReply:Annoyance] Silencing channel ${channelId} for ${silenceMinutes}m due to keyword dismissal ("${message.cleanContent}")`,
+  );
   store.dispatch(
     chatbotActions.silenceChannel({
       channelId,
@@ -554,6 +601,9 @@ function isAmbientRateThrottled(
   const now = Date.now();
 
   if (now - lastAmbientTime < rateLimitSeconds * 1000) {
+    console.info(
+      `[SmartReply:RateLimit] Throttled ambient reply in channel ${channelId} (${rateLimitSeconds}s rate limit active, ${Math.round((now - lastAmbientTime) / 1000)}s elapsed)`,
+    );
     return true;
   }
 
@@ -577,6 +627,9 @@ function scheduleDebounceTimers(
   if (existingSliding) {
     clearTimeout(existingSliding);
   }
+  console.info(
+    `[SmartReply:Debounce] Scheduled batch timer for user ${userId} in channel ${channelId} (sliding: ${replyDelay}ms, ceiling: ${maxDebounceDelay}ms)`,
+  );
   slidingTimers.set(key, setTimeout(executeBatch, replyDelay));
 
   if (!ceilingTimers.has(key)) {
@@ -625,6 +678,9 @@ export default class ChatBot extends BaseBot {
       const silenceMinutes =
         guildConfig?.smartReply?.silenceDurationMinutes ??
         DEFAULT_SILENCE_MINUTES;
+      console.info(
+        `[SmartReply:Annoyance] Silencing channel ${channelId} for ${silenceMinutes}m due to reaction dismissal (${emojiName}) by user ${user.id}`,
+      );
       store.dispatch(
         chatbotActions.silenceChannel({
           channelId,

@@ -5,29 +5,50 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "app: debug start",
+      "name": "app: debug watch",
       "type": "node",
       "request": "launch",
+      "cwd": "${workspaceFolder}/app",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "debug"],
+      "autoAttachChildProcesses": true,
       "console": "integratedTerminal",
       "restart": true,
       "skipFiles": ["<node_internals>/**"],
-      "envFile": "${workspaceFolder}/app/.env.development",
-      "program": "${workspaceFolder}/app/src/main.ts",
-      "preLaunchTask": "build",
+      "envFile": "${workspaceFolder}/app/.env.development"
     },
-
-    // Choose Debug anyway if there is error
     {
-      "name": "app: debug watch",
+      "name": "app: debug start",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/app",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "ts-node", "src/main.ts"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "envFile": "${workspaceFolder}/app/.env.development"
+    },
+    {
+      "name": "app: debug compiled",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/app",
+      "program": "${workspaceFolder}/app/build/src/main.js",
+      "preLaunchTask": "build",
+      "outFiles": ["${workspaceFolder}/app/build/**/*.js"],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "envFile": "${workspaceFolder}/app/.env.development"
+    },
+    {
+      "name": "app: attach (port 9229)",
       "type": "node",
       "request": "attach",
-      // NodeJS debugger port
       "port": 9229,
       "restart": true,
       "skipFiles": ["<node_internals>/**"],
-      "preLaunchTask": "watch app",
-      // Automatically terminate all tasks when the debugger is stopped, practically killing the app
-      "postDebugTask": "terminate all tasks"
-    },
+      "cwd": "${workspaceFolder}/app"
+    }
   ]
 }

@@ -11,7 +11,7 @@ describe("createGenAi factory", () => {
     apiEndpoint: "endpoint",
     projectId: "project-1",
     locationId: "us-central1",
-    modelId: "gemini-2.5-flash",
+    modelId: "gemini-3.5-flash",
     maxOutputTokens: 1000,
   };
 
