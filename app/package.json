@@ -20,7 +20,8 @@
     "start": "NODE_ENV=production node build/src/main.js",
     "docker-build": "docker compose build",
     "docker-dev": "docker compose -f compose.yaml -f compose.development.yaml up -d",
-    "docker-prod": "docker compose -f compose.yaml -f compose.production.yaml up -d"
+    "docker-prod": "docker compose -f compose.yaml -f compose.production.yaml up -d",
+    "sync-config": "ts-node src/scripts/syncRemoteConfig.ts"
   },
   "engines": {
     "node": ">=22",
