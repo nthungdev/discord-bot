@@ -56,4 +56,13 @@ describe("ChatBot", () => {
     const chatBot = new ChatBot(botConfig);
     await expect(chatBot.loadCommands()).resolves.not.toThrow();
   });
+
+  it("should identify dismissal keywords", async () => {
+    const { isDismissalKeyword } = await import("../chat-bot");
+    expect(isDismissalKeyword("not you bot")).toBe(true);
+    expect(isDismissalKeyword("shut up bot")).toBe(true);
+    expect(isDismissalKeyword("shh")).toBe(true);
+    expect(isDismissalKeyword("be quiet bot")).toBe(true);
+    expect(isDismissalKeyword("What is the weather today?")).toBe(false);
+  });
 });

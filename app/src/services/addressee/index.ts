@@ -1,3 +1,4 @@
+import { classifyAmbientIntent } from "./classifier";
 import { evaluateTier1Heuristics } from "./heuristics";
 import type { AddresseeEvaluationContext, AddresseeResult } from "./types";
 
@@ -14,15 +15,10 @@ export class AddresseeService {
       return tier1Result;
     }
 
-    // 2. Ambient Candidate Handling
+    // 2. Ambient Candidate Handling via Tier 2 Classifier
     const smartReplyMode = context.guildConfig?.smartReply?.mode;
     if (smartReplyMode === "ambient_intent") {
-      return {
-        decision: "classify_ambient",
-        tier: "tier2_classifier",
-        reason: "ambient_candidate",
-        confidence: 0.5,
-      };
+      return await classifyAmbientIntent(context);
     }
 
     // 3. Default fallback for ambiguous messages

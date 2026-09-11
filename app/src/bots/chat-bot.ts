@@ -2,6 +2,7 @@ import { isAxiosError } from "axios";
 import {
   Client,
   Collection,
+  Events,
   GatewayIntentBits,
   type Guild,
   type Interaction,
@@ -30,6 +31,8 @@ export const DEFAULT_DEBOUNCE_DELAY_MS = 3500;
 export const DEFAULT_MAX_DEBOUNCE_DELAY_MS = 8000;
 export const TYPING_REFRESH_INTERVAL_MS = 8000;
 export const MEMBER_FETCH_AGE_MS = 24 * 60 * 60 * 1000; // 1 day in milliseconds
+export const DEFAULT_AMBIENT_RATE_LIMIT_SECONDS = 120;
+export const DEFAULT_SILENCE_MINUTES = 10;
 
 /** Fetch up-to-date member list to cache */
 const validateServerMembersCache = async (guild: Guild): Promise<void> => {
@@ -42,9 +45,33 @@ const validateServerMembersCache = async (guild: Guild): Promise<void> => {
   }
 };
 
+export const DISMISSAL_PHRASES = [
+  "not you bot",
+  "shut up bot",
+  "shh",
+  "im not talking to you bot",
+  "i'm not talking to you bot",
+  "quiet bot",
+  "stop talking bot",
+  "shutup bot",
+  "stfu bot",
+  "be quiet bot",
+];
+
+export const DISMISSAL_REACTION_EMOJIS = ["🤫", "🛑"];
+
 /** Keyed by `${channelId}:${userId}` */
 const slidingTimers = new Map<string, NodeJS.Timeout>();
 const ceilingTimers = new Map<string, NodeJS.Timeout>();
+const lastAmbientResponseAt = new Map<string, number>();
+
+/**
+ * Checks if a string contains any dismissal phrase.
+ */
+export function isDismissalKeyword(content: string): boolean {
+  const normalized = content.trim().toLowerCase();
+  return DISMISSAL_PHRASES.some((phrase) => normalized.includes(phrase));
+}
 
 export function getBatchKey(channelId: string, userId: string): string {
   return `${channelId}:${userId}`;
@@ -356,6 +383,80 @@ const handleUserBatchExecution = async (
   }
 };
 
+/**
+ * Handles keyword-based annoyance dismissal ("not you bot", "shh", etc.).
+ */
+function handleKeywordDismissal(
+  message: Message<boolean>,
+  channelId: string,
+  guildConfig?: BotGuildConfig,
+): boolean {
+  if (
+    guildConfig?.smartReply?.enableKeywordDismissal === false ||
+    !isDismissalKeyword(message.cleanContent)
+  ) {
+    return false;
+  }
+
+  const silenceMinutes =
+    guildConfig?.smartReply?.silenceDurationMinutes ?? DEFAULT_SILENCE_MINUTES;
+  store.dispatch(
+    chatbotActions.silenceChannel({
+      channelId,
+      durationMinutes: silenceMinutes,
+    }),
+  );
+
+  if (guildConfig?.smartReply?.enableReactionDismissal !== false) {
+    message.react("🤫").catch(() => {});
+  }
+  return true;
+}
+
+/**
+ * Determines whether an ambient reply is throttled by the channel rate limit.
+ */
+function isAmbientRateThrottled(
+  channelId: string,
+  guildConfig?: BotGuildConfig,
+): boolean {
+  const rateLimitSeconds =
+    guildConfig?.smartReply?.ambientRateLimitSeconds ??
+    DEFAULT_AMBIENT_RATE_LIMIT_SECONDS;
+  const lastAmbientTime = lastAmbientResponseAt.get(channelId) ?? 0;
+  const now = Date.now();
+
+  if (now - lastAmbientTime < rateLimitSeconds * 1000) {
+    return true;
+  }
+
+  lastAmbientResponseAt.set(channelId, now);
+  return false;
+}
+
+/**
+ * Schedules per-user sliding debounce and upper ceiling timers.
+ */
+function scheduleDebounceTimers(
+  channelId: string,
+  userId: string,
+  replyDelay: number,
+  maxDebounceDelay: number,
+  executeBatch: () => void,
+): void {
+  const key = getBatchKey(channelId, userId);
+
+  const existingSliding = slidingTimers.get(key);
+  if (existingSliding) {
+    clearTimeout(existingSliding);
+  }
+  slidingTimers.set(key, setTimeout(executeBatch, replyDelay));
+
+  if (!ceilingTimers.has(key)) {
+    ceilingTimers.set(key, setTimeout(executeBatch, maxDebounceDelay));
+  }
+}
+
 export default class ChatBot extends BaseBot {
   protected client: Client;
   config: BaseBotConfig;
@@ -371,9 +472,39 @@ export default class ChatBot extends BaseBot {
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
       ],
     });
     this.handleNewMessage = this.handleNewMessage.bind(this);
+    this.listenToReactions();
+  }
+
+  listenToReactions(): void {
+    this.client.on(Events.MessageReactionAdd, async (reaction, user) => {
+      if (user.bot) return;
+      const emojiName = reaction.emoji.name ?? "";
+      if (!DISMISSAL_REACTION_EMOJIS.includes(emojiName)) {
+        return;
+      }
+
+      const channelId = reaction.message.channelId;
+      const guildId = reaction.message.guildId;
+      const guildConfig = this.getGuildConfig(guildId);
+
+      if (guildConfig?.smartReply?.enableReactionDismissal === false) {
+        return;
+      }
+
+      const silenceMinutes =
+        guildConfig?.smartReply?.silenceDurationMinutes ??
+        DEFAULT_SILENCE_MINUTES;
+      store.dispatch(
+        chatbotActions.silenceChannel({
+          channelId,
+          durationMinutes: silenceMinutes,
+        }),
+      );
+    });
   }
 
   async loadCommands(): Promise<void> {
@@ -421,16 +552,20 @@ export default class ChatBot extends BaseBot {
       return;
     }
 
+    const channelId = message.channelId;
+    const userId = message.author.id;
+    const guildConfig = this.getGuildConfig(message.guildId);
+
+    if (handleKeywordDismissal(message, channelId, guildConfig)) {
+      return;
+    }
+
     let refMessage: Message<boolean> | null = null;
     if (message.reference?.messageId) {
       refMessage = await message.channel.messages
         .fetch(message.reference.messageId)
         .catch(() => null);
     }
-
-    const channelId = message.channelId;
-    const userId = message.author.id;
-    const guildConfig = this.getGuildConfig(message.guildId);
 
     const channelSilencedUntil =
       store.getState().chatbot.channelSilenceCooldowns[channelId];
@@ -448,6 +583,13 @@ export default class ChatBot extends BaseBot {
     });
 
     if (addresseeDecision.decision === "ignore") {
+      return;
+    }
+
+    if (
+      addresseeDecision.tier === "tier2_classifier" &&
+      isAmbientRateThrottled(channelId, guildConfig)
+    ) {
       return;
     }
 
@@ -494,28 +636,12 @@ export default class ChatBot extends BaseBot {
     const maxDebounceDelay =
       guildConfig?.smartReply?.maxDebounceMs ?? DEFAULT_MAX_DEBOUNCE_DELAY_MS;
 
-    const key = getBatchKey(channelId, userId);
-
-    const existingSliding = slidingTimers.get(key);
-    if (existingSliding) {
-      clearTimeout(existingSliding);
-    }
-    slidingTimers.set(
-      key,
-      setTimeout(
-        () => handleUserBatchExecution(message, this.id, guildConfig),
-        replyDelay,
-      ),
+    scheduleDebounceTimers(
+      channelId,
+      userId,
+      replyDelay,
+      maxDebounceDelay,
+      () => handleUserBatchExecution(message, this.id, guildConfig),
     );
-
-    if (!ceilingTimers.has(key)) {
-      ceilingTimers.set(
-        key,
-        setTimeout(
-          () => handleUserBatchExecution(message, this.id, guildConfig),
-          maxDebounceDelay,
-        ),
-      );
-    }
   }
 }

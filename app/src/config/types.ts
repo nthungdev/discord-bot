@@ -22,9 +22,12 @@ export interface BotGuildToolsConfig {
   discord?: boolean;
 }
 
+import type { ModelConfig } from "../genAi/types";
+
 export interface SmartReplyConfig {
   enabled?: boolean;
   mode?: "disabled" | "mentions_and_vocative" | "ambient_intent";
+  classifierModel?: ModelConfig;
   ambientConfidenceThreshold?: number;
   debounceMs?: number;
   maxDebounceMs?: number;
@@ -47,6 +50,7 @@ export interface SmartReplyConfig {
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
+  chatBotModel?: ModelConfig;
   replyChannelIds: string[];
   ignoredChannelIds: string[];
   respondToMentions: boolean;

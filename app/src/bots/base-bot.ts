@@ -52,6 +52,7 @@ export default abstract class BaseBot {
       return {
         botName: guildConfig.botName,
         personalization: guildConfig.personalization,
+        chatBotModel: guildConfig.chatBotModel,
         replyChannelIds: guildConfig.replyChannelIds ?? [],
         ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
         respondToMentions: guildConfig.respondToMentions ?? false,
@@ -69,6 +70,7 @@ export default abstract class BaseBot {
       return {
         botName: guildConfig.botName,
         personalization: guildConfig.personalization,
+        chatBotModel: guildConfig.chatBotModel,
         replyChannelIds: guildConfig.replyChannelIds ?? [],
         ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
         respondToMentions: guildConfig.respondToMentions ?? false,
