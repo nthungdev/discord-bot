@@ -107,10 +107,15 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
   }
 };
 
+export const DEFAULT_CONFIG_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
 export class Config {
   private static instance: Config;
   private template: RemoteConfigTemplate | null = null;
   private localConfig: AppConfigData | null = null;
+  private lastFetchedAt: number = 0;
+  private refreshIntervalTimer: NodeJS.Timeout | null = null;
+  private ttlMs: number = DEFAULT_CONFIG_REFRESH_INTERVAL_MS;
 
   private constructor() {}
 
@@ -121,13 +126,33 @@ export class Config {
     return Config.instance;
   }
 
-  async init() {
+  async init(options?: { refreshIntervalMs?: number }) {
     this.localConfig = loadLocalConfig();
-    try {
-      const rc = getRemoteConfig();
-      this.template = await rc.getTemplate();
-    } catch (error) {
-      console.warn("Failed to fetch Remote Config template, using local config fallback:", error);
+    if (options?.refreshIntervalMs !== undefined) {
+      this.ttlMs = options.refreshIntervalMs;
+    }
+    await this.loadConfig();
+    this.startAutoRefresh();
+  }
+
+  startAutoRefresh() {
+    this.stopAutoRefresh();
+    if (this.ttlMs > 0) {
+      this.refreshIntervalTimer = setInterval(() => {
+        this.loadConfig().catch((err) => {
+          console.error("Auto-refreshing Remote Config failed:", err);
+        });
+      }, this.ttlMs);
+      if (this.refreshIntervalTimer.unref) {
+        this.refreshIntervalTimer.unref();
+      }
+    }
+  }
+
+  stopAutoRefresh() {
+    if (this.refreshIntervalTimer) {
+      clearInterval(this.refreshIntervalTimer);
+      this.refreshIntervalTimer = null;
     }
   }
 
@@ -136,8 +161,9 @@ export class Config {
     try {
       const rc = getRemoteConfig();
       this.template = await rc.getTemplate();
+      this.lastFetchedAt = Date.now();
     } catch (error) {
-      console.warn("Failed to reload Remote Config template:", error);
+      console.warn("Failed to fetch/reload Remote Config template, using fallback:", error);
     }
   }
 
