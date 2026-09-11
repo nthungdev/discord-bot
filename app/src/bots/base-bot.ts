@@ -1,6 +1,11 @@
-import { Client, Events, Interaction, Message } from "discord.js";
-import { BotConfig } from "../config/types";
+import {
+  type Client,
+  Events,
+  type Interaction,
+  type Message,
+} from "discord.js";
 import { Config, ConfigParameter } from "../config";
+import type { BotConfig } from "../config/types";
 
 export interface BaseBotConfig {
   id: string;
@@ -20,7 +25,7 @@ export default abstract class BaseBot {
 
   protected abstract handleNewMessage(message: Message): Promise<void>;
   protected abstract handleNewInteraction(
-    interaction: Interaction
+    interaction: Interaction,
   ): Promise<void>;
 
   protected getGuildConfig(guildId?: string | null) {
@@ -29,9 +34,15 @@ export default abstract class BaseBot {
     }
 
     try {
-      const currentBotPolicies = Config.getInstance().getConfigValue(ConfigParameter.bots);
-      const botConfig = (this.id === "policeBot" ? currentBotPolicies.policeBot : currentBotPolicies.chatBot) ?? this.config.botConfig;
-      const guildConfig = botConfig?.guilds?.[guildId] ?? this.config.botConfig.guilds?.[guildId];
+      const currentBotPolicies = Config.getInstance().getConfigValue(
+        ConfigParameter.bots,
+      );
+      const botConfig =
+        (this.id === "policeBot"
+          ? currentBotPolicies.policeBot
+          : currentBotPolicies.chatBot) ?? this.config.botConfig;
+      const guildConfig =
+        botConfig?.guilds?.[guildId] ?? this.config.botConfig.guilds?.[guildId];
       if (!guildConfig) {
         return undefined;
       }
@@ -85,7 +96,7 @@ export default abstract class BaseBot {
     }
 
     const respondsInChannel = guildConfig.replyChannelIds.includes(
-      message.channelId
+      message.channelId,
     );
     const respondsToMention =
       guildConfig.respondToMentions &&

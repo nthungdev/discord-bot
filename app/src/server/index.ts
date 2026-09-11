@@ -1,9 +1,9 @@
-import express, { Application, Response } from "express";
 import bodyParser from "body-parser";
-import testRouter from "./routes/testRouter";
-import utilityRouter from "./routes/utilityRouter";
+import express, { type Application, type Response } from "express";
 import auth from "./middlewares/auth";
 import errorHandler from "./middlewares/errorHandler";
+import testRouter from "./routes/testRouter";
+import utilityRouter from "./routes/utilityRouter";
 
 const app: Application = express();
 

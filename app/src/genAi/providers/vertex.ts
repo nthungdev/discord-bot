@@ -1,18 +1,18 @@
 import {
   ClientError,
   FinishReason,
-  FunctionDeclarationSchema,
-  GenerativeModel,
-  InlineDataPart,
-  SafetySetting,
-  TextPart,
+  type FunctionDeclarationSchema,
+  type GenerativeModel,
+  type InlineDataPart,
+  type SafetySetting,
+  type TextPart,
   VertexAI,
 } from "@google-cloud/vertexai";
-import { AiPrompt, AiPromptResponse } from "../../types";
-import { getCredentials } from "../../utils/google";
-import { GenAi, GenAiConfig } from "../types";
+import type { AiPrompt, AiPromptResponse } from "../../types";
 import { imageToBase64 } from "../../utils";
+import { getCredentials } from "../../utils/google";
 import { IGNORED_CONTENT } from "../helpers";
+import type { GenAi, GenAiConfig } from "../types";
 
 export class VertexGenAi implements GenAi {
   private vertexAI: VertexAI | undefined;
@@ -45,7 +45,7 @@ export class VertexGenAi implements GenAi {
   }
 
   async generate(prompt: AiPrompt): Promise<AiPromptResponse> {
-    if (!this.aiAPI || !this.vertexAI) {
+    if (!(this.aiAPI && this.vertexAI)) {
       throw new Error("AI API not initialized");
     }
 
@@ -130,17 +130,25 @@ export class VertexGenAi implements GenAi {
           const tool = prompt.tools?.find((t) => t.name === call.name);
           let output: unknown;
           if (tool && prompt.toolContext) {
-            console.info(`[VertexGenAI] Invoking tool: ${call.name}`, { args: call.args });
+            console.info(`[VertexGenAI] Invoking tool: ${call.name}`, {
+              args: call.args,
+            });
             try {
               output = await tool.execute(call.args ?? {}, prompt.toolContext);
-              console.info(`[VertexGenAI] Tool '${call.name}' completed`, { output });
+              console.info(`[VertexGenAI] Tool '${call.name}' completed`, {
+                output,
+              });
             } catch (err: unknown) {
               const errorMsg = err instanceof Error ? err.message : String(err);
-              console.error(`[VertexGenAI] Tool '${call.name}' failed: ${errorMsg}`);
+              console.error(
+                `[VertexGenAI] Tool '${call.name}' failed: ${errorMsg}`,
+              );
               output = { error: errorMsg };
             }
           } else {
-            console.warn(`[VertexGenAI] Tool '${call.name}' not found or no tool context provided.`);
+            console.warn(
+              `[VertexGenAI] Tool '${call.name}' not found or no tool context provided.`,
+            );
             output = {
               error: `Tool ${call.name} not found or no tool context provided.`,
             };
@@ -190,7 +198,10 @@ export class VertexGenAi implements GenAi {
             terminationParts as unknown as (InlineDataPart | TextPart)[],
           );
         } catch (err) {
-          console.error("[VertexGenAI] Failed to get final text after tool limit:", err);
+          console.error(
+            "[VertexGenAI] Failed to get final text after tool limit:",
+            err,
+          );
         }
       }
 

@@ -1,4 +1,4 @@
-import { Response, Request, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
 
 export default function (req: Request, res: Response, next: NextFunction) {
   const authorization = req.headers["authorization"]?.toString() || "";

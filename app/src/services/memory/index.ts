@@ -1,5 +1,5 @@
 import { Config, ConfigParameter } from "../../config";
-import {
+import type {
   AiChatMessage,
   ConversationDocument,
   StoredAiChatMessage,
@@ -7,21 +7,21 @@ import {
 } from "../../types";
 import { FirestoreMemoryStore } from "./firestore-store";
 import { LocalFileMemoryStore } from "./local-store";
-import { IMemoryStore, MemoryStoreType } from "./types";
+import type { IMemoryStore, MemoryStoreType } from "./types";
 
 export function createMemoryStore(
   storeType?: MemoryStoreType,
-  customPath?: string
+  customPath?: string,
 ): IMemoryStore {
   const envType = process.env.MEMORY_STORE_TYPE as MemoryStoreType | undefined;
 
   let configType: MemoryStoreType | undefined;
   try {
     configType = Config.getInstance().getConfigValue(
-      ConfigParameter.memoryStoreType
+      ConfigParameter.memoryStoreType,
     ) as MemoryStoreType;
   } catch {
-    console.warn("Remote config might not be initialized yet")
+    console.warn("Remote config might not be initialized yet");
   }
 
   const selectedType: MemoryStoreType =
@@ -62,10 +62,7 @@ export class ConversationMemoryService {
    * Retrieves conversation history for a channel and bot instance.
    * Checks in-memory cache first, falls back to persistent store on cache miss.
    */
-  async getHistory(
-    botId: string,
-    channelId: string
-  ): Promise<AiChatMessage[]> {
+  async getHistory(botId: string, channelId: string): Promise<AiChatMessage[]> {
     const key = this.getKey(botId, channelId);
 
     if (this.inMemoryCache.has(key)) {
@@ -81,7 +78,7 @@ export class ConversationMemoryService {
     } catch (error) {
       console.error(
         `[MemoryService] Error loading history for botId=${botId}, channelId=${channelId}`,
-        error
+        error,
       );
     }
 
@@ -100,7 +97,7 @@ export class ConversationMemoryService {
     botMessage: string,
     actor?: UserActorInfo,
     guildId?: string,
-    botType?: string
+    botType?: string,
   ): Promise<void> {
     const key = this.getKey(botId, channelId);
 
@@ -135,7 +132,7 @@ export class ConversationMemoryService {
     try {
       maxHistory =
         Config.getInstance().getConfigValue(
-          ConfigParameter.aiMaxConversationHistory
+          ConfigParameter.aiMaxConversationHistory,
         ) || 60;
     } catch {
       // Use fallback if remote config not ready
@@ -163,7 +160,7 @@ export class ConversationMemoryService {
     this.store.set(botId, channelId, doc).catch((error) => {
       console.error(
         `[MemoryService] Failed to persist turn for botId=${botId}, channelId=${channelId}`,
-        error
+        error,
       );
     });
   }
@@ -202,6 +199,6 @@ export function getMemoryService(): ConversationMemoryService {
   }
   return _memoryService;
 }
-export * from "./types";
-export * from "./local-store";
 export * from "./firestore-store";
+export * from "./local-store";
+export * from "./types";

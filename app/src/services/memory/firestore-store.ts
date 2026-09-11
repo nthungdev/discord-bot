@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
-import { ConversationDocument } from "../../types";
-import { IMemoryStore } from "./types";
+import type { ConversationDocument } from "../../types";
+import type { IMemoryStore } from "./types";
 
 export class FirestoreMemoryStore implements IMemoryStore {
   private collectionName: string;
@@ -19,7 +19,7 @@ export class FirestoreMemoryStore implements IMemoryStore {
 
   async get(
     botId: string,
-    channelId: string
+    channelId: string,
   ): Promise<ConversationDocument | null> {
     try {
       const docId = this.getDocId(botId, channelId);
@@ -34,7 +34,7 @@ export class FirestoreMemoryStore implements IMemoryStore {
     } catch (error) {
       console.error(
         `[FirestoreMemoryStore] Error fetching conversation for botId=${botId}, channelId=${channelId}:`,
-        error
+        error,
       );
       return null;
     }
@@ -43,7 +43,7 @@ export class FirestoreMemoryStore implements IMemoryStore {
   async set(
     botId: string,
     channelId: string,
-    data: ConversationDocument
+    data: ConversationDocument,
   ): Promise<void> {
     try {
       const docId = this.getDocId(botId, channelId);
@@ -54,12 +54,12 @@ export class FirestoreMemoryStore implements IMemoryStore {
             ...data,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
     } catch (error) {
       console.error(
         `[FirestoreMemoryStore] Error saving conversation for botId=${botId}, channelId=${channelId}:`,
-        error
+        error,
       );
     }
   }
@@ -71,7 +71,7 @@ export class FirestoreMemoryStore implements IMemoryStore {
     } catch (error) {
       console.error(
         `[FirestoreMemoryStore] Error deleting conversation for botId=${botId}, channelId=${channelId}:`,
-        error
+        error,
       );
     }
   }
@@ -79,9 +79,7 @@ export class FirestoreMemoryStore implements IMemoryStore {
   async clearAll(botId?: string): Promise<void> {
     try {
       const collection = this.getCollection();
-      const query = botId
-        ? collection.where("botId", "==", botId)
-        : collection;
+      const query = botId ? collection.where("botId", "==", botId) : collection;
 
       const snapshot = await query.get();
       const batch = admin.firestore().batch();
@@ -94,7 +92,7 @@ export class FirestoreMemoryStore implements IMemoryStore {
     } catch (error) {
       console.error(
         `[FirestoreMemoryStore] Error clearing conversations for botId=${botId}:`,
-        error
+        error,
       );
     }
   }

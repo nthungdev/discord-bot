@@ -1,6 +1,11 @@
-import { GoogleGenAI, FunctionDeclaration, Part, Tool } from "@google/genai";
-import { GenAi, GenAiConfig } from "../types";
-import { AiPrompt, AiPromptResponse } from "../../types";
+import {
+  type FunctionDeclaration,
+  GoogleGenAI,
+  type Part,
+  type Tool,
+} from "@google/genai";
+import type { AiPrompt, AiPromptResponse } from "../../types";
+import type { GenAi, GenAiConfig } from "../types";
 
 const MAX_TOOL_ITERATIONS = 7;
 
@@ -32,7 +37,8 @@ export class MyGoogleGenAI implements GenAi {
       const functionDeclarations = prompt.tools.map((t) => ({
         name: t.name,
         description: t.description,
-        parameters: t.parameters as unknown as FunctionDeclaration["parameters"],
+        parameters:
+          t.parameters as unknown as FunctionDeclaration["parameters"],
       }));
       toolsConfig.push({ functionDeclarations });
     }
@@ -71,20 +77,28 @@ export class MyGoogleGenAI implements GenAi {
         const tool = prompt.tools?.find((t) => t.name === call.name);
         let output: unknown;
         if (tool && prompt.toolContext) {
-          console.info(`[GoogleGenAI] Invoking tool: ${call.name}`, { args: call.args });
+          console.info(`[GoogleGenAI] Invoking tool: ${call.name}`, {
+            args: call.args,
+          });
           try {
             output = await tool.execute(
               (call.args as Record<string, unknown>) ?? {},
               prompt.toolContext,
             );
-            console.info(`[GoogleGenAI] Tool '${call.name}' completed`, { output });
+            console.info(`[GoogleGenAI] Tool '${call.name}' completed`, {
+              output,
+            });
           } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : String(err);
-            console.error(`[GoogleGenAI] Tool '${call.name}' failed: ${errorMsg}`);
+            console.error(
+              `[GoogleGenAI] Tool '${call.name}' failed: ${errorMsg}`,
+            );
             output = { error: errorMsg };
           }
         } else {
-          console.warn(`[GoogleGenAI] Tool '${call.name}' not found or no tool context provided.`);
+          console.warn(
+            `[GoogleGenAI] Tool '${call.name}' not found or no tool context provided.`,
+          );
           output = {
             error: `Tool ${call.name} not found or no tool context provided.`,
           };
@@ -122,7 +136,10 @@ export class MyGoogleGenAI implements GenAi {
           message: terminationParts,
         });
       } catch (err) {
-        console.error("[GoogleGenAI] Failed to get final text after tool limit:", err);
+        console.error(
+          "[GoogleGenAI] Failed to get final text after tool limit:",
+          err,
+        );
       }
     }
 
@@ -134,7 +151,8 @@ export class MyGoogleGenAI implements GenAi {
     }
 
     if (!content.trim()) {
-      content = "Xin lỗi, hiện tại mình không thể thu thập đủ thông tin để trả lời câu hỏi này.";
+      content =
+        "Xin lỗi, hiện tại mình không thể thu thập đủ thông tin để trả lời câu hỏi này.";
     }
 
     return {
@@ -150,4 +168,3 @@ export class MyGoogleGenAI implements GenAi {
     );
   }
 }
-

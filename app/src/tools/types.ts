@@ -1,4 +1,4 @@
-import { Client, Guild, TextBasedChannel } from "discord.js";
+import type { Client, Guild, TextBasedChannel } from "discord.js";
 
 export interface ToolExecutionContext {
   botId: string;

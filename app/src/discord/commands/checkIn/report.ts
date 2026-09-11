@@ -2,13 +2,19 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ChatInputCommandInteraction,
-  SlashCommandBuilder,
-  DiscordjsErrorCodes,
+  type ChatInputCommandInteraction,
   DiscordjsError,
+  DiscordjsErrorCodes,
+  SlashCommandBuilder,
 } from "discord.js";
 import { DiscordCommand } from "../../constants";
-import { countCheckInsInChannel, formatCheckInLeaderboard, getCurrentMonthStart, getPreviousMonthEnd, getPreviousMonthStart } from "../utilities/checkIn";
+import {
+  countCheckInsInChannel,
+  formatCheckInLeaderboard,
+  getCurrentMonthStart,
+  getPreviousMonthEnd,
+  getPreviousMonthStart,
+} from "../utilities/checkIn";
 
 // TODO localize description
 

@@ -1,5 +1,5 @@
-import { GuildBasedChannel, Message } from "discord.js";
-import { ToolDefinition } from "../types";
+import type { GuildBasedChannel, Message } from "discord.js";
+import type { ToolDefinition } from "../types";
 
 export interface GetRecentMessagesArgs {
   channelIdOrName?: string;
@@ -65,8 +65,7 @@ export const discordGetRecentMessagesTool: ToolDefinition<
       targetChannel =
         channels.get?.(query) ??
         channelList.find(
-          (c) =>
-            c.id === query || c.name.toLowerCase() === query.toLowerCase(),
+          (c) => c.id === query || c.name.toLowerCase() === query.toLowerCase(),
         ) ??
         null;
     } else if (ctx.channel && ctx.guild) {
@@ -75,7 +74,7 @@ export const discordGetRecentMessagesTool: ToolDefinition<
       targetChannel = ctx.channel;
     }
 
-    if (!targetChannel || !targetChannel.messages?.fetch) {
+    if (!(targetChannel && targetChannel.messages?.fetch)) {
       throw new Error(
         `Text channel '${query || ctx.channel?.id || "unknown"}' could not be found or does not support message fetching.`,
       );
@@ -173,8 +172,7 @@ export const discordGetPinnedMessagesTool: ToolDefinition<
       targetChannel =
         channels.get?.(query) ??
         channelList.find(
-          (c) =>
-            c.id === query || c.name.toLowerCase() === query.toLowerCase(),
+          (c) => c.id === query || c.name.toLowerCase() === query.toLowerCase(),
         ) ??
         null;
     } else if (ctx.channel && ctx.guild) {
@@ -183,7 +181,7 @@ export const discordGetPinnedMessagesTool: ToolDefinition<
       targetChannel = ctx.channel;
     }
 
-    if (!targetChannel || !targetChannel.messages?.fetchPinned) {
+    if (!(targetChannel && targetChannel.messages?.fetchPinned)) {
       throw new Error(
         `Channel '${query || ctx.channel?.id || "unknown"}' could not be found or does not support pinned messages.`,
       );
@@ -283,7 +281,7 @@ export const discordReactToMessageTool: ToolDefinition<
             : null;
     }
 
-    if (!message || !message.react) {
+    if (!(message && message.react)) {
       throw new Error(
         `Could not find a message to react to in channel '${ctx.channel.id}'.`,
       );

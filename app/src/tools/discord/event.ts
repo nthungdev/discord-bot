@@ -1,5 +1,8 @@
-import { GuildScheduledEvent, GuildScheduledEventStatus } from "discord.js";
-import { ToolDefinition } from "../types";
+import {
+  type GuildScheduledEvent,
+  GuildScheduledEventStatus,
+} from "discord.js";
+import type { ToolDefinition } from "../types";
 
 export interface GetScheduledEventsArgs {
   limit?: number;

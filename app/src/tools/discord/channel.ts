@@ -1,5 +1,5 @@
-import { ChannelType, GuildBasedChannel } from "discord.js";
-import { ToolDefinition } from "../types";
+import { ChannelType, type GuildBasedChannel } from "discord.js";
+import type { ToolDefinition } from "../types";
 
 export interface ListChannelsArgs {
   type?: "text" | "voice" | "category" | "all";
@@ -120,8 +120,7 @@ export const discordGetChannelInfoTool: ToolDefinition<
       targetChannel =
         channels.get?.(query) ??
         channelList.find(
-          (c) =>
-            c.id === query || c.name.toLowerCase() === query.toLowerCase(),
+          (c) => c.id === query || c.name.toLowerCase() === query.toLowerCase(),
         ) ??
         null;
     } else if (ctx.channel && ctx.guild) {
@@ -187,8 +186,7 @@ export const discordGetChannelMembersTool: ToolDefinition<
       },
       botsOnly: {
         type: "BOOLEAN",
-        description:
-          "If true, only returns bot members in the channel.",
+        description: "If true, only returns bot members in the channel.",
       },
       limit: {
         type: "INTEGER",
@@ -212,8 +210,7 @@ export const discordGetChannelMembersTool: ToolDefinition<
       targetChannel =
         channels.get?.(query) ??
         channelList.find(
-          (c) =>
-            c.id === query || c.name.toLowerCase() === query.toLowerCase(),
+          (c) => c.id === query || c.name.toLowerCase() === query.toLowerCase(),
         ) ??
         null;
     } else if (ctx.channel && ctx.guild) {
@@ -250,13 +247,17 @@ export const discordGetChannelMembersTool: ToolDefinition<
     const formatted = memberList.slice(0, limit).map((m) => ({
       id: m.id,
       username: m.user?.username ?? m.username ?? "unknown",
-      displayName: m.displayName ?? m.user?.displayName ?? m.user?.username ?? "unknown",
+      displayName:
+        m.displayName ?? m.user?.displayName ?? m.user?.username ?? "unknown",
       nickname: m.nickname ?? null,
       isBot: Boolean(m.user?.bot),
       roles: m.roles?.cache
         ? m.roles.cache
             .filter((r: { name: string }) => r.name !== "@everyone")
-            .map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }))
+            .map((r: { id: string; name: string }) => ({
+              id: r.id,
+              name: r.name,
+            }))
         : [],
     }));
 

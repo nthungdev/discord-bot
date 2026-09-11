@@ -1,7 +1,7 @@
-import fs from "fs";
-import path from "path";
 import * as admin from "firebase-admin";
 import { getRemoteConfig } from "firebase-admin/remote-config";
+import fs from "fs";
+import path from "path";
 
 export interface SyncOptions {
   configFile?: string;
@@ -38,7 +38,7 @@ export function resolveDefaultConfigFile(): string {
   }
 
   throw new Error(
-    "No configuration file found. Please provide a path using --file <path>"
+    "No configuration file found. Please provide a path using --file <path>",
   );
 }
 
@@ -58,7 +58,7 @@ export function resolveServiceAccountFile(customPath?: string): string {
   }
 
   throw new Error(
-    "Service account file not found. Please provide a path using --service-account <path>"
+    "Service account file not found. Please provide a path using --service-account <path>",
   );
 }
 
@@ -107,7 +107,7 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
   // Initialize Firebase Admin if not already initialized
   if (!admin.apps.length) {
     const serviceAccount = JSON.parse(
-      fs.readFileSync(serviceAccountFile, "utf-8")
+      fs.readFileSync(serviceAccountFile, "utf-8"),
     );
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -117,10 +117,7 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
   const rc = getRemoteConfig();
   const apiClient = Object.values(rc).find(
     (v: unknown) =>
-      typeof v === "object" &&
-      v !== null &&
-      "httpClient" in v &&
-      "getUrl" in v
+      typeof v === "object" && v !== null && "httpClient" in v && "getUrl" in v,
   ) as {
     httpClient: {
       send: (req: {
@@ -128,20 +125,28 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
         url: string;
         headers?: Record<string, string>;
         data?: unknown;
-      }) => Promise<{ status: number; headers: Record<string, string>; data?: unknown }>;
+      }) => Promise<{
+        status: number;
+        headers: Record<string, string>;
+        data?: unknown;
+      }>;
     };
     getUrl: () => Promise<string>;
   };
 
   if (!apiClient) {
-    throw new Error("Unable to obtain RemoteConfigApiClient from Firebase Admin.");
+    throw new Error(
+      "Unable to obtain RemoteConfigApiClient from Firebase Admin.",
+    );
   }
 
   const rawConfig = fs.readFileSync(configFile, "utf-8");
   const parsedConfig = JSON.parse(rawConfig) as Record<string, unknown>;
   const parameters = prepareParameters(parsedConfig);
 
-  console.log(`\nFound ${Object.keys(parameters).length} parameter(s) to process:`);
+  console.log(
+    `\nFound ${Object.keys(parameters).length} parameter(s) to process:`,
+  );
   for (const [key, param] of Object.entries(parameters)) {
     console.log(`  - ${key} [${param.valueType}]`);
   }
@@ -155,7 +160,9 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
 
   // 1. Sync Server Remote Config (firebase-server namespace)
   if (target === "server" || target === "both") {
-    console.log("\n[Server Remote Config] Updating 'firebase-server' namespace...");
+    console.log(
+      "\n[Server Remote Config] Updating 'firebase-server' namespace...",
+    );
     const serverPayload = clearServer ? {} : parameters;
     const resp = await apiClient.httpClient.send({
       method: "PUT",
@@ -168,7 +175,9 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
         parameters: serverPayload,
       },
     });
-    console.log(`[Server Remote Config] Updated! ETag: ${resp.headers["etag"]}`);
+    console.log(
+      `[Server Remote Config] Updated! ETag: ${resp.headers["etag"]}`,
+    );
   }
 
   // 2. Sync / Clear Client Remote Config (default namespace)
@@ -179,7 +188,7 @@ export async function syncRemoteConfig(options: SyncOptions = {}) {
     const validated = await rc.validateTemplate(clientTemplate);
     const published = await rc.publishTemplate(validated, { force: true });
     console.log(
-      `[Client Remote Config] Updated! Version: ${published.version?.versionNumber}`
+      `[Client Remote Config] Updated! Version: ${published.version?.versionNumber}`,
     );
   }
 
@@ -212,10 +221,16 @@ Options:
       options.serviceAccountFile = args[++i];
     } else if (arg === "--target" || arg === "-t") {
       const targetVal = args[++i];
-      if (targetVal === "server" || targetVal === "client" || targetVal === "both") {
+      if (
+        targetVal === "server" ||
+        targetVal === "client" ||
+        targetVal === "both"
+      ) {
         options.target = targetVal;
       } else {
-        console.error(`Invalid target: ${targetVal}. Allowed values: server, client, both.`);
+        console.error(
+          `Invalid target: ${targetVal}. Allowed values: server, client, both.`,
+        );
         process.exit(1);
       }
     } else if (arg === "--clear-client") {
@@ -231,7 +246,10 @@ Options:
 }
 
 // Run CLI directly if executed from command line
-if (require.main === module || process.argv[1]?.endsWith("syncRemoteConfig.ts")) {
+if (
+  require.main === module ||
+  process.argv[1]?.endsWith("syncRemoteConfig.ts")
+) {
   const options = parseCliArgs(process.argv.slice(2));
   syncRemoteConfig(options).catch((err) => {
     console.error("\n[Error] Sync failed:", err);

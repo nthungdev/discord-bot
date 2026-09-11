@@ -1,4 +1,4 @@
-import { ConversationDocument } from "../../types";
+import type { ConversationDocument } from "../../types";
 
 export type MemoryStoreType = "local" | "firestore";
 
@@ -14,7 +14,7 @@ export interface IMemoryStore {
   set(
     botId: string,
     channelId: string,
-    data: ConversationDocument
+    data: ConversationDocument,
   ): Promise<void>;
 
   /**

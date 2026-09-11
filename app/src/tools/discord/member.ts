@@ -1,5 +1,5 @@
-import { GuildMember } from "discord.js";
-import { ToolDefinition } from "../types";
+import type { GuildMember } from "discord.js";
+import type { ToolDefinition } from "../types";
 
 export interface GetMemberInfoArgs {
   usernameOrId?: string;
@@ -73,7 +73,9 @@ export const discordGetMemberInfoTool: ToolDefinition<
 
       // Check cache first (fast, no network)
       if (ctx.guild.members.cache) {
-        member = ctx.guild.members.cache.find((m) => matchesQuery(m, cleanQuery));
+        member = ctx.guild.members.cache.find((m) =>
+          matchesQuery(m, cleanQuery),
+        );
       }
 
       // Fast REST member search (/guilds/{id}/members/search)
@@ -90,7 +92,8 @@ export const discordGetMemberInfoTool: ToolDefinition<
               : Array.isArray(searchResult)
                 ? searchResult
                 : [searchResult];
-          member = list.find((m) => matchesQuery(m, cleanQuery)) ?? list[0] ?? null;
+          member =
+            list.find((m) => matchesQuery(m, cleanQuery)) ?? list[0] ?? null;
         } catch {
           // If REST search fails or is mocked without options support, fallback to full fetch/cache
         }
@@ -125,12 +128,17 @@ export const discordGetMemberInfoTool: ToolDefinition<
       username: member.user.username,
       displayName: member.displayName || member.user.displayName,
       nickname: member.nickname ?? null,
-      joinedAt: member.joinedAt?.toISOString?.() ?? (member.joinedAt ? new Date(member.joinedAt).toISOString() : null),
+      joinedAt:
+        member.joinedAt?.toISOString?.() ??
+        (member.joinedAt ? new Date(member.joinedAt).toISOString() : null),
       isBot: Boolean(member.user.bot),
       roles: member.roles?.cache
         ? member.roles.cache
             .filter((r: { name: string }) => r.name !== "@everyone")
-            .map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }))
+            .map((r: { id: string; name: string }) => ({
+              id: r.id,
+              name: r.name,
+            }))
         : [],
     };
   },
@@ -163,7 +171,8 @@ export const discordSearchMembersTool: ToolDefinition<
     properties: {
       query: {
         type: "STRING",
-        description: "The name or partial name (display name, nickname, or username) to search for.",
+        description:
+          "The name or partial name (display name, nickname, or username) to search for.",
       },
       limit: {
         type: "INTEGER",
@@ -224,7 +233,8 @@ export const discordSearchMembersTool: ToolDefinition<
 
         for (const m of list) {
           const username = m.user?.username?.toLowerCase() ?? "";
-          const displayName = (m.displayName || m.user?.displayName)?.toLowerCase() ?? "";
+          const displayName =
+            (m.displayName || m.user?.displayName)?.toLowerCase() ?? "";
           const nickname = m.nickname?.toLowerCase() ?? "";
 
           if (

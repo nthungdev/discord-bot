@@ -1,23 +1,28 @@
+import { isAxiosError } from "axios";
 import {
   Client,
   Collection,
   GatewayIntentBits,
-  Guild,
-  Interaction,
-  Message,
+  type Guild,
+  type Interaction,
+  type Message,
   MessageType,
 } from "discord.js";
-import BaseBot, { BaseBotConfig } from "./base-bot";
-import { chatbotActions, store } from "../store";
-import { AiPrompt, AppCommand, DiscordMessage, UserActorInfo } from "../types";
-import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
-import { getMemoryService } from "../services/memory";
-import { splitEndingEmojis } from "../utils/emoji";
-import { isAxiosError } from "axios";
+import type { BotGuildConfig } from "../config/types";
 import { parseCommands } from "../discord/helpers";
-import { ToolDefinition, ToolExecutionContext } from "../tools/types";
+import { getMemoryService } from "../services/memory";
+import { chatbotActions, store } from "../store";
 import { getToolRegistry } from "../tools/registry";
-import { BotGuildConfig } from "../config/types";
+import type { ToolDefinition, ToolExecutionContext } from "../tools/types";
+import type {
+  AiPrompt,
+  AppCommand,
+  DiscordMessage,
+  UserActorInfo,
+} from "../types";
+import { splitEndingEmojis } from "../utils/emoji";
+import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
+import BaseBot, { type BaseBotConfig } from "./base-bot";
 
 const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
@@ -28,7 +33,7 @@ const validateServerMembersCache = async (guild: Guild) => {
   if (!lastMemberFetch || lastMemberFetch + MEMBER_FETCH_AGE < Date.now()) {
     await guild.members.fetch();
     store.dispatch(
-      chatbotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE)
+      chatbotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE),
     );
   }
 };
@@ -52,7 +57,7 @@ const clearMessageTimeout = (channelId: string) => {
 const handleMessageTimeout = async (
   message: Message<boolean>,
   botId: string,
-  guildConfig?: BotGuildConfig
+  guildConfig?: BotGuildConfig,
 ) => {
   console.log(`---handleMessageTimeout---`);
 
@@ -119,8 +124,8 @@ const handleMessageTimeout = async (
     const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
     const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
 
-    let tools: ToolDefinition[] | undefined = undefined;
-    let toolContext: ToolExecutionContext | undefined = undefined;
+    let tools: ToolDefinition[] | undefined;
+    let toolContext: ToolExecutionContext | undefined;
 
     if (enableDiscordTools) {
       toolContext = {
@@ -164,7 +169,7 @@ const handleMessageTimeout = async (
           nickname: m.nickname ?? m.displayName,
           username: m.user.username,
         })) || [],
-        message.guild
+        message.guild,
       );
 
       console.log({
@@ -201,11 +206,13 @@ const handleMessageTimeout = async (
         content || "?",
         actor,
         message.guildId ?? undefined,
-        "chatBot"
+        "chatBot",
       );
 
       // debug
-      console.log(`history updated for botId: ${botId}, channel: ${channel.id}`);
+      console.log(
+        `history updated for botId: ${botId}, channel: ${channel.id}`,
+      );
     } catch (error) {
       console.error("Error generateContent");
       if (isAxiosError(error)) {
@@ -261,7 +268,7 @@ export default class ChatBot extends BaseBot {
 
     if (!command) {
       console.error(
-        `No command matching ${interaction.commandName} was found.`
+        `No command matching ${interaction.commandName} was found.`,
       );
       return;
     }
@@ -301,15 +308,14 @@ export default class ChatBot extends BaseBot {
     if (![MessageType.Default, MessageType.Reply].includes(message.type))
       return;
 
-    if (!this.shouldReplyToMessage(message))
-      return;
+    if (!this.shouldReplyToMessage(message)) return;
 
     if (!message.inGuild()) return;
 
     let refMessage: Message<boolean> | null = null;
     if (message.reference !== null) {
       refMessage = await message.channel.messages.fetch(
-        message.reference.messageId!
+        message.reference.messageId!,
       );
     }
 
@@ -354,7 +360,7 @@ export default class ChatBot extends BaseBot {
       chatbotActions.addMessageBuffer({
         message: discordMessage,
         channelId: message.channelId,
-      })
+      }),
     );
 
     const guildConfig = this.getGuildConfig(message.guildId);
@@ -365,7 +371,7 @@ export default class ChatBot extends BaseBot {
       channelId: message.channelId,
       timeout: setTimeout(
         () => handleMessageTimeout(message, this.id, guildConfig),
-        replyDelay
+        replyDelay,
       ),
     });
   }

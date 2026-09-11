@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { ConversationDocument } from "../../types";
-import { IMemoryStore } from "./types";
+import type { ConversationDocument } from "../../types";
+import type { IMemoryStore } from "./types";
 
 export class LocalFileMemoryStore implements IMemoryStore {
   private filePath: string;
@@ -11,8 +11,7 @@ export class LocalFileMemoryStore implements IMemoryStore {
 
   constructor(customPath?: string) {
     this.filePath =
-      customPath ||
-      path.resolve(process.cwd(), ".data", "conversations.json");
+      customPath || path.resolve(process.cwd(), ".data", "conversations.json");
   }
 
   private getKey(botId: string, channelId: string): string {
@@ -38,7 +37,7 @@ export class LocalFileMemoryStore implements IMemoryStore {
     } catch (error) {
       console.error(
         `[LocalFileMemoryStore] Failed to load store from ${this.filePath}`,
-        error
+        error,
       );
     } finally {
       this.isLoaded = true;
@@ -60,12 +59,12 @@ export class LocalFileMemoryStore implements IMemoryStore {
       await fs.promises.writeFile(
         this.filePath,
         JSON.stringify(serialized, null, 2),
-        "utf-8"
+        "utf-8",
       );
     } catch (error) {
       console.error(
         `[LocalFileMemoryStore] Failed to persist conversations to ${this.filePath}`,
-        error
+        error,
       );
     }
   }
@@ -82,7 +81,7 @@ export class LocalFileMemoryStore implements IMemoryStore {
 
   async get(
     botId: string,
-    channelId: string
+    channelId: string,
   ): Promise<ConversationDocument | null> {
     await this.ensureLoaded();
     const key = this.getKey(botId, channelId);
@@ -92,7 +91,7 @@ export class LocalFileMemoryStore implements IMemoryStore {
   async set(
     botId: string,
     channelId: string,
-    data: ConversationDocument
+    data: ConversationDocument,
   ): Promise<void> {
     await this.ensureLoaded();
     const key = this.getKey(botId, channelId);

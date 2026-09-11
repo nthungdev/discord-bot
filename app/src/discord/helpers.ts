@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { userMention } from "discord.js";
-import { DiscordUser } from "../types";
+import type { DiscordUser } from "../types";
 
 export const replaceWithUserMentions = (
   message: string,
   serverMembers: DiscordUser[],
 ) => {
-  let messageWithMentions;
+  let messageWithMentions = message;
   const mentionMatches = new Set<string>();
   [...message.matchAll(/(?<=@)((\.?(?:[\w]+\.)*\w+)\.?)/g)].forEach((match) => {
     const [, withDot, withoutDot] = match;

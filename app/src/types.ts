@@ -1,5 +1,5 @@
-import { ChatInputCommandInteraction } from "discord.js";
-import { ToolDefinition, ToolExecutionContext } from "./tools/types";
+import type { ChatInputCommandInteraction } from "discord.js";
+import type { ToolDefinition, ToolExecutionContext } from "./tools/types";
 
 export type UserActorInfo = {
   userId?: string;

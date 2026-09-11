@@ -1,5 +1,4 @@
-import { GenAi } from "../types";
-import { GenAiConfig } from "../types";
+import type { GenAi, GenAiConfig } from "../types";
 import { MyGoogleGenAI } from "./google-genai";
 import { VertexGenAi } from "./vertex";
 
