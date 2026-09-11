@@ -9,6 +9,7 @@ import {
   userMention,
 } from "discord.js";
 import type { BotGuildConfig } from "../../config/types";
+import { buildPoliceBotSystemInstruction } from "../../genAi/helpers";
 import { getMemoryService } from "../../services/memory";
 import { policeBotActions, store } from "../../store";
 import { getToolRegistry } from "../../tools/registry";
@@ -56,6 +57,122 @@ const clearMessageTimeout = (channelId: string) => {
   clearTimeout(messageTimeout[channelId]);
 };
 
+/**
+ * Assembles prompt text from user messages and resolves mentions.
+ */
+function buildPolicePromptText(messages: DiscordMessage[]): string {
+  const text = messages
+    .map((msg) => {
+      const authorQuote = `${msg.authorUsername} says ${msg.cleanContent}`;
+      if (msg.reference) {
+        return `In reply to @${msg.reference.authorUsername} saying "${msg.reference.cleanContent}", ${authorQuote}`;
+      }
+      return authorQuote;
+    })
+    .join("\n");
+
+  const messageMentions = messages.flatMap((m) => m.mentions);
+  return messageMentions.reduce((acc, mention) => {
+    return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
+  }, text);
+}
+
+/**
+ * Assembles the prompt, tools, and context for PoliceBot conversational turns.
+ */
+async function buildPolicePromptAndTools(
+  message: Message<boolean>,
+  messages: DiscordMessage[],
+  botId: string,
+  guildConfig?: BotGuildConfig,
+): Promise<{
+  prompt: AiPrompt;
+  textWithUsername: string;
+  lastMessage: DiscordMessage;
+}> {
+  const lastMessage = messages[messages.length - 1];
+  const textWithUsername = buildPolicePromptText(messages);
+
+  const files = [
+    ...messages.flatMap((m) => m.attachments),
+    ...messages.flatMap((m) => m.reference?.attachments ?? []),
+  ];
+
+  const history = await getMemoryService().getHistory(botId, message.channelId);
+
+  const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
+  const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
+
+  let tools: ToolDefinition[] | undefined;
+  let toolContext: ToolExecutionContext | undefined;
+
+  if (enableDiscordTools) {
+    toolContext = {
+      botId,
+      client: message.client,
+      guild: message.guild,
+      channel: message.channel,
+      messageId: message.id,
+      author: {
+        id: lastMessage.authorId,
+        username: lastMessage.authorUsername,
+        displayName: lastMessage.authorDisplayName,
+      },
+    };
+    tools = await getToolRegistry().getAvailableTools(toolContext);
+  }
+
+  const prompt = {
+    text: textWithUsername,
+    files,
+    history,
+    tools,
+    toolContext,
+    enableGoogleSearch,
+  } as AiPrompt;
+
+  return { prompt, textWithUsername, lastMessage };
+}
+
+/**
+ * Executes GenAI response generation for PoliceBot conversational turns.
+ */
+async function executePoliceGeneration(
+  message: Message<boolean>,
+  prompt: AiPrompt,
+  guildConfig?: BotGuildConfig,
+): Promise<{ content: string; data?: unknown }> {
+  const systemInstruction = guildConfig?.botName
+    ? buildPoliceBotSystemInstruction({
+        botName: guildConfig.botName,
+        personalization:
+          guildConfig.personalization ?? guildConfig.systemInstruction,
+        mode: guildConfig.personalizationMode,
+      })
+    : guildConfig?.systemInstruction;
+
+  const genAi = getGenAi({
+    apiKey: process.env.AI_API_KEY,
+    guildId: message.guildId,
+    systemInstruction,
+  });
+  await genAi.init();
+
+  const members =
+    message.guild?.members.cache.toJSON().map((m) => ({
+      id: m.id,
+      nickname: m.nickname ?? m.displayName,
+      username: m.user.username,
+    })) || [];
+
+  return await generateChatMessageWithGenAi(
+    genAi,
+    prompt,
+    members,
+    message.guild,
+  );
+}
+
 const handleMessageTimeout = async (
   message: Message<boolean>,
   botId: string,
@@ -81,78 +198,19 @@ const handleMessageTimeout = async (
       return;
     }
 
-    const messages = userBatch.messages;
-    const lastMessage = messages[messages.length - 1];
-
-    const text = messages
-      .map((msg) => {
-        const authorQuote = `${msg.authorUsername} says ${msg.cleanContent}`;
-        if (msg.reference) {
-          return `In reply to @${msg.reference.authorUsername} saying "${msg.reference.cleanContent}", ${authorQuote}`;
-        }
-        return authorQuote;
-      })
-      .join("\n");
-
-    const messageMentions = messages.flatMap((m) => m.mentions);
-    const textWithUsername = messageMentions.reduce((acc, mention) => {
-      return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
-    }, text);
-
-    const files = [
-      ...messages.flatMap((m) => m.attachments),
-      ...messages.flatMap((m) => m.reference?.attachments ?? []),
-    ];
-
-    const history = await getMemoryService().getHistory(botId, channelId);
-
-    const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
-    const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
-
-    let tools: ToolDefinition[] | undefined;
-    let toolContext: ToolExecutionContext | undefined;
-
-    if (enableDiscordTools) {
-      toolContext = {
+    const { prompt, textWithUsername, lastMessage } =
+      await buildPolicePromptAndTools(
+        message,
+        userBatch.messages,
         botId,
-        client: message.client,
-        guild: message.guild,
-        channel: message.channel,
-        messageId: message.id,
-        author: {
-          id: lastMessage.authorId,
-          username: lastMessage.authorUsername,
-          displayName: lastMessage.authorDisplayName,
-        },
-      };
-      tools = await getToolRegistry().getAvailableTools(toolContext);
-    }
-
-    const prompt = {
-      text: textWithUsername,
-      files,
-      history,
-      tools,
-      toolContext,
-      enableGoogleSearch,
-    } as AiPrompt;
+        guildConfig,
+      );
 
     try {
-      const genAi = getGenAi({
-        apiKey: process.env.AI_API_KEY,
-        guildId: message.guildId,
-        systemInstruction: guildConfig?.systemInstruction,
-      });
-      await genAi.init();
-      const { content, data } = await generateChatMessageWithGenAi(
-        genAi,
+      const { content, data } = await executePoliceGeneration(
+        message,
         prompt,
-        message.guild?.members.cache.toJSON().map((m) => ({
-          id: m.id,
-          nickname: m.nickname ?? m.displayName,
-          username: m.user.username,
-        })) || [],
-        message.guild,
+        guildConfig,
       );
 
       store.dispatch(policeBotActions.clearUserBatch({ channelId, userId }));
@@ -178,7 +236,7 @@ const handleMessageTimeout = async (
       await getMemoryService().addTurn(
         botId,
         channelId,
-        text,
+        textWithUsername,
         content || "?",
         actor,
         message.guildId ?? undefined,
@@ -436,11 +494,19 @@ ${censoredMessage
     console.log(promptText);
 
     const guildConfig = this.getGuildConfig(guild.id);
+    const systemInstruction = guildConfig?.botName
+      ? buildPoliceBotSystemInstruction({
+          botName: guildConfig.botName,
+          personalization:
+            guildConfig.personalization ?? guildConfig.systemInstruction,
+          mode: guildConfig.personalizationMode,
+        })
+      : guildConfig?.systemInstruction;
 
     const genAi = getGenAi({
       apiKey: process.env.AI_API_KEY,
       guildId: guild.id,
-      systemInstruction: guildConfig?.systemInstruction,
+      systemInstruction,
       membersInstruction: " ",
     });
     await genAi.init();

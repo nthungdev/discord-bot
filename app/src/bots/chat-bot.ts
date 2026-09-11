@@ -397,6 +397,7 @@ async function executeChatBotGeneration(
         botName: guildConfig.botName,
         personalization:
           guildConfig.personalization ?? guildConfig.systemInstruction,
+        mode: guildConfig.personalizationMode,
       })
     : guildConfig?.systemInstruction;
 

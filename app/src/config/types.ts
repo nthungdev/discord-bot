@@ -51,6 +51,7 @@ export interface SmartReplyConfig {
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
+  personalizationMode?: "overwrite_identity" | "extend" | "overwrite_all";
   chatBotModel?: ModelConfig;
   replyChannelIds: string[];
   ignoredChannelIds: string[];
