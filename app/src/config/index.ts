@@ -107,10 +107,15 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
   }
 };
 
+export const DEFAULT_CONFIG_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
 export class Config {
   private static instance: Config;
   private template: ServerTemplate | null = null;
   private localConfig: AppConfigData | null = null;
+  private lastFetchedAt: number = 0;
+  private refreshIntervalTimer: NodeJS.Timeout | null = null;
+  private ttlMs: number = DEFAULT_CONFIG_REFRESH_INTERVAL_MS;
 
   private constructor() {}
 
@@ -121,42 +126,78 @@ export class Config {
     return Config.instance;
   }
 
-  async init() {
+  async init(options?: { refreshIntervalMs?: number }) {
     this.localConfig = loadLocalConfig();
-    const rc = getRemoteConfig();
-    this.template = await rc.getServerTemplate({
-      defaultConfig: {
-        guildEmojis: JSON.stringify(this.localConfig.guildEmojis),
-        guildMembers: JSON.stringify(this.localConfig.guildMembers),
-        bots: JSON.stringify(this.localConfig.bots),
-        checkInLeaderboard: this.localConfig.checkInLeaderboard,
-        aiApiEndpoint: this.localConfig.aiApiEndpoint,
-        aiProjectId: this.localConfig.aiProjectId,
-        aiModelId: this.localConfig.aiModelId,
-        aiLocationId: this.localConfig.aiLocationId,
-        aiProvider: this.localConfig.aiProvider,
-        aiMaxOutputTokens: this.localConfig.aiMaxOutputTokens,
-        aiSafetySettings: JSON.stringify(this.localConfig.aiSafetySettings),
-        aiMaxConversationHistory: this.localConfig.aiMaxConversationHistory,
-        memoryStoreType: this.localConfig.memoryStoreType,
-      },
-    });
+    if (options?.refreshIntervalMs !== undefined) {
+      this.ttlMs = options.refreshIntervalMs;
+    }
+    try {
+      const rc = getRemoteConfig();
+      this.template = await rc.getServerTemplate({
+        defaultConfig: {
+          guildEmojis: JSON.stringify(this.localConfig.guildEmojis),
+          guildMembers: JSON.stringify(this.localConfig.guildMembers),
+          bots: JSON.stringify(this.localConfig.bots),
+          checkInLeaderboard: this.localConfig.checkInLeaderboard,
+          aiApiEndpoint: this.localConfig.aiApiEndpoint,
+          aiProjectId: this.localConfig.aiProjectId,
+          aiModelId: this.localConfig.aiModelId,
+          aiLocationId: this.localConfig.aiLocationId,
+          aiProvider: this.localConfig.aiProvider,
+          aiMaxOutputTokens: this.localConfig.aiMaxOutputTokens,
+          aiSafetySettings: JSON.stringify(this.localConfig.aiSafetySettings),
+          aiMaxConversationHistory: this.localConfig.aiMaxConversationHistory,
+          memoryStoreType: this.localConfig.memoryStoreType,
+        },
+      });
+      this.lastFetchedAt = Date.now();
+    } catch (error) {
+      console.warn("Failed to initialize Server Remote Config template, using local config fallback:", error);
+    }
+    this.startAutoRefresh();
   }
 
-  private getConfig() {
-    if (!this.template) {
-      throw new Error("Remote config not initialized");
+  startAutoRefresh() {
+    this.stopAutoRefresh();
+    if (this.ttlMs > 0) {
+      this.refreshIntervalTimer = setInterval(() => {
+        this.loadConfig().catch((err) => {
+          console.error("Auto-refreshing Server Remote Config failed:", err);
+        });
+      }, this.ttlMs);
+      if (this.refreshIntervalTimer.unref) {
+        this.refreshIntervalTimer.unref();
+      }
     }
-    const config = this.template.evaluate();
-    return config;
+  }
+
+  stopAutoRefresh() {
+    if (this.refreshIntervalTimer) {
+      clearInterval(this.refreshIntervalTimer);
+      this.refreshIntervalTimer = null;
+    }
   }
 
   /** Fetch latest config version */
   async loadConfig() {
-    if (!this.template) {
-      throw new Error("Remote config not initialized");
+    try {
+      if (this.template) {
+        await this.template.load();
+      } else {
+        const rc = getRemoteConfig();
+        this.template = await rc.getServerTemplate();
+      }
+      this.lastFetchedAt = Date.now();
+    } catch (error) {
+      console.warn("Failed to fetch/reload Server Remote Config template, using fallback:", error);
     }
-    await this.template?.load();
+  }
+
+  private getConfig() {
+    if (!this.template) {
+      return null;
+    }
+    return this.template.evaluate();
   }
 
   getLocalConfig(): AppConfigData {
@@ -193,27 +234,39 @@ export class Config {
     : T extends ConfigParameter.memoryStoreType
     ? MemoryStoreTypeConfig
     : AiProjectIdConfig {
-    if (!this.template) {
+    const config = this.getConfig();
+    if (!config) {
       return this.getLocalConfig()[key] as never;
     }
-    const config = this.getConfig();
+
     switch (key) {
       case ConfigParameter.guildEmojis:
       case ConfigParameter.guildMembers:
       case ConfigParameter.bots:
-      case ConfigParameter.aiSafetySettings:
-        return JSON.parse(config.getValue(key).asString());
+      case ConfigParameter.aiSafetySettings: {
+        const strVal = config.getString(key);
+        if (!strVal) return this.getLocalConfig()[key] as never;
+        try {
+          return JSON.parse(strVal);
+        } catch {
+          return this.getLocalConfig()[key] as never;
+        }
+      }
       case ConfigParameter.checkInLeaderboard:
       case ConfigParameter.aiApiEndpoint:
       case ConfigParameter.aiLocationId:
       case ConfigParameter.aiModelId:
       case ConfigParameter.aiProjectId:
       case ConfigParameter.aiProvider:
-      case ConfigParameter.memoryStoreType:
-        return config.getString(key) as never;
+      case ConfigParameter.memoryStoreType: {
+        const val = config.getString(key);
+        return (val || this.getLocalConfig()[key]) as never;
+      }
       case ConfigParameter.aiMaxOutputTokens:
-      case ConfigParameter.aiMaxConversationHistory:
-        return config.getNumber(key) as never;
+      case ConfigParameter.aiMaxConversationHistory: {
+        const numVal = config.getNumber(key);
+        return (numVal || this.getLocalConfig()[key]) as never;
+      }
       default:
         throw new Error("Invalid key");
     }

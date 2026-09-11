@@ -1,5 +1,6 @@
 import { Client, Events, Interaction, Message } from "discord.js";
 import { BotConfig } from "../config/types";
+import { Config, ConfigParameter } from "../config";
 
 export interface BaseBotConfig {
   id: string;
@@ -27,18 +28,37 @@ export default abstract class BaseBot {
       return undefined;
     }
 
-    const guildConfig = this.config.botConfig.guilds?.[guildId];
-    if (!guildConfig) {
-      return undefined;
-    }
+    try {
+      const currentBotPolicies = Config.getInstance().getConfigValue(ConfigParameter.bots);
+      const botConfig = (this.id === "policeBot" ? currentBotPolicies.policeBot : currentBotPolicies.chatBot) ?? this.config.botConfig;
+      const guildConfig = botConfig?.guilds?.[guildId] ?? this.config.botConfig.guilds?.[guildId];
+      if (!guildConfig) {
+        return undefined;
+      }
 
-    return {
-      replyChannelIds: guildConfig.replyChannelIds ?? [],
-      ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
-      respondToMentions: guildConfig.respondToMentions ?? false,
-      systemInstruction: guildConfig.systemInstruction,
-      replyDelay: guildConfig.replyDelay,
-    };
+      return {
+        replyChannelIds: guildConfig.replyChannelIds ?? [],
+        ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
+        respondToMentions: guildConfig.respondToMentions ?? false,
+        systemInstruction: guildConfig.systemInstruction,
+        replyDelay: guildConfig.replyDelay,
+        tools: guildConfig.tools,
+      };
+    } catch {
+      const guildConfig = this.config.botConfig.guilds?.[guildId];
+      if (!guildConfig) {
+        return undefined;
+      }
+
+      return {
+        replyChannelIds: guildConfig.replyChannelIds ?? [],
+        ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
+        respondToMentions: guildConfig.respondToMentions ?? false,
+        systemInstruction: guildConfig.systemInstruction,
+        replyDelay: guildConfig.replyDelay,
+        tools: guildConfig.tools,
+      };
+    }
   }
 
   protected shouldHandleMessage(message: Message) {
