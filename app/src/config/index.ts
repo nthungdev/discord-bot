@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { ServerTemplate, getRemoteConfig } from "firebase-admin/remote-config";
+import { RemoteConfigTemplate, getRemoteConfig } from "firebase-admin/remote-config";
 import {
   AiApiEndpointConfig,
   AiLocationIdConfig,
@@ -109,7 +109,7 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
 
 export class Config {
   private static instance: Config;
-  private template: ServerTemplate | null = null;
+  private template: RemoteConfigTemplate | null = null;
   private localConfig: AppConfigData | null = null;
 
   private constructor() {}
@@ -123,40 +123,22 @@ export class Config {
 
   async init() {
     this.localConfig = loadLocalConfig();
-    const rc = getRemoteConfig();
-    this.template = await rc.getServerTemplate({
-      defaultConfig: {
-        guildEmojis: JSON.stringify(this.localConfig.guildEmojis),
-        guildMembers: JSON.stringify(this.localConfig.guildMembers),
-        bots: JSON.stringify(this.localConfig.bots),
-        checkInLeaderboard: this.localConfig.checkInLeaderboard,
-        aiApiEndpoint: this.localConfig.aiApiEndpoint,
-        aiProjectId: this.localConfig.aiProjectId,
-        aiModelId: this.localConfig.aiModelId,
-        aiLocationId: this.localConfig.aiLocationId,
-        aiProvider: this.localConfig.aiProvider,
-        aiMaxOutputTokens: this.localConfig.aiMaxOutputTokens,
-        aiSafetySettings: JSON.stringify(this.localConfig.aiSafetySettings),
-        aiMaxConversationHistory: this.localConfig.aiMaxConversationHistory,
-        memoryStoreType: this.localConfig.memoryStoreType,
-      },
-    });
-  }
-
-  private getConfig() {
-    if (!this.template) {
-      throw new Error("Remote config not initialized");
+    try {
+      const rc = getRemoteConfig();
+      this.template = await rc.getTemplate();
+    } catch (error) {
+      console.warn("Failed to fetch Remote Config template, using local config fallback:", error);
     }
-    const config = this.template.evaluate();
-    return config;
   }
 
   /** Fetch latest config version */
   async loadConfig() {
-    if (!this.template) {
-      throw new Error("Remote config not initialized");
+    try {
+      const rc = getRemoteConfig();
+      this.template = await rc.getTemplate();
+    } catch (error) {
+      console.warn("Failed to reload Remote Config template:", error);
     }
-    await this.template?.load();
   }
 
   getLocalConfig(): AppConfigData {
@@ -193,16 +175,23 @@ export class Config {
     : T extends ConfigParameter.memoryStoreType
     ? MemoryStoreTypeConfig
     : AiProjectIdConfig {
-    if (!this.template) {
+    const rawVal = this.template?.parameters?.[key]?.defaultValue as { value?: string } | undefined;
+    const value = rawVal?.value;
+
+    if (value === undefined || value === null) {
       return this.getLocalConfig()[key] as never;
     }
-    const config = this.getConfig();
+
     switch (key) {
       case ConfigParameter.guildEmojis:
       case ConfigParameter.guildMembers:
       case ConfigParameter.bots:
       case ConfigParameter.aiSafetySettings:
-        return JSON.parse(config.getValue(key).asString());
+        try {
+          return JSON.parse(value);
+        } catch {
+          return this.getLocalConfig()[key] as never;
+        }
       case ConfigParameter.checkInLeaderboard:
       case ConfigParameter.aiApiEndpoint:
       case ConfigParameter.aiLocationId:
@@ -210,10 +199,10 @@ export class Config {
       case ConfigParameter.aiProjectId:
       case ConfigParameter.aiProvider:
       case ConfigParameter.memoryStoreType:
-        return config.getString(key) as never;
+        return value as never;
       case ConfigParameter.aiMaxOutputTokens:
       case ConfigParameter.aiMaxConversationHistory:
-        return config.getNumber(key) as never;
+        return Number(value) as never;
       default:
         throw new Error("Invalid key");
     }
