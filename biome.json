@@ -28,7 +28,7 @@
       "recommended": true,
       "complexity": {
         "noExcessiveCognitiveComplexity": {
-          "level": "warn",
+          "level": "error",
           "options": {
             "maxAllowedComplexity": 15
           }
@@ -36,24 +36,24 @@
         "useOptionalChain": "warn",
         "useFlatMap": "warn",
         "useSimplifiedLogicExpression": "error",
-        "noUselessFragments": "warn",
-        "noUselessTernary": "warn",
-        "noUselessStringConcat": "warn"
+        "noUselessFragments": "error",
+        "noUselessTernary": "error",
+        "noUselessStringConcat": "error"
       },
       "style": {
-        "noParameterAssign": "warn",
+        "noParameterAssign": "error",
         "useDefaultParameterLast": "warn",
         "useTemplate": "warn",
         "useImportType": "warn",
         "useConsistentArrayType": {
-          "level": "warn",
+          "level": "error",
           "options": {
             "syntax": "shorthand"
           }
         }
       },
       "performance": {
-        "noAccumulatingSpread": "warn"
+        "noAccumulatingSpread": "error"
       },
       "suspicious": {
         "noArrayIndexKey": "warn",
