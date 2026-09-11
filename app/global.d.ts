@@ -7,5 +7,7 @@ namespace NodeJS {
 
     AI_API_KEY?: string;
     SLEEP_REMINDER_SERVER_ID?: string;
+    USE_CONFIG_FILE?: string;
+    CONFIG_PATH?: string;
   }
 }

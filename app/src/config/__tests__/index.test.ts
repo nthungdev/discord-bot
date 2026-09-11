@@ -31,10 +31,41 @@ describe("Config", () => {
       expect(resolved).toBe("/custom/config.json");
     });
 
+    it("should prioritize config.local.json over config.json", () => {
+      vi.spyOn(fs, "existsSync").mockImplementation((p) => {
+        return String(p).endsWith("config.local.json");
+      });
+      const resolved = resolveConfigPath();
+      expect(resolved).toContain("config.local.json");
+    });
+
     it("should return null if no candidate file exists", () => {
       vi.spyOn(fs, "existsSync").mockReturnValue(false);
       const resolved = resolveConfigPath();
       expect(resolved).toBeNull();
+    });
+  });
+
+  describe("local-only mode", () => {
+    const originalEnv = process.env;
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it("should initialize in local-only mode when useLocalConfigOnly option is true", async () => {
+      const config = Config.getInstance();
+      await config.init({ useLocalConfigOnly: true });
+      expect(config.isLocalOnly()).toBe(true);
+      const bots = config.getConfigValue(ConfigParameter.bots);
+      expect(bots).toBeDefined();
+    });
+
+    it("should initialize in local-only mode when USE_CONFIG_FILE env var is set", async () => {
+      process.env.USE_CONFIG_FILE = "true";
+      const config = Config.getInstance();
+      await config.init();
+      expect(config.isLocalOnly()).toBe(true);
     });
   });
 
