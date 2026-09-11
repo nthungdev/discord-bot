@@ -85,18 +85,14 @@ const handleMessageTimeout = async (
       .toReversed();
 
     const text = messages
-      .reduce((acc, message) => {
+      .map((message) => {
         const authorQuote = `${message.authorUsername} says ${message.cleanContent}`;
         if (message.reference) {
-          return [
-            ...acc,
-            // TODO parse and replace nicknames in reference with usernames
-            `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`,
-          ];
-        } else {
-          return [...acc, authorQuote];
+          // TODO parse and replace nicknames in reference with usernames
+          return `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`;
         }
-      }, [] as string[])
+        return authorQuote;
+      })
       .join("\n");
 
     const messageMentions = messages.flatMap((m) => m.mentions);

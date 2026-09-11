@@ -54,6 +54,66 @@ const clearMessageTimeout = (channelId: string) => {
   clearTimeout(messageTimeout[channelId]);
 };
 
+/**
+ * Formats buffered discord messages into prompt text.
+ */
+function buildPromptText(messages: DiscordMessage[]): string {
+  const text = messages
+    .map((message) => {
+      const authorQuote = `${message.authorUsername} says ${message.cleanContent}`;
+      if (message.reference) {
+        // TODO parse and replace nicknames in reference with usernames
+        return `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`;
+      }
+      return authorQuote;
+    })
+    .join("\n");
+
+  const messageMentions = messages.flatMap((m) => m.mentions);
+  // replace nicknames in prompt with username so that the model returns back with references to username
+  // then username is replaced with formatted mentions in the final message
+  return messageMentions.reduce((acc, mention) => {
+    return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
+  }, text);
+}
+
+/**
+ * Builds tool definitions and execution context for available bot tools.
+ */
+async function buildToolContext(
+  botId: string,
+  message: Message<boolean>,
+  lastMessage: DiscordMessage,
+): Promise<{ tools?: ToolDefinition[]; toolContext?: ToolExecutionContext }> {
+  const toolContext: ToolExecutionContext = {
+    botId,
+    client: message.client,
+    guild: message.guild,
+    channel: message.channel,
+    messageId: message.id,
+    author: {
+      id: lastMessage.authorId,
+      username: lastMessage.authorUsername,
+      displayName: lastMessage.authorDisplayName,
+    },
+  };
+  const tools = await getToolRegistry().getAvailableTools(toolContext);
+  return { tools, toolContext };
+}
+
+/**
+ * Maps guild members to user actor info for mention translation.
+ */
+function buildGuildMemberInfoList(message: Message<boolean>): UserActorInfo[] {
+  return (
+    message.guild?.members.cache.toJSON().map((m) => ({
+      id: m.id,
+      nickname: m.nickname ?? m.displayName,
+      username: m.user.username,
+    })) ?? []
+  );
+}
+
 const handleMessageTimeout = async (
   message: Message<boolean>,
   botId: string,
@@ -91,28 +151,7 @@ const handleMessageTimeout = async (
       .filter((m) => m.authorId === lastMessage.authorId)
       .toReversed();
 
-    const text = messages
-      .reduce((acc, message) => {
-        const authorQuote = `${message.authorUsername} says ${message.cleanContent}`;
-        if (message.reference) {
-          return [
-            ...acc,
-            // TODO parse and replace nicknames in reference with usernames
-            `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`,
-          ];
-        } else {
-          return [...acc, authorQuote];
-        }
-      }, [] as string[])
-      .join("\n");
-
-    const messageMentions = messages.flatMap((m) => m.mentions);
-    // replace nicknames in prompt with username so that the model returns back with references to username
-    // then username is replaced with formatted mentions in the final message
-    const textWithUsername = messageMentions.reduce((acc, mention) => {
-      // return acc.replaceAll(`@${mention.nickname}`, `@${mention.username}`);
-      return acc.replaceAll(`@${mention.nickname}`, mention.nickname);
-    }, text);
+    const textWithUsername = buildPromptText(messages);
 
     const files = [
       ...messages.flatMap((m) => m.attachments),
@@ -128,19 +167,9 @@ const handleMessageTimeout = async (
     let toolContext: ToolExecutionContext | undefined;
 
     if (enableDiscordTools) {
-      toolContext = {
-        botId,
-        client: message.client,
-        guild: message.guild,
-        channel: message.channel,
-        messageId: message.id,
-        author: {
-          id: lastMessage.authorId,
-          username: lastMessage.authorUsername,
-          displayName: lastMessage.authorDisplayName,
-        },
-      };
-      tools = await getToolRegistry().getAvailableTools(toolContext);
+      const toolData = await buildToolContext(botId, message, lastMessage);
+      tools = toolData.tools;
+      toolContext = toolData.toolContext;
     }
 
     const prompt = {
@@ -164,11 +193,7 @@ const handleMessageTimeout = async (
       const { content, data } = await generateChatMessageWithGenAi(
         genAi,
         prompt,
-        message.guild?.members.cache.toJSON().map((m) => ({
-          id: m.id,
-          nickname: m.nickname ?? m.displayName,
-          username: m.user.username,
-        })) || [],
+        buildGuildMemberInfoList(message),
         message.guild,
       );
 
