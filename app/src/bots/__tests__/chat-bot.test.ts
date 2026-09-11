@@ -65,4 +65,45 @@ describe("ChatBot", () => {
     expect(isDismissalKeyword("be quiet bot")).toBe(true);
     expect(isDismissalKeyword("What is the weather today?")).toBe(false);
   });
+
+  it("should format ambient channel snapshot from recent messages", async () => {
+    const { fetchAmbientChannelSnapshot } = await import("../chat-bot");
+    const mockChannel = {
+      isTextBased: () => true,
+      messages: {
+        fetch: vi.fn().mockResolvedValue({
+          size: 2,
+          toJSON: () => [
+            {
+              createdAt: new Date("2026-09-11T10:14:02Z"),
+              author: { username: "alice", displayName: "AliceDev" },
+              member: { nickname: "AliceDev" },
+              cleanContent: "Here is an error log",
+            },
+            {
+              createdAt: new Date("2026-09-11T10:14:15Z"),
+              author: { username: "bob", displayName: "BobTester" },
+              member: { nickname: "BobTester" },
+              cleanContent: "Can you help fix that?",
+            },
+          ],
+        }),
+      },
+    };
+
+    const snapshot = await fetchAmbientChannelSnapshot(
+      mockChannel as unknown as Parameters<
+        typeof fetchAmbientChannelSnapshot
+      >[0],
+      "msg-123",
+      5,
+    );
+
+    expect(snapshot).toContain(
+      "--- Recent Channel Activity (for context reference only) ---",
+    );
+    expect(snapshot).toContain('@alice (AliceDev): "Here is an error log"');
+    expect(snapshot).toContain('@bob (BobTester): "Can you help fix that?"');
+    expect(snapshot).toContain("--- End Recent Channel Activity ---");
+  });
 });

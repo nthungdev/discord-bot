@@ -28,6 +28,7 @@ export interface SmartReplyConfig {
   enabled?: boolean;
   mode?: "disabled" | "mentions_and_vocative" | "ambient_intent";
   classifierModel?: ModelConfig;
+  chatBotModel?: ModelConfig;
   ambientConfidenceThreshold?: number;
   debounceMs?: number;
   maxDebounceMs?: number;
