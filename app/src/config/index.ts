@@ -72,6 +72,37 @@ export const resolveConfigPath = (customPath?: string): string | null => {
   return null;
 };
 
+const DEFAULT_APP_CONFIG: AppConfigData = {
+  guildEmojis: {},
+  guildMembers: {},
+  bots: {
+    chatBot: { guilds: {} },
+    policeBot: { guilds: {} },
+  },
+  checkInLeaderboard: "",
+  aiSafetySettings: { safetySettings: [] },
+  aiProjectId: "",
+  aiModelId: "gemini-3.6-flash",
+  aiMaxOutputTokens: 8192,
+  aiLocationId: "us-central1",
+  aiProvider: "google-genai",
+  aiApiEndpoint: "us-central1-aiplatform.googleapis.com",
+  aiMaxConversationHistory: 60,
+  memoryStoreType: "firestore",
+};
+
+/**
+ * Parses and returns configuration data from a valid json file path.
+ */
+function parseAppConfigFile(filePath: string): AppConfigData {
+  const fileContent = fs.readFileSync(filePath, "utf-8");
+  const parsed = JSON.parse(fileContent) as Partial<AppConfigData>;
+  return {
+    ...DEFAULT_APP_CONFIG,
+    ...parsed,
+  };
+}
+
 /**
  * Reads config.json from disk. Throws an error if config.json cannot be found.
  */
@@ -84,28 +115,7 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
   }
 
   try {
-    const fileContent = fs.readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(fileContent) as Partial<AppConfigData>;
-
-    return {
-      guildEmojis: parsed.guildEmojis ?? {},
-      guildMembers: parsed.guildMembers ?? {},
-      bots: parsed.bots ?? {
-        chatBot: { guilds: {} },
-        policeBot: { guilds: {} },
-      },
-      checkInLeaderboard: parsed.checkInLeaderboard ?? "",
-      aiSafetySettings: parsed.aiSafetySettings ?? { safetySettings: [] },
-      aiProjectId: parsed.aiProjectId ?? "",
-      aiModelId: parsed.aiModelId ?? "gemini-3.6-flash",
-      aiMaxOutputTokens: parsed.aiMaxOutputTokens ?? 8192,
-      aiLocationId: parsed.aiLocationId ?? "us-central1",
-      aiProvider: parsed.aiProvider ?? "google-genai",
-      aiApiEndpoint:
-        parsed.aiApiEndpoint ?? "us-central1-aiplatform.googleapis.com",
-      aiMaxConversationHistory: parsed.aiMaxConversationHistory ?? 60,
-      memoryStoreType: parsed.memoryStoreType ?? "firestore",
-    };
+    return parseAppConfigFile(configPath);
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new Error(
