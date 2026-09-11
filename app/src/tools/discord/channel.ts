@@ -1,5 +1,5 @@
 import { ChannelType, type GuildBasedChannel } from "discord.js";
-import type { ToolDefinition } from "../types";
+import type { ToolDefinition, ToolExecutionContext } from "../types";
 
 export interface ListChannelsArgs {
   type?: "text" | "voice" | "category" | "all";
@@ -156,6 +156,58 @@ export interface GetChannelMembersArgs {
   limit?: number;
 }
 
+/**
+ * Resolves target channel from query or context.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveChannelFromQuery(
+  query: string | undefined,
+  ctx: ToolExecutionContext,
+): Promise<any> {
+  if (query && ctx.guild) {
+    const channels = await ctx.guild.channels.fetch();
+    const channelList: GuildBasedChannel[] = [];
+    channels.forEach((c: GuildBasedChannel | null) => {
+      if (c) channelList.push(c);
+    });
+
+    return (
+      channels.get?.(query) ??
+      channelList.find(
+        (c) => c.id === query || c.name.toLowerCase() === query.toLowerCase(),
+      ) ??
+      null
+    );
+  }
+
+  if (ctx.channel && ctx.guild) {
+    return await ctx.guild.channels.fetch(ctx.channel.id);
+  }
+
+  return ctx.channel ?? null;
+}
+
+/**
+ * Extracts raw member list from channel or guild cache.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractChannelMembers(
+  targetChannel: any,
+  ctx: ToolExecutionContext,
+): any[] {
+  if (targetChannel.members) {
+    return "values" in targetChannel.members
+      ? Array.from(targetChannel.members.values())
+      : Array.isArray(targetChannel.members)
+        ? targetChannel.members
+        : [];
+  }
+  if (ctx.guild?.members?.cache) {
+    return Array.from(ctx.guild.members.cache.values());
+  }
+  return [];
+}
+
 export const discordGetChannelMembersTool: ToolDefinition<
   GetChannelMembersArgs,
   {
@@ -175,18 +227,18 @@ export const discordGetChannelMembersTool: ToolDefinition<
 > = {
   name: "discord_get_channel_members",
   description:
-    "Lists members who have access to a specific channel (or the current active channel). Supports filtering by bots and customizable limit.",
+    "List the members currently in a specific Discord text or voice channel. If channelIdOrName is omitted, lists members in the current channel.",
   parameters: {
     type: "OBJECT",
     properties: {
       channelIdOrName: {
         type: "STRING",
         description:
-          "The channel ID or name (e.g. 'general') to get members from. If omitted, uses the current channel.",
+          "The channel ID or channel name (e.g. 'general' or '#general'). If omitted, defaults to the current channel.",
       },
       botsOnly: {
         type: "BOOLEAN",
-        description: "If true, only returns bot members in the channel.",
+        description: "If true, only returns bot accounts.",
       },
       limit: {
         type: "INTEGER",
@@ -197,27 +249,7 @@ export const discordGetChannelMembersTool: ToolDefinition<
   isAvailable: (ctx) => Boolean(ctx.guild || ctx.channel),
   execute: async (args, ctx) => {
     const query = args.channelIdOrName?.trim().replace(/^#/, "");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let targetChannel: any = null;
-
-    if (query && ctx.guild) {
-      const channels = await ctx.guild.channels.fetch();
-      const channelList: GuildBasedChannel[] = [];
-      channels.forEach((c) => {
-        if (c) channelList.push(c);
-      });
-
-      targetChannel =
-        channels.get?.(query) ??
-        channelList.find(
-          (c) => c.id === query || c.name.toLowerCase() === query.toLowerCase(),
-        ) ??
-        null;
-    } else if (ctx.channel && ctx.guild) {
-      targetChannel = await ctx.guild.channels.fetch(ctx.channel.id);
-    } else if (ctx.channel) {
-      targetChannel = ctx.channel;
-    }
+    const targetChannel = await resolveChannelFromQuery(query, ctx);
 
     if (!targetChannel) {
       throw new Error(
@@ -226,18 +258,7 @@ export const discordGetChannelMembersTool: ToolDefinition<
     }
 
     const limit = Math.min(Math.max(args.limit ?? 25, 1), 50);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let memberList: any[] = [];
-    if (targetChannel.members) {
-      memberList =
-        "values" in targetChannel.members
-          ? Array.from(targetChannel.members.values())
-          : Array.isArray(targetChannel.members)
-            ? targetChannel.members
-            : [];
-    } else if (ctx.guild?.members?.cache) {
-      memberList = Array.from(ctx.guild.members.cache.values());
-    }
+    let memberList = extractChannelMembers(targetChannel, ctx);
 
     if (args.botsOnly) {
       memberList = memberList.filter((m) => Boolean(m.user?.bot));

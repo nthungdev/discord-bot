@@ -221,6 +221,41 @@ export interface ReactToMessageArgs {
   messageId?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchMessageById(channel: any, messageId: string): Promise<any> {
+  if (!(messageId && channel.messages?.fetch)) return null;
+  try {
+    return await channel.messages.fetch(messageId);
+  } catch {
+    return null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchLatestChannelMessage(channel: any): Promise<any> {
+  if (!channel.messages?.fetch) return null;
+  try {
+    const latest = await channel.messages.fetch({ limit: 1 });
+    if ("first" in latest) return latest.first();
+    if (Array.isArray(latest)) return latest[0] ?? null;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveReactionTargetMessage(
+  channel: any,
+  targetMessageId?: string,
+): Promise<any> {
+  if (targetMessageId) {
+    const message = await fetchMessageById(channel, targetMessageId);
+    if (message) return message;
+  }
+  return await fetchLatestChannelMessage(channel);
+}
+
 export const discordReactToMessageTool: ToolDefinition<
   ReactToMessageArgs,
   {
@@ -231,7 +266,7 @@ export const discordReactToMessageTool: ToolDefinition<
 > = {
   name: "discord_react_to_message",
   description:
-    "Reacts to a message with a Discord or Unicode emoji (e.g. '🔥', '👍', '❤️', or a custom emoji).",
+    "Adds an emoji reaction to a message in the channel. Can react to the current message or a specific message by ID.",
   parameters: {
     type: "OBJECT",
     properties: {
@@ -259,29 +294,12 @@ export const discordReactToMessageTool: ToolDefinition<
     }
 
     const targetMessageId = args.messageId?.trim() || ctx.messageId;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let message: any = null;
+    const message = await resolveReactionTargetMessage(
+      ctx.channel,
+      targetMessageId,
+    );
 
-    if (targetMessageId && ctx.channel.messages?.fetch) {
-      try {
-        message = await ctx.channel.messages.fetch(targetMessageId);
-      } catch {
-        // Fallback
-      }
-    }
-
-    if (!message && ctx.channel.messages?.fetch) {
-      // Fetch latest message in channel
-      const latest = await ctx.channel.messages.fetch({ limit: 1 });
-      message =
-        "first" in latest
-          ? latest.first()
-          : Array.isArray(latest)
-            ? latest[0]
-            : null;
-    }
-
-    if (!(message && message.react)) {
+    if (!message?.react) {
       throw new Error(
         `Could not find a message to react to in channel '${ctx.channel.id}'.`,
       );
