@@ -135,6 +135,7 @@ export class Config {
   private lastFetchedAt: number = 0;
   private refreshIntervalTimer: NodeJS.Timeout | null = null;
   private ttlMs: number = DEFAULT_CONFIG_REFRESH_INTERVAL_MS;
+  private localOnly: boolean = false;
 
   private constructor() {}
 
@@ -145,11 +146,35 @@ export class Config {
     return Config.instance;
   }
 
-  async init(options?: { refreshIntervalMs?: number }) {
+  public isLocalOnly(): boolean {
+    return this.localOnly;
+  }
+
+  public getLastFetchedAt(): number {
+    return this.lastFetchedAt;
+  }
+
+  async init(options?: {
+    refreshIntervalMs?: number;
+    useLocalConfigOnly?: boolean;
+  }) {
     this.localConfig = loadLocalConfig();
     if (options?.refreshIntervalMs !== undefined) {
       this.ttlMs = options.refreshIntervalMs;
     }
+
+    this.localOnly =
+      options?.useLocalConfigOnly ??
+      (process.env.USE_CONFIG_FILE === "true" ||
+        process.env.USE_CONFIG_FILE === "1");
+
+    if (this.localOnly) {
+      console.info(
+        "[Config] Using local configuration file only (Remote Config omitted).",
+      );
+      return;
+    }
+
     try {
       const rc = getRemoteConfig();
       this.template = await rc.getServerTemplate({
@@ -202,6 +227,9 @@ export class Config {
 
   /** Fetch latest config version */
   async loadConfig() {
+    if (this.localOnly) {
+      return;
+    }
     try {
       if (this.template) {
         await this.template.load();

@@ -44,7 +44,7 @@ describe("VertexGenAi", () => {
     apiEndpoint: "endpoint",
     projectId: "project-1",
     locationId: "us-central1",
-    modelId: "gemini-2.5-flash",
+    modelId: "gemini-3.5-flash",
     maxOutputTokens: 1000,
     systemInstruction: "You are a helpful assistant.",
   };

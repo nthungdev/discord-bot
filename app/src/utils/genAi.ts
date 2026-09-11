@@ -92,7 +92,6 @@ export const generateChatMessageWithGenAi = async (
   guild?: Guild | null,
 ) => {
   await genAi.init();
-  console.log(prompt.files);
 
   const allowFileMimeTypes = ["image/png", "image/jpeg", "image/webp"];
 

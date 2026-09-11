@@ -22,13 +22,44 @@ export interface BotGuildToolsConfig {
   discord?: boolean;
 }
 
+import type { ModelConfig } from "../genAi/types";
+
+export interface SmartReplyConfig {
+  enabled?: boolean;
+  mode?: "disabled" | "mentions_and_vocative" | "ambient_intent";
+  classifierModel?: ModelConfig;
+  chatBotModel?: ModelConfig;
+  ambientConfidenceThreshold?: number;
+  debounceMs?: number;
+  maxDebounceMs?: number;
+  sessionTtlSeconds?: number;
+  replyStrategy?: "independent" | "coalesced" | "hybrid";
+  coalesceWindowMs?: number;
+  silenceDurationMinutes?: number;
+  ambientRateLimitSeconds?: number;
+  ambientSnapshotLimit?: number;
+  enableKeywordDismissal?: boolean;
+  enableReactionDismissal?: boolean;
+  sendTypingBehavior?:
+    | "immediate_for_all"
+    | "deferred_for_ambient"
+    | "disabled";
+  threadAutoListen?: boolean;
+  optOutTopicTag?: string;
+}
+
 export interface BotGuildConfig {
+  botName?: string;
+  personalization?: string;
+  personalizationMode?: "overwrite_identity" | "extend" | "overwrite_all";
+  chatBotModel?: ModelConfig;
   replyChannelIds: string[];
   ignoredChannelIds: string[];
   respondToMentions: boolean;
   systemInstruction?: string;
   replyDelay?: number;
   tools?: BotGuildToolsConfig;
+  smartReply?: SmartReplyConfig;
 }
 
 export interface BotGuildsConfig {

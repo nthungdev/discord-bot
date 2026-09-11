@@ -5,7 +5,7 @@ import {
   type Message,
 } from "discord.js";
 import { Config, ConfigParameter } from "../config";
-import type { BotConfig } from "../config/types";
+import type { BotConfig, BotGuildConfig } from "../config/types";
 
 export interface BaseBotConfig {
   id: string;
@@ -28,7 +28,9 @@ export default abstract class BaseBot {
     interaction: Interaction,
   ): Promise<void>;
 
-  protected getGuildConfig(guildId?: string | null) {
+  protected getGuildConfig(
+    guildId?: string | null,
+  ): BotGuildConfig | undefined {
     if (!guildId) {
       return undefined;
     }
@@ -48,12 +50,16 @@ export default abstract class BaseBot {
       }
 
       return {
+        botName: guildConfig.botName,
+        personalization: guildConfig.personalization,
+        chatBotModel: guildConfig.chatBotModel,
         replyChannelIds: guildConfig.replyChannelIds ?? [],
         ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
         respondToMentions: guildConfig.respondToMentions ?? false,
         systemInstruction: guildConfig.systemInstruction,
         replyDelay: guildConfig.replyDelay,
         tools: guildConfig.tools,
+        smartReply: guildConfig.smartReply,
       };
     } catch {
       const guildConfig = this.config.botConfig.guilds?.[guildId];
@@ -62,12 +68,16 @@ export default abstract class BaseBot {
       }
 
       return {
+        botName: guildConfig.botName,
+        personalization: guildConfig.personalization,
+        chatBotModel: guildConfig.chatBotModel,
         replyChannelIds: guildConfig.replyChannelIds ?? [],
         ignoredChannelIds: guildConfig.ignoredChannelIds ?? [],
         respondToMentions: guildConfig.respondToMentions ?? false,
         systemInstruction: guildConfig.systemInstruction,
         replyDelay: guildConfig.replyDelay,
         tools: guildConfig.tools,
+        smartReply: guildConfig.smartReply,
       };
     }
   }
@@ -85,7 +95,7 @@ export default abstract class BaseBot {
     return !guildConfig.ignoredChannelIds.includes(message.channelId);
   }
 
-  protected shouldReplyToMessage(message: Message) {
+  protected shouldReplyToMessage(message: Message): boolean {
     if (!this.shouldHandleMessage(message)) {
       return false;
     }
@@ -98,9 +108,17 @@ export default abstract class BaseBot {
     const respondsInChannel = guildConfig.replyChannelIds.includes(
       message.channelId,
     );
-    const respondsToMention =
-      guildConfig.respondToMentions &&
-      !!message.mentions.members?.has(this.client.user?.id ?? "");
+    const botUserId = this.client.user?.id ?? "";
+    const users = message.mentions.users;
+    const mentionsBot =
+      users &&
+      ((typeof users.has === "function" && users.has(botUserId)) ||
+        (typeof users.toJSON === "function" &&
+          users.toJSON().some((u) => u.id === botUserId)));
+
+    const respondsToMention = Boolean(
+      guildConfig.respondToMentions && mentionsBot,
+    );
 
     return respondsInChannel || respondsToMention;
   }
