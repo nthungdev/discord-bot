@@ -18,6 +18,7 @@ import type {
   AiPrompt,
   AppCommand,
   DiscordMessage,
+  DiscordUser,
   UserActorInfo,
 } from "../types";
 import { splitEndingEmojis } from "../utils/emoji";
@@ -104,7 +105,7 @@ async function buildToolContext(
 /**
  * Maps guild members to user actor info for mention translation.
  */
-function buildGuildMemberInfoList(message: Message<boolean>): UserActorInfo[] {
+function buildGuildMemberInfoList(message: Message<boolean>): DiscordUser[] {
   return (
     message.guild?.members.cache.toJSON().map((m) => ({
       id: m.id,
@@ -227,7 +228,7 @@ const handleMessageTimeout = async (
       await getMemoryService().addTurn(
         botId,
         channel.id,
-        text,
+        textWithUsername,
         content || "?",
         actor,
         message.guildId ?? undefined,

@@ -2,8 +2,11 @@ import {
   ClientError,
   FinishReason,
   type FunctionDeclarationSchema,
+  type GenerateContentResponse,
+  type GenerateContentResult,
   type GenerativeModel,
   type InlineDataPart,
+  type Part,
   type SafetySetting,
   type TextPart,
   VertexAI,
@@ -148,7 +151,10 @@ async function runVertexToolCallingLoop(
 
     const responseParts = [];
     for (const callPart of functionCallParts) {
-      const part = await executeVertexSingleToolCall(callPart.functionCall, prompt);
+      const part = await executeVertexSingleToolCall(
+        callPart.functionCall,
+        prompt,
+      );
       responseParts.push(part);
     }
 
@@ -201,21 +207,27 @@ async function runVertexToolCallingLoop(
 /**
  * Extracts and filters the text content from Vertex response candidates.
  */
-function extractVertexResponseContent(
-  result: Awaited<ReturnType<GenerativeModel["startChat"]["sendMessage"]>>,
-): string {
-  const candidate = result.response.candidates?.find((c) => {
-    if (c.finishReason && c.finishReason !== FinishReason.STOP) {
-      return false;
-    }
-    return Boolean(c.content.parts?.every((part) => !part.text?.includes(IGNORED_CONTENT)));
-  });
+function extractVertexResponseContent(result: GenerateContentResult): string {
+  const candidate = result.response.candidates?.find(
+    (c: NonNullable<GenerateContentResponse["candidates"]>[number]) => {
+      if (c.finishReason && c.finishReason !== FinishReason.STOP) {
+        return false;
+      }
+      return Boolean(
+        c.content.parts?.every(
+          (part: Part) => !part.text?.includes(IGNORED_CONTENT),
+        ),
+      );
+    },
+  );
 
   if (!candidate) {
     return "Xin lỗi, hiện tại mình không thể xử lý yêu cầu này.";
   }
 
-  const candidateText = candidate.content.parts.find((part) => part.text)?.text;
+  const candidateText = candidate.content.parts.find(
+    (part: Part) => part.text,
+  )?.text;
   return (
     candidateText ||
     "Xin lỗi, hiện tại mình không thể thu thập đủ thông tin để trả lời câu hỏi này."
@@ -287,72 +299,6 @@ export class VertexGenAi implements GenAi {
         content,
         data: finalResult.response,
       };
-    } catch (error: unknown) {
-      if (error instanceof ClientError) {
-        // TODO handle invalid argument error
-        throw error;
-      }
-      throw error;
-    }
-  }
-
-  private async _generate(
-    model: GenerativeModel,
-    prompt: AiPrompt,
-  ): Promise<AiPromptResponse> {
-    const { text, history = [], files = [] } = prompt;
-
-    const chat = model.startChat({
-      history: history.map(({ content, author }) => ({
-        role: author === "bot" ? "model" : "user",
-        parts: [{ text: content }],
-      })),
-    });
-
-    const parts = [];
-
-    for (const file of files) {
-      if (file.mimeType.startsWith("image/")) {
-        parts.push({
-          inlineData: {
-            data: await imageToBase64(file.uri),
-            mimeType: file.mimeType,
-          },
-        } as InlineDataPart);
-      }
-      // TODO handle videos
-    }
-
-    if (text) {
-      parts.push({ text } as TextPart);
-    }
-
-    try {
-      const result = await chat.sendMessage(parts);
-
-      // get valid candidate
-      const candidate = result.response.candidates?.find((candidate) => {
-        // response stopped due to violating some guidelines
-        if (candidate.finishReason !== FinishReason.STOP) return false;
-
-        return !!candidate.content.parts?.every((part) => {
-          return !part.text?.includes(IGNORED_CONTENT);
-        });
-      });
-
-      if (!candidate) {
-        return { content: "", data: result.response };
-      }
-
-      const candidateText = candidate.content.parts.find(
-        (part) => part.text,
-      )?.text;
-
-      if (!candidateText) {
-        return { content: "", data: result.response };
-      }
-
-      return { content: candidateText, data: result.response };
     } catch (error: unknown) {
       if (error instanceof ClientError) {
         // TODO handle invalid argument error

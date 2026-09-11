@@ -1,5 +1,6 @@
 import {
   type FunctionDeclaration,
+  type GenerateContentResponse,
   GoogleGenAI,
   type Part,
   type Tool,
@@ -134,9 +135,7 @@ async function runToolCallingLoop(
 /**
  * Extracts and sanitizes the final text response content.
  */
-function extractResponseContent(
-  response: Awaited<ReturnType<GoogleGenAI["chats"]["create"]["sendMessage"]>>,
-): string {
+function extractResponseContent(response: GenerateContentResponse): string {
   let content = "";
   try {
     content = response.text || "";
@@ -186,7 +185,11 @@ export class MyGoogleGenAI implements GenAi {
     });
 
     const initialResponse = await chat.sendMessage({ message: prompt.text });
-    const finalResponse = await runToolCallingLoop(chat, prompt, initialResponse);
+    const finalResponse = await runToolCallingLoop(
+      chat,
+      prompt,
+      initialResponse,
+    );
     const content = extractResponseContent(finalResponse);
 
     return {
