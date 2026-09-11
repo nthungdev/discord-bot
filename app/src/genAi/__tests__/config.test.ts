@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { API_ENDPOINT, PROJECT_ID, MODEL_ID, LOCATION_ID } from "./config";
+import { describe, expect, it } from "vitest";
+import { API_ENDPOINT, LOCATION_ID, MODEL_ID, PROJECT_ID } from ".././config";
 
 describe("genAi config", () => {
   it("should export non-empty configuration constants", () => {

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
-import PoliceBot from "./index";
+import { describe, expect, it, vi } from "vitest";
+import PoliceBot from ".././index";
 
 vi.mock("discord.js", async () => {
-  const actual = await vi.importActual<typeof import("discord.js")>("discord.js");
+  const actual =
+    await vi.importActual<typeof import("discord.js")>("discord.js");
   class MockClient {
     user = { id: "police-123", tag: "PoliceBot#0001" };
     channels = { cache: new Map() };
@@ -49,16 +50,18 @@ describe("PoliceBot", () => {
   it("should detect violations in message content via analyzeMessageContent", async () => {
     const policeBot = new PoliceBot(botConfig);
     // Access private method for unit testing
-    // @ts-expect-error testing private method
-    const violations = await policeBot.analyzeMessageContent("stop saying nigger");
+    const violations =
+      // @ts-expect-error testing private method
+      await policeBot.analyzeMessageContent("stop saying nigger");
     expect(violations.length).toBeGreaterThan(0);
     expect(violations[0].terms).toContain("nigger");
   });
 
   it("should return empty violations for innocent message content", async () => {
     const policeBot = new PoliceBot(botConfig);
-    // @ts-expect-error testing private method
-    const violations = await policeBot.analyzeMessageContent("Chào mọi người nhé");
+    const violations =
+      // @ts-expect-error testing private method
+      await policeBot.analyzeMessageContent("Chào mọi người nhé");
     expect(violations).toEqual([]);
   });
 });

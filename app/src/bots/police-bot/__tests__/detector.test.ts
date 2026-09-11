@@ -1,8 +1,5 @@
-import { describe, it, expect } from "vitest";
-import {
-  detectRacistViolations,
-  buildRegexFromTerms,
-} from "./detector";
+import { describe, expect, it } from "vitest";
+import { buildRegexFromTerms, detectRacistViolations } from ".././detector";
 
 describe("PoliceBot Racist Detector", () => {
   const testRegex = (regex: RegExp, text: string) => {

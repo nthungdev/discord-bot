@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { Config, ConfigParameter } from "../../../../config";
 import {
-  getPreviousMonthStart,
-  getPreviousMonthEnd,
-  getCurrentMonthStart,
   formatCheckInLeaderboard,
-} from "./checkIn";
-import { Config, ConfigParameter } from "../../../config";
+  getCurrentMonthStart,
+  getPreviousMonthEnd,
+  getPreviousMonthStart,
+} from ".././checkIn";
 
 describe("checkIn utilities", () => {
   it("should calculate correct date boundaries", () => {

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import axios from "axios";
-import { getAnswer } from "./wordle";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAnswer } from ".././wordle";
 
 vi.mock("axios", async () => {
   const actual = await vi.importActual<typeof import("axios")>("axios");

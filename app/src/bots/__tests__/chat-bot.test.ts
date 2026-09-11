@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import ChatBot from "./chat-bot";
-import { store, chatbotActions } from "../store";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { chatbotActions, store } from "../../store";
+import ChatBot from ".././chat-bot";
 
 vi.mock("discord.js", async () => {
-  const actual = await vi.importActual<typeof import("discord.js")>("discord.js");
+  const actual =
+    await vi.importActual<typeof import("discord.js")>("discord.js");
   class MockClient {
     user = { id: "bot-123", tag: "TestBot#0001" };
     channels = { cache: new Map() };

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MyGoogleGenAI } from "./google-genai";
-import type { GenAiConfig } from "../types";
-import { ToolDefinition } from "../../tools/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ToolDefinition } from "../../../tools/types";
+import type { GenAiConfig } from "../../types";
+import { MyGoogleGenAI } from ".././google-genai";
 
 const mockSendMessage = vi.fn();
 const mockCreateChat = vi.fn(() => ({

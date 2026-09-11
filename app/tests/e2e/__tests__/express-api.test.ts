@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import request from "supertest";
-import app from "../../src/server";
+import { describe, expect, it } from "vitest";
+import app from "../../../src/server";
 
 describe("E2E: Express REST API", () => {
   it("should handle public root request successfully", async () => {

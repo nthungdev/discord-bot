@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { discordGetScheduledEventsTool } from "./event";
-import { ToolExecutionContext } from "../types";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
+import { discordGetScheduledEventsTool } from ".././event";
 
 describe("discord_get_scheduled_events", () => {
   const mockEvent = {

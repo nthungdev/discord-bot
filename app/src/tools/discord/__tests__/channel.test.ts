@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
 import { ChannelType } from "discord.js";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
 import {
-  discordListChannelsTool,
   discordGetChannelInfoTool,
   discordGetChannelMembersTool,
-} from "./channel";
-import { ToolExecutionContext } from "../types";
+  discordListChannelsTool,
+} from ".././channel";
 
 describe("Discord Channel Tools", () => {
   const channelGeneral = {
@@ -146,7 +146,10 @@ describe("Discord Channel Tools", () => {
     };
 
     it("should return all members in the channel", async () => {
-      const result = await discordGetChannelMembersTool.execute({}, memberContext);
+      const result = await discordGetChannelMembersTool.execute(
+        {},
+        memberContext,
+      );
       expect(result.count).toBe(2);
       expect(result.channelName).toBe("general");
       expect(result.members[0]).toMatchObject({
@@ -171,4 +174,3 @@ describe("Discord Channel Tools", () => {
     });
   });
 });
-

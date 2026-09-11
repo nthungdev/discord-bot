@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
 import express from "express";
 import request from "supertest";
-import testRouter from "./testRouter";
+import { describe, expect, it, vi } from "vitest";
+import testRouter from "../testRouter";
 
-vi.mock("../../utils/genAi", () => ({
+vi.mock("../../../utils/genAi", () => ({
   getGenAi: vi.fn().mockReturnValue({
     init: vi.fn().mockResolvedValue(undefined),
     generate: vi.fn().mockResolvedValue({

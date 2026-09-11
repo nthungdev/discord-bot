@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { VertexGenAi } from "./vertex";
-import type { GenAiConfig } from "../types";
-import { ToolDefinition } from "../../tools/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ToolDefinition } from "../../../tools/types";
+import type { GenAiConfig } from "../../types";
+import { VertexGenAi } from "../vertex";
 
-vi.mock("../../utils/google", () => ({
+vi.mock("../../../utils/google", () => ({
   getCredentials: vi.fn().mockResolvedValue({}),
 }));
 

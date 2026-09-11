@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ConversationMemoryService, createMemoryStore } from "./index";
-import { LocalFileMemoryStore } from "./local-store";
-import type { IMemoryStore } from "./types";
-import type { ConversationDocument } from "../../types";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { ConversationDocument } from "../../../types";
+import { ConversationMemoryService, createMemoryStore } from ".././index";
+import { LocalFileMemoryStore } from ".././local-store";
+import type { IMemoryStore } from ".././types";
 
 class MockMemoryStore implements IMemoryStore {
   data: Map<string, ConversationDocument> = new Map();

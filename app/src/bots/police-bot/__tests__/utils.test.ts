@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as wordleUtils from "../../../utils/wordle";
 import {
-  censorMessage,
   buildRegexFromTerms,
+  censorMessage,
   getRandomPoliceGif,
   getWordleAnswers,
-} from "./utils";
-import * as wordleUtils from "../../utils/wordle";
+} from ".././utils";
 
 describe("police-bot utils", () => {
   describe("getRandomPoliceGif", () => {
@@ -50,7 +50,10 @@ describe("police-bot utils", () => {
         },
       ];
 
-      const result = censorMessage("Stop saying mọi đen and nigger", violations);
+      const result = censorMessage(
+        "Stop saying mọi đen and nigger",
+        violations,
+      );
       expect(result).toBe("Stop saying ▓▓▓▓▓▓▓ and ▓▓▓▓▓▓");
     });
 

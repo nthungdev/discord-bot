@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { createGenAi } from "./index";
-import { MyGoogleGenAI } from "./google-genai";
-import { VertexGenAi } from "./vertex";
-import type { GenAiConfig } from "../types";
+import { describe, expect, it } from "vitest";
+import type { GenAiConfig } from "../../types";
+import { MyGoogleGenAI } from ".././google-genai";
+import { createGenAi } from ".././index";
+import { VertexGenAi } from ".././vertex";
 
 describe("createGenAi factory", () => {
   const baseConfig: GenAiConfig = {
@@ -27,7 +27,10 @@ describe("createGenAi factory", () => {
 
   it("should throw error for unsupported provider", () => {
     expect(() =>
-      createGenAi({ ...baseConfig, provider: "unsupported" as unknown as "vertex" }),
+      createGenAi({
+        ...baseConfig,
+        provider: "unsupported" as unknown as "vertex",
+      }),
     ).toThrow("Unsupported GenAI provider: unsupported");
   });
 });

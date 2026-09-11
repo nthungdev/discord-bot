@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import auth from "./auth";
-import type { Request, Response, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import auth from ".././auth";
 
 describe("auth middleware unit test", () => {
   beforeEach(() => {
@@ -19,7 +19,10 @@ describe("auth middleware unit test", () => {
 
     auth(req, res, next);
     expect(statusMock).toHaveBeenCalledWith(401);
-    expect(sendMock).toHaveBeenCalledWith({ ok: false, message: "unauthorized" });
+    expect(sendMock).toHaveBeenCalledWith({
+      ok: false,
+      message: "unauthorized",
+    });
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -37,7 +40,10 @@ describe("auth middleware unit test", () => {
 
     auth(req, res, next);
     expect(statusMock).toHaveBeenCalledWith(401);
-    expect(sendMock).toHaveBeenCalledWith({ ok: false, message: "unauthorized" });
+    expect(sendMock).toHaveBeenCalledWith({
+      ok: false,
+      message: "unauthorized",
+    });
     expect(next).not.toHaveBeenCalled();
   });
 

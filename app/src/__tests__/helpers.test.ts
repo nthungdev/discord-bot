@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { validateEnvs } from "./helpers";
+import { beforeEach, describe, expect, it } from "vitest";
+import { validateEnvs } from ".././helpers";
 
 describe("validateEnvs", () => {
   const originalEnv = process.env;

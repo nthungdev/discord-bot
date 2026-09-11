@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { discordListRolesTool } from "./role";
-import { ToolExecutionContext } from "../types";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
+import { discordListRolesTool } from ".././role";
 
 describe("discord_list_roles", () => {
   const roleEveryone = {

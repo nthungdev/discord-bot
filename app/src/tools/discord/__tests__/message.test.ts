@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
 import {
-  discordGetRecentMessagesTool,
   discordGetPinnedMessagesTool,
+  discordGetRecentMessagesTool,
   discordReactToMessageTool,
-} from "./message";
-import { ToolExecutionContext } from "../types";
+} from ".././message";
 
 describe("Discord Message Tools", () => {
   const msg1 = {
@@ -47,7 +47,12 @@ describe("Discord Message Tools", () => {
           if (opts === "msg-2") return Promise.resolve(msg2);
           return Promise.reject(new Error("Unknown Message"));
         }
-        return Promise.resolve(new Map([["msg-1", msg1], ["msg-2", msg2]]));
+        return Promise.resolve(
+          new Map([
+            ["msg-1", msg1],
+            ["msg-2", msg2],
+          ]),
+        );
       }),
       fetchPinned: vi.fn().mockResolvedValue(new Map([["msg-1", msg1]])),
     },

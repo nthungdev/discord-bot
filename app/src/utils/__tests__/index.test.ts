@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { getRandomSleepReminderMessage, imageToBase64 } from "./index";
 import axios from "axios";
+import { describe, expect, it, vi } from "vitest";
+import { getRandomSleepReminderMessage, imageToBase64 } from ".././index";
 
 vi.mock("axios");
 

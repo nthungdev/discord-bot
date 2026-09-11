@@ -1,17 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../src/discord/deployCommands", () => ({
+vi.mock("../../../../src/discord/deployCommands", () => ({
   deployGuildCommands: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../../src/services/memory", () => ({
+vi.mock("../../../../src/services/memory", () => ({
   getMemoryService: vi.fn().mockReturnValue({
     clearHistory: vi.fn().mockResolvedValue(undefined),
   }),
 }));
 
 import request from "supertest";
-import app from "../../../src/server";
+import app from "../../../../src/server";
 
 describe("Utility Router Integration", () => {
   const authHeader = `Bearer ${process.env.BEARER_TOKEN}`;

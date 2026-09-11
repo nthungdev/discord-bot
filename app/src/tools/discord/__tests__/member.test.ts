@@ -1,14 +1,18 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
 import {
   discordGetMemberInfoTool,
   discordSearchMembersTool,
-} from "./member";
-import { ToolExecutionContext } from "../types";
+} from ".././member";
 
 describe("discord_get_member_info", () => {
   const memberAlice = {
     id: "user-alice-123",
-    user: { username: "alice_dev", displayName: "Alice Wonderland", bot: false },
+    user: {
+      username: "alice_dev",
+      displayName: "Alice Wonderland",
+      bot: false,
+    },
     displayName: "Alice Wonderland",
     nickname: "Alicia",
     joinedAt: new Date("2024-02-01T00:00:00Z"),
@@ -89,7 +93,10 @@ describe("discord_get_member_info", () => {
 
   it("should throw an error if member is not found", async () => {
     await expect(
-      discordGetMemberInfoTool.execute({ usernameOrId: "nonexistent_user" }, context),
+      discordGetMemberInfoTool.execute(
+        { usernameOrId: "nonexistent_user" },
+        context,
+      ),
     ).rejects.toThrow("could not be found in this server");
   });
 });
@@ -97,7 +104,11 @@ describe("discord_get_member_info", () => {
 describe("discord_search_members", () => {
   const memberAlice = {
     id: "user-alice-123",
-    user: { username: "alice_dev", displayName: "Alice Wonderland", bot: false },
+    user: {
+      username: "alice_dev",
+      displayName: "Alice Wonderland",
+      bot: false,
+    },
     displayName: "Alice Wonderland",
     nickname: "Alicia",
     roles: { cache: [{ id: "role-2", name: "Developer" }] },
@@ -118,7 +129,9 @@ describe("discord_search_members", () => {
         ["user-alice-123", memberAlice],
         ["user-bot-789", memberBot],
       ]),
-      fetch: vi.fn().mockImplementation(() => Promise.resolve([memberAlice, memberBot])),
+      fetch: vi
+        .fn()
+        .mockImplementation(() => Promise.resolve([memberAlice, memberBot])),
     },
   };
 
@@ -129,7 +142,10 @@ describe("discord_search_members", () => {
   };
 
   it("should search members by display name", async () => {
-    const result = await discordSearchMembersTool.execute({ query: "Alice" }, context);
+    const result = await discordSearchMembersTool.execute(
+      { query: "Alice" },
+      context,
+    );
     expect(result.count).toBe(1);
     expect(result.members[0]).toMatchObject({
       id: "user-alice-123",
@@ -140,7 +156,10 @@ describe("discord_search_members", () => {
   });
 
   it("should search and identify bot members", async () => {
-    const result = await discordSearchMembersTool.execute({ query: "Helper" }, context);
+    const result = await discordSearchMembersTool.execute(
+      { query: "Helper" },
+      context,
+    );
     expect(result.count).toBe(1);
     expect(result.members[0]).toMatchObject({
       id: "user-bot-789",
@@ -155,4 +174,3 @@ describe("discord_search_members", () => {
     ).rejects.toThrow("Search query must not be empty.");
   });
 });
-

@@ -1,10 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
-import { deployGuildCommands } from "./deployCommands";
+import { describe, expect, it, vi } from "vitest";
+import { deployGuildCommands } from "../deployCommands";
 
 vi.mock("discord.js", async () => {
-  const actual = await vi.importActual<typeof import("discord.js")>(
-    "discord.js",
-  );
+  const actual =
+    await vi.importActual<typeof import("discord.js")>("discord.js");
   return {
     ...actual,
     REST: vi.fn().mockImplementation(() => ({
@@ -14,7 +13,7 @@ vi.mock("discord.js", async () => {
   };
 });
 
-vi.mock("./helpers", () => ({
+vi.mock("../helpers", () => ({
   parseCommands: vi.fn().mockResolvedValue([
     {
       data: {

@@ -1,6 +1,11 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { Config, ConfigParameter, resolveConfigPath, loadLocalConfig } from "./index";
 import fs from "fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  Config,
+  ConfigParameter,
+  loadLocalConfig,
+  resolveConfigPath,
+} from ".././index";
 
 describe("Config", () => {
   afterEach(() => {
@@ -54,7 +59,9 @@ describe("Config", () => {
       };
 
       vi.spyOn(fs, "existsSync").mockReturnValue(true);
-      vi.spyOn(fs, "readFileSync").mockReturnValue(JSON.stringify(mockCustomConfig));
+      vi.spyOn(fs, "readFileSync").mockReturnValue(
+        JSON.stringify(mockCustomConfig),
+      );
 
       const loaded = loadLocalConfig("/some/config.json");
       expect(loaded.aiProjectId).toBe("custom-project-id");
@@ -63,13 +70,17 @@ describe("Config", () => {
 
     it("should throw error when config.json is not found", () => {
       vi.spyOn(fs, "existsSync").mockReturnValue(false);
-      expect(() => loadLocalConfig()).toThrowError(/Configuration file 'config.json' not found/);
+      expect(() => loadLocalConfig()).toThrowError(
+        /Configuration file 'config.json' not found/,
+      );
     });
 
     it("should throw error when config.json contains malformed JSON", () => {
       vi.spyOn(fs, "existsSync").mockReturnValue(true);
       vi.spyOn(fs, "readFileSync").mockReturnValue("{ invalid json");
-      expect(() => loadLocalConfig("/invalid/config.json")).toThrowError(/Failed to parse configuration file/);
+      expect(() => loadLocalConfig("/invalid/config.json")).toThrowError(
+        /Failed to parse configuration file/,
+      );
     });
   });
 });

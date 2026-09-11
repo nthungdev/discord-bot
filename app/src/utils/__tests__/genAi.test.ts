@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { getGenAi, generateChatMessageWithGenAi } from "./genAi";
-import type { GenAi } from "../genAi/types";
+import { describe, expect, it, vi } from "vitest";
+import type { GenAi } from "../../genAi/types";
+import { generateChatMessageWithGenAi, getGenAi } from ".././genAi";
 
 describe("genAi utils", () => {
   it("should create GenAi instance with getGenAi", () => {
@@ -23,7 +23,12 @@ describe("genAi utils", () => {
         mockGenAi,
         {
           text: "hello",
-          files: [{ uri: "http://example.com/file.exe", mimeType: "application/x-msdownload" }],
+          files: [
+            {
+              uri: "http://example.com/file.exe",
+              mimeType: "application/x-msdownload",
+            },
+          ],
         },
         [],
       );

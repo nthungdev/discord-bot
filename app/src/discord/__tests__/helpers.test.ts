@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { replaceWithUserMentions, parseCommands } from "./helpers";
-import type { DiscordUser } from "../types";
+import { describe, expect, it } from "vitest";
+import type { DiscordUser } from "../../types";
+import { parseCommands, replaceWithUserMentions } from ".././helpers";
 
 describe("discord helpers", () => {
   describe("replaceWithUserMentions", () => {

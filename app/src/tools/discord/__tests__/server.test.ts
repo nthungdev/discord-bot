@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
 import {
   discordGetServerInfoTool,
   discordGetServerOwnerTool,
-} from "./server";
-import { ToolExecutionContext } from "../types";
+} from ".././server";
 
 describe("Discord Server Tools", () => {
   const mockGuild = {
@@ -41,12 +41,19 @@ describe("Discord Server Tools", () => {
 
   describe("discord_get_server_info", () => {
     it("should report availability correctly", () => {
-      expect(discordGetServerInfoTool.isAvailable?.(contextWithGuild)).toBe(true);
-      expect(discordGetServerInfoTool.isAvailable?.(contextWithoutGuild)).toBe(false);
+      expect(discordGetServerInfoTool.isAvailable?.(contextWithGuild)).toBe(
+        true,
+      );
+      expect(discordGetServerInfoTool.isAvailable?.(contextWithoutGuild)).toBe(
+        false,
+      );
     });
 
     it("should return server metadata when executed", async () => {
-      const result = await discordGetServerInfoTool.execute({}, contextWithGuild);
+      const result = await discordGetServerInfoTool.execute(
+        {},
+        contextWithGuild,
+      );
       expect(result).toEqual({
         id: "guild-123",
         name: "Test Guild",
@@ -70,7 +77,10 @@ describe("Discord Server Tools", () => {
 
   describe("discord_get_server_owner", () => {
     it("should fetch and return owner info", async () => {
-      const result = await discordGetServerOwnerTool.execute({}, contextWithGuild);
+      const result = await discordGetServerOwnerTool.execute(
+        {},
+        contextWithGuild,
+      );
       expect(mockGuild.fetchOwner).toHaveBeenCalled();
       expect(result).toEqual({
         ownerId: "owner-999",

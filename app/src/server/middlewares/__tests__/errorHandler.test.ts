@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import errorHandler from "./errorHandler";
-import type { Request, Response, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
+import { describe, expect, it, vi } from "vitest";
+import errorHandler from ".././errorHandler";
 
 describe("errorHandler middleware", () => {
   it("should forward error to next if headers are already sent", () => {
@@ -17,7 +17,10 @@ describe("errorHandler middleware", () => {
     const req = {} as Request;
     const jsonMock = vi.fn();
     const statusMock = vi.fn().mockReturnValue({ json: jsonMock });
-    const res = { headersSent: false, status: statusMock } as unknown as Response;
+    const res = {
+      headersSent: false,
+      status: statusMock,
+    } as unknown as Response;
     const next = vi.fn() as unknown as NextFunction;
     const err = new Error("Something broke");
 
@@ -33,7 +36,10 @@ describe("errorHandler middleware", () => {
     const req = {} as Request;
     const jsonMock = vi.fn();
     const statusMock = vi.fn().mockReturnValue({ json: jsonMock });
-    const res = { headersSent: false, status: statusMock } as unknown as Response;
+    const res = {
+      headersSent: false,
+      status: statusMock,
+    } as unknown as Response;
     const next = vi.fn() as unknown as NextFunction;
 
     errorHandler("String error", req, res, next);

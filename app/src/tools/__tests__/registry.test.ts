@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ToolRegistry, getToolRegistry, setToolRegistry } from "./registry";
-import { registerDefaultTools } from "./index";
-import { ToolDefinition, ToolExecutionContext } from "./types";
+import { beforeEach, describe, expect, it } from "vitest";
+import { registerDefaultTools } from ".././index";
+import { getToolRegistry, setToolRegistry, ToolRegistry } from ".././registry";
+import type { ToolDefinition, ToolExecutionContext } from ".././types";
 
 describe("ToolRegistry", () => {
   beforeEach(() => {

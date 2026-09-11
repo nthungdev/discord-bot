@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import BaseBot, { BaseBotConfig } from "./base-bot";
-import { Client, Message } from "discord.js";
-import { createMockMessage } from "../../tests/fixtures/discord";
+import type { Client, Message } from "discord.js";
+import { describe, expect, it, vi } from "vitest";
+import { createMockMessage } from "../../../tests/fixtures/discord";
+import BaseBot, { type BaseBotConfig } from ".././base-bot";
 
 class TestBot extends BaseBot {
   client: Client;
@@ -124,8 +124,14 @@ describe("BaseBot", () => {
     bot.listenToNewMessages();
     bot.listenToNewInteractions();
 
-    expect(bot.client.on).toHaveBeenCalledWith("messageCreate", expect.any(Function));
-    expect(bot.client.on).toHaveBeenCalledWith("interactionCreate", expect.any(Function));
+    expect(bot.client.on).toHaveBeenCalledWith(
+      "messageCreate",
+      expect.any(Function),
+    );
+    expect(bot.client.on).toHaveBeenCalledWith(
+      "interactionCreate",
+      expect.any(Function),
+    );
   });
 
   it("should login successfully", async () => {

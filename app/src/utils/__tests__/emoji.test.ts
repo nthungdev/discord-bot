@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { replaceEmojis, splitEndingEmojis } from "./emoji";
+import { describe, expect, it } from "vitest";
+import { replaceEmojis, splitEndingEmojis } from ".././emoji";
 
 describe("emoji utils", () => {
   describe("replaceEmojis", () => {

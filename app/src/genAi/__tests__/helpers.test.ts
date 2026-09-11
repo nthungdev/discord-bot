@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { IGNORED_CONTENT, ALLOWED_CONTENT_TYPES } from "./helpers";
+import { describe, expect, it } from "vitest";
+import { ALLOWED_CONTENT_TYPES, IGNORED_CONTENT } from ".././helpers";
 
 describe("genAi helpers", () => {
   it("should define IGNORED_CONTENT string", () => {

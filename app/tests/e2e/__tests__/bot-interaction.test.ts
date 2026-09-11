@@ -1,16 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import ChatBot from "../../src/bots/chat-bot";
-import { store, chatbotActions } from "../../src/store";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import ChatBot from "../../../src/bots/chat-bot";
+import { chatbotActions, store } from "../../../src/store";
 import {
   createMockInteraction,
   createMockMessage,
-} from "../fixtures/discord";
+} from "../../fixtures/discord";
 
 // Mock discord.js Client with a class constructor
 vi.mock("discord.js", async () => {
-  const actual = await vi.importActual<typeof import("discord.js")>(
-    "discord.js",
-  );
+  const actual =
+    await vi.importActual<typeof import("discord.js")>("discord.js");
 
   class MockClient {
     user = { id: "bot-123", tag: "TestBot#0001" };
@@ -31,7 +30,9 @@ vi.mock("discord.js", async () => {
     }
 
     emit(event: string, ...args: unknown[]) {
-      this.listeners[event]?.forEach((handler) => handler(...args));
+      this.listeners[event]?.forEach((handler) => {
+        handler(...args);
+      });
     }
 
     login = vi.fn().mockResolvedValue("token");

@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { createChatbotSlice } from "./chatbot";
-import type { DiscordMessage } from "../types";
+import { describe, expect, it } from "vitest";
+import type { DiscordMessage } from "../../types";
+import { createChatbotSlice } from ".././chatbot";
 
 describe("chatbot feature slice", () => {
   const slice = createChatbotSlice("testChatbot");

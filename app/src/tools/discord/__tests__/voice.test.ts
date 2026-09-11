@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
 import { ChannelType } from "discord.js";
-import { discordGetVoiceChannelStateTool } from "./voice";
-import { ToolExecutionContext } from "../types";
+import { describe, expect, it, vi } from "vitest";
+import type { ToolExecutionContext } from "../../types";
+import { discordGetVoiceChannelStateTool } from ".././voice";
 
 describe("discord_get_voice_channel_state", () => {
   const memberAlice = {
@@ -58,15 +58,13 @@ describe("discord_get_voice_channel_state", () => {
 
   const mockGuild = {
     channels: {
-      fetch: vi
-        .fn()
-        .mockResolvedValue(
-          new Map([
-            ["vc-1", channelVoice],
-            ["vc-2", channelEmptyVoice],
-            ["text-1", channelText],
-          ]),
-        ),
+      fetch: vi.fn().mockResolvedValue(
+        new Map([
+          ["vc-1", channelVoice],
+          ["vc-2", channelEmptyVoice],
+          ["text-1", channelText],
+        ]),
+      ),
     },
   };
 

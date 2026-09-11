@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { determineValueType, prepareParameters } from "./syncRemoteConfig";
+import { describe, expect, it } from "vitest";
+import { determineValueType, prepareParameters } from ".././syncRemoteConfig";
 
 describe("syncRemoteConfig helpers", () => {
   it("should determine correct valueType for various data types", () => {

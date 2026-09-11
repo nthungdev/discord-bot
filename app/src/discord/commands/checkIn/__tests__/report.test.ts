@@ -1,11 +1,15 @@
-import { describe, it, expect, vi } from "vitest";
-import { data, execute } from "./report";
-import { createMockInteraction } from "../../../../tests/fixtures/discord";
-import * as checkInUtils from "../utilities/checkIn";
+import { describe, expect, it, vi } from "vitest";
+import { createMockInteraction } from "../../../../../tests/fixtures/discord";
+import * as checkInUtils from "../../utilities/checkIn";
+import { data, execute } from "../report";
 
-vi.mock("../utilities/checkIn", () => ({
-  countCheckInsInChannel: vi.fn().mockResolvedValue([["user-1", { count: 5, longestStreak: 3 }]]),
-  formatCheckInLeaderboard: vi.fn().mockReturnValue("Leaderboard Summary Report"),
+vi.mock("../../utilities/checkIn", () => ({
+  countCheckInsInChannel: vi
+    .fn()
+    .mockResolvedValue([["user-1", { count: 5, longestStreak: 3 }]]),
+  formatCheckInLeaderboard: vi
+    .fn()
+    .mockReturnValue("Leaderboard Summary Report"),
   getPreviousMonthStart: vi.fn().mockReturnValue(new Date()),
   getPreviousMonthEnd: vi.fn().mockReturnValue(new Date()),
   getCurrentMonthStart: vi.fn().mockReturnValue(new Date()),

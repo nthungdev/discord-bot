@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { data, execute } from "./checkIn";
-import { createMockInteraction } from "../../../../tests/fixtures/discord";
-import * as genAiUtils from "../../../utils/genAi";
-import { getMemoryService } from "../../../services/memory";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createMockInteraction } from "../../../../../tests/fixtures/discord";
+import { getMemoryService } from "../../../../services/memory";
+import * as genAiUtils from "../../../../utils/genAi";
+import { data, execute } from "../checkIn";
 
-vi.mock("../../../utils/genAi", () => ({
+vi.mock("../../../../utils/genAi", () => ({
   getGenAi: vi.fn().mockReturnValue({
     init: vi.fn().mockResolvedValue(undefined),
   }),
@@ -13,7 +13,7 @@ vi.mock("../../../utils/genAi", () => ({
   }),
 }));
 
-vi.mock("../../../services/memory", () => ({
+vi.mock("../../../../services/memory", () => ({
   getMemoryService: vi.fn().mockReturnValue({
     addTurn: vi.fn().mockResolvedValue(undefined),
   }),

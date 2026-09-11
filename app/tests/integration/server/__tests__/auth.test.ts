@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import request from "supertest";
-import app from "../../../src/server";
+import { describe, expect, it } from "vitest";
+import app from "../../../../src/server";
 
 describe("Server Auth Integration", () => {
   it("should allow unauthenticated access to public root endpoint", async () => {

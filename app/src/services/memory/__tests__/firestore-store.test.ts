@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FirestoreMemoryStore } from "./firestore-store";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FirestoreMemoryStore } from ".././firestore-store";
 
 const mockGet = vi.fn();
 const mockSet = vi.fn();
