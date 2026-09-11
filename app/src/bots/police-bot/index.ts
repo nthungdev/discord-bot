@@ -1,30 +1,30 @@
+import { isAxiosError } from "axios";
 import {
   Client,
   GatewayIntentBits,
-  Guild,
-  Interaction,
-  Message,
+  type Guild,
+  type Interaction,
+  type Message,
   MessageType,
   userMention,
 } from "discord.js";
-import BaseBot, { BaseBotConfig } from "./../base-bot";
-import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
-import { policeBotActions, store } from "../../store";
-import { AiPrompt, DiscordMessage, UserActorInfo } from "../../types";
-import { ToolDefinition, ToolExecutionContext } from "../../tools/types";
-import { getToolRegistry } from "../../tools/registry";
-import { BotGuildConfig } from "../../config/types";
+import type { BotGuildConfig } from "../../config/types";
 import { getMemoryService } from "../../services/memory";
+import { policeBotActions, store } from "../../store";
+import { getToolRegistry } from "../../tools/registry";
+import type { ToolDefinition, ToolExecutionContext } from "../../tools/types";
+import type { AiPrompt, DiscordMessage, UserActorInfo } from "../../types";
 import { splitEndingEmojis } from "../../utils/emoji";
-import { isAxiosError } from "axios";
-import { Violation } from "./types";
+import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
+import BaseBot, { type BaseBotConfig } from "./../base-bot";
+import { detectRacistViolations } from "./detector";
+import type { Violation } from "./types";
 import {
   buildRegexFromTerms,
   censorMessage,
   getRandomPoliceGif,
   getWordleAnswers,
 } from "./utils";
-import { detectRacistViolations } from "./detector";
 
 const DEFAULT_BOT_REPLY_DELAY = 5000; // 5s default
 const MEMBER_FETCH_AGE = 24 * 60 * 60 * 1000; // 1 day in milliseconds
@@ -35,7 +35,7 @@ const validateServerMembersCache = async (guild: Guild) => {
   if (!lastMemberFetch || lastMemberFetch + MEMBER_FETCH_AGE < Date.now()) {
     await guild.members.fetch();
     store.dispatch(
-      policeBotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE)
+      policeBotActions.setLastMemberFetch(Date.now() + MEMBER_FETCH_AGE),
     );
   }
 };
@@ -59,7 +59,7 @@ const clearMessageTimeout = (channelId: string) => {
 const handleMessageTimeout = async (
   message: Message<boolean>,
   botId: string,
-  guildConfig?: BotGuildConfig
+  guildConfig?: BotGuildConfig,
 ) => {
   console.log(`---handleMessageTimeout---`);
 
@@ -85,18 +85,14 @@ const handleMessageTimeout = async (
       .toReversed();
 
     const text = messages
-      .reduce((acc, message) => {
+      .map((message) => {
         const authorQuote = `${message.authorUsername} says ${message.cleanContent}`;
         if (message.reference) {
-          return [
-            ...acc,
-            // TODO parse and replace nicknames in reference with usernames
-            `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`,
-          ];
-        } else {
-          return [...acc, authorQuote];
+          // TODO parse and replace nicknames in reference with usernames
+          return `In reply to @${message.reference.authorUsername} saying "${message.reference.cleanContent}", ${authorQuote}`;
         }
-      }, [] as string[])
+        return authorQuote;
+      })
       .join("\n");
 
     const messageMentions = messages.flatMap((m) => m.mentions);
@@ -117,8 +113,8 @@ const handleMessageTimeout = async (
     const enableDiscordTools = Boolean(guildConfig?.tools?.discord);
     const enableGoogleSearch = Boolean(guildConfig?.tools?.googleSearch);
 
-    let tools: ToolDefinition[] | undefined = undefined;
-    let toolContext: ToolExecutionContext | undefined = undefined;
+    let tools: ToolDefinition[] | undefined;
+    let toolContext: ToolExecutionContext | undefined;
 
     if (enableDiscordTools) {
       toolContext = {
@@ -162,7 +158,7 @@ const handleMessageTimeout = async (
           nickname: m.nickname ?? m.displayName,
           username: m.user.username,
         })) || [],
-        message.guild
+        message.guild,
       );
 
       console.log({
@@ -199,11 +195,13 @@ const handleMessageTimeout = async (
         content || "?",
         actor,
         message.guildId ?? undefined,
-        "policeBot"
+        "policeBot",
       );
 
       // debug
-      console.log(`history updated for botId: ${botId}, channel: ${channel.id}`);
+      console.log(
+        `history updated for botId: ${botId}, channel: ${channel.id}`,
+      );
     } catch (error) {
       console.error("Error generateContent");
       if (isAxiosError(error)) {
@@ -286,7 +284,7 @@ export default class PoliceBot extends BaseBot {
     let refMessage: Message<boolean> | null = null;
     if (message.reference !== null) {
       refMessage = await message.channel.messages.fetch(
-        message.reference.messageId!
+        message.reference.messageId!,
       );
     }
 
@@ -331,7 +329,7 @@ export default class PoliceBot extends BaseBot {
       policeBotActions.addMessageBuffer({
         message: discordMessage,
         channelId: message.channelId,
-      })
+      }),
     );
 
     const guildConfig = this.getGuildConfig(message.guildId);
@@ -342,14 +340,14 @@ export default class PoliceBot extends BaseBot {
       channelId: message.channelId,
       timeout: setTimeout(
         () => handleMessageTimeout(message, this.id, guildConfig),
-        replyDelay
+        replyDelay,
       ),
     });
   }
 
   private async handleViolatedMessage(
     message: Message<boolean>,
-    violations: Violation[]
+    violations: Violation[],
   ) {
     if (!message.inGuild()) {
       return;
@@ -362,7 +360,7 @@ export default class PoliceBot extends BaseBot {
     const comment = await this.generateViolationComment(
       message.guild,
       violations.map((v) => v.reason),
-      message.content
+      message.content,
     );
 
     // The bot might quote the original message, so we need to censor it as well
@@ -442,7 +440,7 @@ ${censoredMessage
   private async generateViolationComment(
     guild: Guild,
     violations: string[],
-    originalMessage: string
+    originalMessage: string,
   ) {
     const violationString = violations.join(", ");
     const promptText = `What would you say to a user who violated: ${violationString}? They said: ${originalMessage}`;
@@ -462,7 +460,7 @@ ${censoredMessage
       genAi,
       { text: promptText },
       [],
-      guild
+      guild,
     );
     return content;
   }

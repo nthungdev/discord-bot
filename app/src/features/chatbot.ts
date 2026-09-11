@@ -1,6 +1,6 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "../../src/store";
-import { AiChatMessage, DiscordMessage } from "../types";
+import type { AiChatMessage, DiscordMessage } from "../types";
 
 // Define a type for the slice state
 export interface ChatbotState {
@@ -28,7 +28,7 @@ export function createChatbotSlice(sliceName: string) {
         state,
         action: PayloadAction<{
           channelId?: string;
-        }>
+        }>,
       ) => {
         if (action.payload.channelId) {
           state.messageHistory[action.payload.channelId] = [];
@@ -49,7 +49,7 @@ export function createChatbotSlice(sliceName: string) {
         action: PayloadAction<{
           message: DiscordMessage;
           channelId: string;
-        }>
+        }>,
       ) => {
         const { channelId, message } = action.payload;
         if (channelId in state.messageBuffer) {
@@ -64,7 +64,7 @@ export function createChatbotSlice(sliceName: string) {
           userMessage: string;
           botMessage: string;
           channelId: string;
-        }>
+        }>,
       ) => {
         const { channelId, botMessage, userMessage } = action.payload;
 
@@ -95,12 +95,12 @@ export function createChatbotSlice(sliceName: string) {
           /** must be an even number */
           by: number;
           channelId: string;
-        }>
+        }>,
       ) => {
         const { channelId, by } = action.payload;
         if (by % 2 !== 0) return;
         state.messageHistory[channelId] = state.messageHistory[channelId].slice(
-          -by
+          -by,
         );
       },
       setLastMemberFetch: (state, action: PayloadAction<number>) => {

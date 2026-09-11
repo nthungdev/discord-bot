@@ -3,18 +3,18 @@ export interface GuildEmojisConfig {
     /**
      * Emoji symbol to server's custom emoji names
      */
-    [emoji: string]: string[]
-  }
+    [emoji: string]: string[];
+  };
 }
 
 export interface GuildMembersConfigMember {
-  username: string,
-  name: string,
-  gender: string,
+  username: string;
+  name: string;
+  gender: string;
 }
 
 export interface GuildMembersConfig {
-  [guildId: string]: GuildMembersConfigMember[]
+  [guildId: string]: GuildMembersConfigMember[];
 }
 
 export interface BotGuildToolsConfig {
@@ -32,11 +32,11 @@ export interface BotGuildConfig {
 }
 
 export interface BotGuildsConfig {
-  [guildId: string]: BotGuildConfig
+  [guildId: string]: BotGuildConfig;
 }
 
 export interface BotConfig {
-  guilds: BotGuildsConfig
+  guilds: BotGuildsConfig;
 }
 
 export interface BotsConfig {
@@ -47,18 +47,18 @@ export interface BotsConfig {
 
 export interface AiSafetySettingsConfig {
   safetySettings: {
-    category: string,
-    threshold: string,
-  }[]
+    category: string;
+    threshold: string;
+  }[];
 }
 
-export type CheckInLeaderboardConfig = string
-export type AiApiEndpointConfig = string
-export type AiProjectIdConfig = string
-export type AiModelIdConfig = string
-export type AiLocationIdConfig = string
-export type AiProviderConfig = 'google-genai' | 'vertex'
+export type CheckInLeaderboardConfig = string;
+export type AiApiEndpointConfig = string;
+export type AiProjectIdConfig = string;
+export type AiModelIdConfig = string;
+export type AiLocationIdConfig = string;
+export type AiProviderConfig = "google-genai" | "vertex";
 
-export type AiMaxOutputTokens = number
-export type AiMaxConversationHistoryConfig = number
-export type MemoryStoreTypeConfig = "local" | "firestore"
+export type AiMaxOutputTokens = number;
+export type AiMaxConversationHistoryConfig = number;
+export type MemoryStoreTypeConfig = "local" | "firestore";

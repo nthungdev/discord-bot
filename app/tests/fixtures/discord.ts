@@ -1,14 +1,14 @@
-import { vi } from "vitest";
 import {
-  MessageType,
+  type ChatInputCommandInteraction,
   type Client,
   type Guild,
+  type GuildMember,
   type Message,
+  MessageType,
   type TextChannel,
   type User,
-  type ChatInputCommandInteraction,
-  type GuildMember,
 } from "discord.js";
+import { vi } from "vitest";
 
 const createMockCollection = <K, V>(initialEntries: [K, V][] = []) => {
   const map = new Map<K, V>(initialEntries);
@@ -152,7 +152,11 @@ export const createMockInteraction = (
 export const createMockClient = (
   overrides?: Record<string, unknown>,
 ): Client => {
-  const user = createMockUser({ id: "bot-123", username: "TestBot", bot: true });
+  const user = createMockUser({
+    id: "bot-123",
+    username: "TestBot",
+    bot: true,
+  });
   return {
     user,
     channels: {

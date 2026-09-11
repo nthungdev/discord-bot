@@ -1,5 +1,5 @@
 import { afterEach, vi } from "vitest";
-import { Config, AppConfigData } from "../src/config";
+import { type AppConfigData, Config } from "../src/config";
 
 const mockTestConfig: AppConfigData = {
   guildEmojis: {},
@@ -31,9 +31,11 @@ process.env.PORT = "3001";
 vi.spyOn(Config.prototype, "loadConfig").mockImplementation(async () => {});
 vi.spyOn(Config.prototype, "init").mockImplementation(async () => {});
 vi.spyOn(Config.prototype, "getLocalConfig").mockReturnValue(mockTestConfig);
-vi.spyOn(Config.prototype, "getConfigValue").mockImplementation((key: string) => {
-  return (mockTestConfig as unknown as Record<string, unknown>)[key] as never;
-});
+vi.spyOn(Config.prototype, "getConfigValue").mockImplementation(
+  (key: string) => {
+    return (mockTestConfig as unknown as Record<string, unknown>)[key] as never;
+  },
+);
 
 afterEach(() => {
   // Clear mock history but preserve spy implementations

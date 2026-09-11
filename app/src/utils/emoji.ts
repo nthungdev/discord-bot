@@ -1,4 +1,4 @@
-import { Guild, formatEmoji } from "discord.js";
+import { formatEmoji, type Guild } from "discord.js";
 import { Config, ConfigParameter } from "../config";
 
 export const getEmojiMap = (guild: Guild) => {

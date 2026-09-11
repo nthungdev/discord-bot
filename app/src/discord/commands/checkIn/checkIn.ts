@@ -1,8 +1,11 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { DiscordCommand } from "../../constants";
-import { generateChatMessageWithGenAi, getGenAi } from "../../../utils/genAi";
-import { AiPrompt } from "../../../types";
+import {
+  type ChatInputCommandInteraction,
+  SlashCommandBuilder,
+} from "discord.js";
 import { getMemoryService } from "../../../services/memory";
+import type { AiPrompt } from "../../../types";
+import { generateChatMessageWithGenAi, getGenAi } from "../../../utils/genAi";
+import { DiscordCommand } from "../../constants";
 
 enum CommandCheckInOption {
   what = "what",
@@ -97,7 +100,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         displayName: interaction.user.displayName,
       },
       interaction.guildId ?? undefined,
-      "chatBot"
+      "chatBot",
     );
   } catch (error: unknown) {
     console.error(`Failed to include Slavegon's comment`, error);

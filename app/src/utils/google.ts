@@ -1,4 +1,4 @@
-import { JWT, GoogleAuth, CredentialBody } from "google-auth-library";
+import { type CredentialBody, GoogleAuth, JWT } from "google-auth-library";
 import serviceAccount from "../../service-account.json";
 
 export const getAccessToken = async () => {

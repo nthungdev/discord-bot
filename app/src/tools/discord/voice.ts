@@ -1,5 +1,5 @@
-import { ChannelType, VoiceBasedChannel } from "discord.js";
-import { ToolDefinition } from "../types";
+import { ChannelType, type VoiceBasedChannel } from "discord.js";
+import type { ToolDefinition } from "../types";
 
 export interface GetVoiceChannelStateArgs {
   channelIdOrName?: string;

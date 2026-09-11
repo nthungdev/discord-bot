@@ -1,9 +1,9 @@
 import { discordTools } from "./discord";
-import { getToolRegistry, ToolRegistry } from "./registry";
+import { getToolRegistry, type ToolRegistry } from "./registry";
 
-export * from "./types";
-export * from "./registry";
 export * from "./discord";
+export * from "./registry";
+export * from "./types";
 
 /**
  * Register all default tools (such as Discord tools) into the specified registry.

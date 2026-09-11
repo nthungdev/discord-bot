@@ -1,4 +1,4 @@
-import { ToolDefinition, ToolExecutionContext } from "./types";
+import type { ToolDefinition, ToolExecutionContext } from "./types";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition>();

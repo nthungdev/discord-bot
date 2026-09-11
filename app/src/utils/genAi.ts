@@ -1,9 +1,9 @@
-import { Guild } from "discord.js";
-import { GenAi, GenAiConfig, createGenAi } from "../genAi";
-import { ConfigParameter, Config } from "../config";
-import { GuildMembersConfigMember } from "../config/types";
+import type { Guild } from "discord.js";
+import { Config, ConfigParameter } from "../config";
+import type { GuildMembersConfigMember } from "../config/types";
 import { replaceWithUserMentions } from "../discord/helpers";
-import { AiPrompt, DiscordUser } from "../types";
+import { createGenAi, type GenAi, type GenAiConfig } from "../genAi";
+import type { AiPrompt, DiscordUser } from "../types";
 import { getEmojiMap, replaceEmojis } from "./emoji";
 
 const formatMembersInstruction = (members: GuildMembersConfigMember[]) => {
@@ -57,7 +57,8 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
   let systemInstruction = config.systemInstruction;
   if (!systemInstruction && config.guildId && config.botId) {
     const bots = remoteConfig.getConfigValue(ConfigParameter.bots);
-    systemInstruction = bots[config.botId]?.guilds?.[config.guildId]?.systemInstruction;
+    systemInstruction =
+      bots[config.botId]?.guilds?.[config.guildId]?.systemInstruction;
   }
 
   const members = config.guildId

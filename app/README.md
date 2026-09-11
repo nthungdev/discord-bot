@@ -135,9 +135,9 @@ pnpm start
 
 The project uses [Vitest](https://vitest.dev/) for unit, integration, and end-to-end testing, alongside [Supertest](https://github.com/ladjs/supertest) for HTTP API validation:
 
-- **Unit Tests**: Co-located directly alongside source files in `src/` (e.g. `src/utils/emoji.test.ts`).
-- **Integration Tests**: Placed under `tests/integration/`.
-- **E2E Tests**: Placed under `tests/e2e/`.
+- **Unit Tests**: Co-located in nested `__tests__/` subdirectories within each module under `src/**/__tests__/` (e.g. `src/utils/__tests__/emoji.test.ts`).
+- **Integration Tests**: Placed under `tests/integration/**/__tests__/`.
+- **E2E Tests**: Placed under `tests/e2e/**/__tests__/`.
 
 ```shell
 # Run all tests

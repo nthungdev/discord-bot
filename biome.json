@@ -1,0 +1,75 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!node_modules",
+      "!.vscode",
+      "!dist",
+      "!build",
+      "!coverage",
+      "!**/*.d.ts"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        },
+        "useOptionalChain": "warn",
+        "useFlatMap": "warn",
+        "useSimplifiedLogicExpression": "error",
+        "noUselessFragments": "error",
+        "noUselessTernary": "error",
+        "noUselessStringConcat": "error"
+      },
+      "style": {
+        "noParameterAssign": "error",
+        "useDefaultParameterLast": "warn",
+        "useTemplate": "warn",
+        "useImportType": "warn",
+        "useConsistentArrayType": {
+          "level": "error",
+          "options": {
+            "syntax": "shorthand"
+          }
+        }
+      },
+      "performance": {
+        "noAccumulatingSpread": "error"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noExplicitAny": "warn",
+        "noUnknownAtRules": "off"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

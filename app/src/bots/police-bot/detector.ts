@@ -1,4 +1,4 @@
-import { Violation } from "./types";
+import type { Violation } from "./types";
 
 export interface BanRule {
   reason: string;

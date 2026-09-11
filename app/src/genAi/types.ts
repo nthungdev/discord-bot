@@ -1,4 +1,4 @@
-import { AiPrompt, AiPromptResponse } from "../types";
+import type { AiPrompt, AiPromptResponse } from "../types";
 
 export interface GenAiConfig {
   apiKey?: string;

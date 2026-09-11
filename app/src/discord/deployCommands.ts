@@ -1,4 +1,8 @@
-import { REST, RESTPutAPIApplicationCommandsResult, Routes } from "discord.js";
+import {
+  REST,
+  type RESTPutAPIApplicationCommandsResult,
+  Routes,
+} from "discord.js";
 import { parseCommands } from "./helpers";
 
 export const deployGuildCommands = async (

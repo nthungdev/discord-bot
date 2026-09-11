@@ -1,4 +1,4 @@
-import { ToolDefinition } from "../types";
+import type { ToolDefinition } from "../types";
 
 export const discordListRolesTool: ToolDefinition<
   Record<string, never>,

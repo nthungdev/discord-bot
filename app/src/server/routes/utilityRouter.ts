@@ -1,8 +1,8 @@
 import { Router } from "express";
+import { Config, type ConfigParameter } from "../../config";
 import { deployGuildCommands } from "../../discord/deployCommands";
-import { chatbotActions, policeBotActions, store } from "../../store";
-import { Config, ConfigParameter } from "../../config";
 import { getMemoryService } from "../../services/memory";
+import { chatbotActions, policeBotActions, store } from "../../store";
 
 const utilityRouter = Router();
 

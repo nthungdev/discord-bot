@@ -1,7 +1,10 @@
+import {
+  getRemoteConfig,
+  type ServerTemplate,
+} from "firebase-admin/remote-config";
 import fs from "fs";
 import path from "path";
-import { ServerTemplate, getRemoteConfig } from "firebase-admin/remote-config";
-import {
+import type {
   AiApiEndpointConfig,
   AiLocationIdConfig,
   AiMaxConversationHistoryConfig,
@@ -69,6 +72,37 @@ export const resolveConfigPath = (customPath?: string): string | null => {
   return null;
 };
 
+const DEFAULT_APP_CONFIG: AppConfigData = {
+  guildEmojis: {},
+  guildMembers: {},
+  bots: {
+    chatBot: { guilds: {} },
+    policeBot: { guilds: {} },
+  },
+  checkInLeaderboard: "",
+  aiSafetySettings: { safetySettings: [] },
+  aiProjectId: "",
+  aiModelId: "gemini-3.6-flash",
+  aiMaxOutputTokens: 8192,
+  aiLocationId: "us-central1",
+  aiProvider: "google-genai",
+  aiApiEndpoint: "us-central1-aiplatform.googleapis.com",
+  aiMaxConversationHistory: 60,
+  memoryStoreType: "firestore",
+};
+
+/**
+ * Parses and returns configuration data from a valid json file path.
+ */
+function parseAppConfigFile(filePath: string): AppConfigData {
+  const fileContent = fs.readFileSync(filePath, "utf-8");
+  const parsed = JSON.parse(fileContent) as Partial<AppConfigData>;
+  return {
+    ...DEFAULT_APP_CONFIG,
+    ...parsed,
+  };
+}
+
 /**
  * Reads config.json from disk. Throws an error if config.json cannot be found.
  */
@@ -76,32 +110,17 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
   const configPath = resolveConfigPath(customPath);
   if (!configPath) {
     throw new Error(
-      "Configuration file 'config.json' not found. Please create 'app/config.json' (see app/config.example.json for reference)."
+      "Configuration file 'config.json' not found. Please create 'app/config.json' (see app/config.example.json for reference).",
     );
   }
 
   try {
-    const fileContent = fs.readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(fileContent) as Partial<AppConfigData>;
-
-    return {
-      guildEmojis: parsed.guildEmojis ?? {},
-      guildMembers: parsed.guildMembers ?? {},
-      bots: parsed.bots ?? { chatBot: { guilds: {} }, policeBot: { guilds: {} } },
-      checkInLeaderboard: parsed.checkInLeaderboard ?? "",
-      aiSafetySettings: parsed.aiSafetySettings ?? { safetySettings: [] },
-      aiProjectId: parsed.aiProjectId ?? "",
-      aiModelId: parsed.aiModelId ?? "gemini-3.6-flash",
-      aiMaxOutputTokens: parsed.aiMaxOutputTokens ?? 8192,
-      aiLocationId: parsed.aiLocationId ?? "us-central1",
-      aiProvider: parsed.aiProvider ?? "google-genai",
-      aiApiEndpoint: parsed.aiApiEndpoint ?? "us-central1-aiplatform.googleapis.com",
-      aiMaxConversationHistory: parsed.aiMaxConversationHistory ?? 60,
-      memoryStoreType: parsed.memoryStoreType ?? "firestore",
-    };
+    return parseAppConfigFile(configPath);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`Failed to parse configuration file at ${configPath}: ${error.message}`);
+      throw new Error(
+        `Failed to parse configuration file at ${configPath}: ${error.message}`,
+      );
     }
     throw error;
   }
@@ -152,7 +171,10 @@ export class Config {
       });
       this.lastFetchedAt = Date.now();
     } catch (error) {
-      console.warn("Failed to initialize Server Remote Config template, using local config fallback:", error);
+      console.warn(
+        "Failed to initialize Server Remote Config template, using local config fallback:",
+        error,
+      );
     }
     this.startAutoRefresh();
   }
@@ -189,7 +211,10 @@ export class Config {
       }
       this.lastFetchedAt = Date.now();
     } catch (error) {
-      console.warn("Failed to fetch/reload Server Remote Config template, using fallback:", error);
+      console.warn(
+        "Failed to fetch/reload Server Remote Config template, using fallback:",
+        error,
+      );
     }
   }
 
@@ -208,32 +233,32 @@ export class Config {
   }
 
   getConfigValue<T extends ConfigParameter>(
-    key: T
+    key: T,
   ): T extends ConfigParameter.guildEmojis
     ? GuildEmojisConfig
     : T extends ConfigParameter.bots
-    ? BotsConfig
-    : T extends ConfigParameter.checkInLeaderboard
-    ? CheckInLeaderboardConfig
-    : T extends ConfigParameter.guildMembers
-    ? GuildMembersConfig
-    : T extends ConfigParameter.aiSafetySettings
-    ? AiSafetySettingsConfig
-    : T extends ConfigParameter.aiApiEndpoint
-    ? AiApiEndpointConfig
-    : T extends ConfigParameter.aiLocationId
-    ? AiLocationIdConfig
-    : T extends ConfigParameter.aiProvider
-    ? AiProviderConfig
-    : T extends ConfigParameter.aiModelId
-    ? AiModelIdConfig
-    : T extends ConfigParameter.aiMaxOutputTokens
-    ? AiMaxOutputTokens
-    : T extends ConfigParameter.aiMaxConversationHistory
-    ? AiMaxConversationHistoryConfig
-    : T extends ConfigParameter.memoryStoreType
-    ? MemoryStoreTypeConfig
-    : AiProjectIdConfig {
+      ? BotsConfig
+      : T extends ConfigParameter.checkInLeaderboard
+        ? CheckInLeaderboardConfig
+        : T extends ConfigParameter.guildMembers
+          ? GuildMembersConfig
+          : T extends ConfigParameter.aiSafetySettings
+            ? AiSafetySettingsConfig
+            : T extends ConfigParameter.aiApiEndpoint
+              ? AiApiEndpointConfig
+              : T extends ConfigParameter.aiLocationId
+                ? AiLocationIdConfig
+                : T extends ConfigParameter.aiProvider
+                  ? AiProviderConfig
+                  : T extends ConfigParameter.aiModelId
+                    ? AiModelIdConfig
+                    : T extends ConfigParameter.aiMaxOutputTokens
+                      ? AiMaxOutputTokens
+                      : T extends ConfigParameter.aiMaxConversationHistory
+                        ? AiMaxConversationHistoryConfig
+                        : T extends ConfigParameter.memoryStoreType
+                          ? MemoryStoreTypeConfig
+                          : AiProjectIdConfig {
     const config = this.getConfig();
     if (!config) {
       return this.getLocalConfig()[key] as never;

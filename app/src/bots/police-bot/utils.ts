@@ -1,5 +1,5 @@
 import { getAnswer } from "../../utils/wordle";
-import { Violation } from "./types";
+import type { Violation } from "./types";
 
 const censorCharacter = "▓";
 
@@ -47,7 +47,7 @@ export function censorMessage(message: string, violations: Violation[]) {
       const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(escaped, "giu");
       censoredMessage = censoredMessage.replaceAll(regex, (match) =>
-        censorCharacter.repeat(match.length)
+        censorCharacter.repeat(match.length),
       );
     }
   }
@@ -74,6 +74,6 @@ export async function getWordleAnswers() {
   const yesterdayAnswer = await getAnswer(yesterdayString);
   const tomorrowAnswer = await getAnswer(tomorrowString);
   return [todayAnswer, yesterdayAnswer, tomorrowAnswer].filter(
-    (a) => a !== null
+    (a) => a !== null,
   );
 }

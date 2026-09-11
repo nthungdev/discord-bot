@@ -1,6 +1,12 @@
-import { ChannelType, Client, Message, MessageType, userMention } from "discord.js";
-import { DiscordCommand } from "../../constants";
+import {
+  ChannelType,
+  type Client,
+  type Message,
+  MessageType,
+  userMention,
+} from "discord.js";
 import { Config, ConfigParameter } from "../../../config";
+import { DiscordCommand } from "../../constants";
 
 type CheckInTrackerData = {
   count: number;

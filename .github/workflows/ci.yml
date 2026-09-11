@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: pnpm --prefix app install --frozen-lockfile
 
-      - name: Run ESLint
+      - name: Run Biome Check
         run: pnpm --prefix app lint
 
   build:

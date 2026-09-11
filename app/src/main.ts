@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+
 config({
   path:
     process.env.NODE_ENV === "production"
@@ -7,13 +8,13 @@ config({
 });
 
 import * as admin from "firebase-admin";
+import serviceAccountKey from "../service-account.json";
+import ChatBot from "./bots/chat-bot";
+import PoliceBot from "./bots/police-bot";
+import { Config, ConfigParameter } from "./config";
+import { validateEnvs } from "./helpers";
 // import { CronJob } from 'cron'
 import server from "./server";
-import { validateEnvs } from "./helpers";
-import { Config, ConfigParameter } from "./config";
-import serviceAccountKey from "../service-account.json";
-import PoliceBot from "./bots/police-bot";
-import ChatBot from "./bots/chat-bot";
 import { registerDefaultTools } from "./tools";
 
 const { CHATBOT_TOKEN, POLICE_BOT_TOKEN, PORT, NODE_ENV } = process.env;
@@ -41,7 +42,7 @@ const main = async () => {
   const remoteConfig = Config.getInstance();
   await remoteConfig.init();
   const botPolicies = remoteConfig.getConfigValue(ConfigParameter.bots);
-  
+
   if (!POLICE_BOT_TOKEN) {
     console.error("POLICE_BOT_TOKEN is not defined");
   } else {
@@ -74,7 +75,7 @@ const main = async () => {
   //   'America/New_York' // timeZone
   // );
 
-  server.listen(port, function () {
+  server.listen(port, () => {
     console.log(`Express app is listening on port ${port} !`);
   });
 };
