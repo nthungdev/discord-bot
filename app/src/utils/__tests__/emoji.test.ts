@@ -9,7 +9,7 @@ describe("emoji utils", () => {
       };
 
       const result = replaceEmojis("Hello 😀 world", emojiMap);
-      expect(result).toBe("Hello <:_:\x3123456789> world");
+      expect(result).toBe("Hello <:emoji:123456789> world");
     });
 
     it("should return original text if no emojis match", () => {

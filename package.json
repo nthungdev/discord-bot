@@ -1,0 +1,11 @@
+{
+  "name": "discord-bot-root",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter chat-bot-app build && pnpm --filter discord-bot-web build",
+    "typecheck": "pnpm --filter chat-bot-app typecheck && pnpm --filter discord-bot-web build",
+    "test": "pnpm --filter chat-bot-app test",
+    "lint": "pnpm --filter chat-bot-app lint",
+    "format": "pnpm --filter chat-bot-app format"
+  }
+}
