@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DiscordBotEngine } from "../../../capabilities/bot-engine";
 import { BotManager } from "../index";
 import { LocalFileBotRegistryStore } from "../local-store";
 
@@ -46,54 +47,33 @@ describe("LocalFileBotRegistryStore", () => {
   });
 });
 
-describe("BotManager Registration & Lifecycle", () => {
-  const testDir = path.resolve(__dirname, "test-data-mgr");
-  const testFile = path.join(testDir, "bots-mgr.json");
-  let store: LocalFileBotRegistryStore;
-  let manager: BotManager;
+describe("BotManager Unified Engine Architecture", () => {
+  it("should initialize with a DiscordBotEngine and report runtime metrics", async () => {
+    const engine = new DiscordBotEngine();
+    const manager = new BotManager(engine);
 
-  beforeAll(async () => {
-    await fs.mkdir(testDir, { recursive: true });
-    store = new LocalFileBotRegistryStore(testFile);
-    manager = new BotManager(store);
+    const bots = await manager.getAllBots();
+    expect(bots).toHaveLength(1);
+    expect(bots[0].id).toBe("bot");
+    expect(bots[0].status).toBe("STOPPED");
   });
 
-  afterAll(async () => {
-    await fs.rm(testDir, { recursive: true, force: true });
+  it("should generate OAuth2 bot invite URL with configured client ID", () => {
+    process.env.DISCORD_CLIENT_ID = "123456789012345678";
+    const manager = new BotManager();
+    const inviteUrl = manager.getBotInviteUrl();
+
+    expect(inviteUrl).toContain("https://discord.com/oauth2/authorize");
+    expect(inviteUrl).toContain("client_id=123456789012345678");
+    expect(inviteUrl).toContain("scope=bot%20applications.commands");
   });
 
-  it("should register a bot and list with masked token", async () => {
-    const registered = await manager.registerBot({
-      id: "custom-test-bot",
-      name: "My Custom Bot",
-      botType: "chatBot",
-      clientId: "998877",
-      token: "super-secret-discord-token",
-      autoStart: false,
-    });
+  it("should retrieve bot metrics by id", async () => {
+    const manager = new BotManager();
+    const bot = await manager.getBot("bot");
 
-    expect(registered.id).toBe("custom-test-bot");
-    expect(registered.encryptedToken).not.toBe("super-secret-discord-token");
-
-    const botMetric = await manager.getBot("custom-test-bot");
-    expect(botMetric).not.toBeNull();
-    expect(botMetric?.name).toBe("My Custom Bot");
-    expect(botMetric?.tokenMasked).toBe("supe...********");
-    expect(botMetric?.status).toBe("STOPPED");
-  });
-
-  it("should update bot metadata", async () => {
-    await manager.updateBot("custom-test-bot", {
-      name: "Renamed Custom Bot",
-    });
-
-    const updated = await manager.getBot("custom-test-bot");
-    expect(updated?.name).toBe("Renamed Custom Bot");
-  });
-
-  it("should unregister bot properly", async () => {
-    await manager.unregisterBot("custom-test-bot");
-    const found = await manager.getBot("custom-test-bot");
-    expect(found).toBeNull();
+    expect(bot).not.toBeNull();
+    expect(bot?.id).toBe("bot");
+    expect(bot?.botType).toBe("chatBot");
   });
 });

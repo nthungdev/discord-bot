@@ -1,5 +1,6 @@
 import type {
   ActivityLogEvent,
+  BotGuildConfig,
   BotRuntimeMetrics,
   DashboardStats,
   JoinedGuildDetail,
@@ -38,39 +39,51 @@ export const api = {
   // Dashboard
   getStats: () => request<{ ok: boolean; stats: DashboardStats }>("/dashboard/stats"),
 
+  // Guilds & Servers
+  getGuilds: () =>
+    request<{ ok: boolean; guilds: JoinedGuildDetail[]; inviteUrl: string }>("/guilds"),
+  getInviteUrl: () =>
+    request<{ ok: boolean; inviteUrl: string }>("/guilds/invite-url"),
+  getGuildConfig: (guildId: string) =>
+    request<{ ok: boolean; guildId: string; config: BotGuildConfig }>(
+      `/guilds/${guildId}/config`,
+    ),
+  updateGuildConfig: (guildId: string, updates: Partial<BotGuildConfig>) =>
+    request<{ ok: boolean; message: string; config: BotGuildConfig }>(
+      `/guilds/${guildId}/config`,
+      {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      },
+    ),
+  deployGuildCommands: (guildId: string) =>
+    request<{ ok: boolean; message: string }>(
+      `/guilds/${guildId}/deploy-commands`,
+      { method: "POST" },
+    ),
+
   // Bots
   getBots: () => request<{ ok: boolean; bots: BotRuntimeMetrics[] }>("/bots"),
   getBot: (id: string) => request<{ ok: boolean; bot: BotRuntimeMetrics }>(`/bots/${id}`),
-  registerBot: (bot: Record<string, unknown>) =>
-    request<{ ok: boolean; bot: BotRuntimeMetrics }>("/bots", {
-      method: "POST",
-      body: JSON.stringify(bot),
-    }),
-  updateBot: (id: string, updates: Record<string, unknown>) =>
-    request<{ ok: boolean; bot: BotRuntimeMetrics }>(`/bots/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(updates),
-    }),
+  startBot: (id = "bot") =>
+    request<{ ok: boolean }>(`/bots/${id}/start`, { method: "POST" }),
+  stopBot: (id = "bot") =>
+    request<{ ok: boolean }>(`/bots/${id}/stop`, { method: "POST" }),
+  restartBot: (id = "bot") =>
+    request<{ ok: boolean }>(`/bots/${id}/restart`, { method: "POST" }),
+  deployAllCommands: (id = "bot") =>
+    request<{ ok: boolean; message: string }>(
+      `/bots/${id}/deploy-commands-all`,
+      { method: "POST" },
+    ),
   unregisterBot: (id: string) =>
     request<{ ok: boolean }>(`/bots/${id}`, { method: "DELETE" }),
-  startBot: (id: string) =>
-    request<{ ok: boolean }>(`/bots/${id}/start`, { method: "POST" }),
-  stopBot: (id: string) =>
-    request<{ ok: boolean }>(`/bots/${id}/stop`, { method: "POST" }),
-  restartBot: (id: string) =>
-    request<{ ok: boolean }>(`/bots/${id}/restart`, { method: "POST" }),
-  getBotGuilds: (id: string) =>
-    request<{ ok: boolean; guilds: JoinedGuildDetail[] }>(`/bots/${id}/guilds`),
-  deployGuildCommands: (botId: string, guildId: string) =>
-    request<{ ok: boolean; message: string }>(
-      `/bots/${botId}/guilds/${guildId}/deploy-commands`,
-      { method: "POST" },
-    ),
-  deployAllCommands: (botId: string) =>
-    request<{ ok: boolean; message: string }>(
-      `/bots/${botId}/deploy-commands-all`,
-      { method: "POST" },
-    ),
+  registerBot: (botData: Record<string, unknown>) =>
+    request<{ ok: boolean; bot: BotRuntimeMetrics }>("/bots", {
+      method: "POST",
+      body: JSON.stringify(botData),
+    }),
+
 
   // Config
   getConfig: () => request<{ ok: boolean; config: Record<string, unknown> }>("/config"),

@@ -88,13 +88,38 @@ export interface GuildChannelSummary {
   isVoice: boolean;
 }
 
+export interface BotGuildConfig {
+  botName?: string;
+  personalization?: string;
+  personalizationMode?: "overwrite_identity" | "extend" | "overwrite_all";
+  replyChannelIds: string[];
+  ignoredChannelIds: string[];
+  respondToMentions: boolean;
+  systemInstruction?: string;
+  replyDelay?: number;
+  tools?: {
+    googleSearch?: boolean;
+    discord?: boolean;
+  };
+  smartReply?: {
+    enabled?: boolean;
+    mode?: "disabled" | "mentions_and_vocative" | "ambient_intent";
+    ambientConfidenceThreshold?: number;
+    debounceMs?: number;
+    maxDebounceMs?: number;
+    replyStrategy?: "independent" | "coalesced" | "hybrid";
+    silenceDurationMinutes?: number;
+    enableKeywordDismissal?: boolean;
+  };
+}
+
 export interface JoinedGuildDetail {
   id: string;
   name: string;
   icon?: string | null;
   memberCount: number;
   channels: GuildChannelSummary[];
-  botConfig?: Record<string, unknown>;
+  botConfig?: BotGuildConfig;
 }
 
 export interface StoredChatMessage {
@@ -105,3 +130,4 @@ export interface StoredChatMessage {
   displayName?: string;
   timestamp: number;
 }
+

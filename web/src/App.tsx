@@ -84,15 +84,12 @@ export const App: React.FC = () => {
 
   // Fetch guilds when navigating to guilds tab or changing bot
   useEffect(() => {
-    if (currentTab === "guilds" && bots.length > 0) {
-      const activeBot = bots.find((b) => b.status === "ONLINE") || bots[0];
-      if (activeBot) {
-        api.getBotGuilds(activeBot.id).then((res) => {
-          setGuilds(res.guilds || []);
-        });
-      }
+    if (currentTab === "guilds") {
+      api.getGuilds().then((res) => {
+        setGuilds(res.guilds || []);
+      });
     }
-  }, [currentTab, bots]);
+  }, [currentTab]);
 
   const canManage =
     session?.role === "SUPER_ADMIN" || session?.role === "GUILD_ADMIN";
@@ -314,8 +311,8 @@ export const App: React.FC = () => {
             <GuildsExplorer
               guilds={guilds}
               botId={bots[0]?.id || "chatBot"}
-              onDeployCommand={async (botId, guildId) => {
-                await api.deployGuildCommands(botId, guildId);
+              onDeployCommand={async (_botId, guildId) => {
+                await api.deployGuildCommands(guildId);
               }}
               onDeployAll={async (botId) => {
                 await api.deployAllCommands(botId);
