@@ -1,4 +1,4 @@
-import type { Client, Message } from "discord.js";
+import { type Client, Events, type Message } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 import { createMockMessage } from "../../../tests/fixtures/discord";
 import BaseBot, { type BaseBotConfig } from ".././base-bot";
@@ -12,7 +12,11 @@ class TestBot extends BaseBot {
       user: { id: "bot-123", tag: "TestBot#0001" },
       on: vi.fn().mockReturnThis(),
       once: vi.fn().mockImplementation((event, cb) => {
-        if (event === "ready") {
+        if (
+          event === Events.ClientReady ||
+          event === "ready" ||
+          event === "clientReady"
+        ) {
           cb({ user: { tag: "TestBot#0001" } });
         }
         return this.client;

@@ -152,4 +152,12 @@ export default abstract class BaseBot {
       this.client.login(this.config.token);
     });
   }
+
+  getClient(): Client {
+    return this.client;
+  }
+
+  async destroy(): Promise<void> {
+    await this.client.destroy();
+  }
 }
