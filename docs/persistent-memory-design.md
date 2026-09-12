@@ -1,8 +1,7 @@
-# Design Document: Persistent Conversation Memory (OMA-40)
+# Design Document: Persistent Conversation Memory
 
-**Issue**: [OMA-40: Persistent memory](https://linear.app/hungnguyendev/issue/OMA-40/persistent-memory)  
 **Author**: Hung Nguyen  
-**Status**: Proposed (Updated with Feedback)  
+**Status**: Implemented  
 **Date**: 2026-08-26  
 
 ---

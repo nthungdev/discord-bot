@@ -387,5 +387,5 @@ When implementing changes in this codebase, AI agents must adhere to the followi
 3. **Git & Branching Conventions**:
    - Work on feature branches using the format `<username>/<issue-id>` (e.g. `hung/oma-76`).
    - Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`, `chore: ...`).
-   - Pull request titles should be clear and descriptive, referencing the corresponding Linear ticket if applicable: `[OMA-XXX] <title>`.
+   - Pull request titles should be clear and descriptive.
    - When creating a pull request, keep the pull request description concise and high-level.

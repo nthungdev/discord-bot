@@ -23,7 +23,7 @@ const mockTestConfig: AppConfigData = {
 // Configure default test environment variables
 process.env.NODE_ENV = "test";
 process.env.BEARER_TOKEN = "test-bearer-token";
-process.env.CHATBOT_TOKEN = "test-chatbot-token";
+process.env.CHAT_BOT_TOKEN = "test-chatbot-token";
 process.env.POLICE_BOT_TOKEN = "test-policebot-token";
 process.env.PORT = "3001";
 
