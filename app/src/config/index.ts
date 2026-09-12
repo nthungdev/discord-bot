@@ -324,4 +324,13 @@ export class Config {
         throw new Error("Invalid key");
     }
   }
+
+  getBotGuildConfig(
+    botId: string,
+    guildId: string,
+  ): import("./types").BotGuildConfig | undefined {
+    const bots = this.getConfigValue(ConfigParameter.bots);
+    const bot = bots?.[botId as keyof BotsConfig];
+    return bot?.guilds?.[guildId];
+  }
 }

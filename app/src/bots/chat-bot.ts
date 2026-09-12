@@ -642,19 +642,21 @@ export default class ChatBot extends BaseBot {
   config: BaseBotConfig;
   private commands = new Collection<string, AppCommand>();
 
-  constructor(config: BaseBotConfig) {
+  constructor(config: BaseBotConfig, client?: Client) {
     super(config);
     this.config = config;
-    this.client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageReactions,
-      ],
-    });
+    this.client =
+      client ??
+      new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMembers,
+          GatewayIntentBits.GuildVoiceStates,
+          GatewayIntentBits.MessageContent,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.GuildMessageReactions,
+        ],
+      });
     this.handleNewMessage = this.handleNewMessage.bind(this);
     this.listenToReactions();
   }
@@ -698,9 +700,7 @@ export default class ChatBot extends BaseBot {
     console.log(`Loaded ${this.commands.size} commands.`);
   }
 
-  protected async handleNewInteraction(
-    interaction: Interaction,
-  ): Promise<void> {
+  public async handleNewInteraction(interaction: Interaction): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
 
     const command = this.commands.get(interaction.commandName);
@@ -730,14 +730,18 @@ export default class ChatBot extends BaseBot {
     }
   }
 
-  protected async handleNewMessage(message: Message<boolean>): Promise<void> {
+  public async handleNewMessage(
+    message: Message<boolean>,
+    customGuildConfig?: BotGuildConfig,
+  ): Promise<void> {
     if (!isMessageEligible(message)) {
       return;
     }
 
     const channelId = message.channelId;
     const userId = message.author.id;
-    const guildConfig = this.getGuildConfig(message.guildId);
+    const guildConfig =
+      customGuildConfig ?? this.getGuildConfig(message.guildId);
 
     if (handleKeywordDismissal(message, channelId, guildConfig)) {
       return;

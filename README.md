@@ -1,6 +1,6 @@
 # Discord Bot Platform & System Management Portal
 
-A modular, multi-feature Discord bot platform and web management portal written in TypeScript using [Discord.js](https://discord.js.org/), powered by Google GenAI / Vertex AI (Gemini), and managed via a sleek, real-time React 19 + Vite admin web application.
+A modular, multi-feature Discord bot platform and web management portal written in TypeScript using [Discord.js](https://discord.js.org/), powered by Google GenAI / Vertex AI (Gemini), and managed via a React 19 + Vite admin web application.
 
 ---
 
@@ -80,29 +80,7 @@ pnpm install
 cp app/.env.example app/.env.development
 ```
 
-2. Configure the key environment variables in `app/.env.development`:
-
-```env
-# Discord Bot Credentials
-DISCORD_CLIENT_ID=your_discord_client_id
-DISCORD_CLIENT_SECRET=your_discord_client_secret
-DISCORD_OAUTH_REDIRECT_URI=http://localhost:3001/api/v1/auth/discord/callback
-CHATBOT_TOKEN=your_primary_chatbot_token
-POLICE_BOT_TOKEN=your_police_bot_token
-
-# Google GenAI / Gemini
-AI_API_KEY=your_google_ai_studio_api_key
-
-# Security & Sessions
-BEARER_TOKEN=your_super_secret_bearer_token
-SESSION_SECRET=your_session_jwt_secret_key
-BOT_VAULT_ENCRYPTION_KEY=your_aes256_master_vault_key
-ADMIN_DISCORD_USER_IDS=your_discord_user_id
-
-# Server Port
-PORT=3001
-NODE_ENV=development
-```
+2. Configure the key environment variables in `app/.env.development`
 
 ---
 
@@ -182,8 +160,11 @@ pnpm --prefix app docker-prod
 ---
 
 ## 📖 Documentation & Architecture
-- [System Management Web App Design (OMA-46)](docs/web-app-management-design.md)
-- [Smart Reply & Addressee Intent Design (OMA-69)](docs/smart-reply-design.md)
-- [Persistent Conversation Memory Design (OMA-40)](docs/persistent-memory-design.md)
+- [System Architecture & Multi-Server Connection](docs/system-architecture-design.md)
+- [Bot Engine Architecture & Extension Guide](docs/bot-architecture-design.md)
+- [System Management Web App Design](docs/web-app-management-design.md)
+- [Smart Reply & Addressee Intent Design](docs/smart-reply-design.md)
+- [Persistent Conversation Memory Design](docs/persistent-memory-design.md)
 - [Bouncergon Voice Bouncer & Matchmaking Design](docs/bouncergon-design.md)
 - [AI Agent Guidelines](AGENTS.md)
+
