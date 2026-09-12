@@ -1,206 +1,142 @@
-# Discord Chat Bot App
+# Discord Bot Engine & Management API Server (`app`)
 
-## Setup
+The core bot execution engine and modular REST API server for `discord-bot`, powered by Node.js 22, TypeScript 5, Discord.js v14, Google GenAI / Gemini, and Express.
 
-These 6 setup steps are required to run the bots.
+---
 
-### 1. Create Discord application
+## 🚀 Setup & Getting Started
 
-Follow Discord documentation to create a new application and get the client id and tokens for each bot: <https://discord.com/developers/docs/intro>.
+### 1. Discord Developer Application Setup
+1. Create a Discord Application at the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Generate bot tokens for each bot you intend to run (`ChatBot`, `PoliceBot`, etc.).
+3. Under **OAuth2 -> General**, add your redirect URI: `http://localhost:3001/api/v1/auth/discord/callback`.
+4. Copy your **Client ID** and **Client Secret**.
 
-You will need a separate bot token for each bot you intend to run (Chat Bot, Police Bot).
+---
 
-### 2. Create Google Cloud project
+### 2. Google Cloud & Firebase Setup
+1. Create a Google Cloud project with the **Gemini API** / **Vertex AI API** enabled.
+2. Obtain an API Key from Google AI Studio or Cloud Console for `AI_API_KEY`.
+3. Create a Service Account with **Cloud Datastore User** / **Firebase Admin** permissions.
+4. Download the Service Account JSON and save it as `app/service-account.json`.
 
-Follow Google Cloud documentation to create a new project: <https://cloud.google.com/docs/authentication/api-keys#create>.
+---
 
-Save the API Key to be used as the `AI_API_KEY` environment variable.
+### 3. Configure Environment Variables
 
-### 3. Download Google Service Account key
-
-Follow Google Cloud documentation to create a new service account: <https://cloud.google.com/iam/docs/service-accounts-create>.
-
-Download the service account key (JSON file) and save it as `service-account.json` at [./app](./) (see [./service-account.example.json](./service-account.example.json) for reference).
-
-The service account is used by Firebase Admin SDK to authenticate with Firebase Remote Config and (optionally) Cloud Firestore for persistent memory.
-
-### 4. Define environment variables
-
-Copy [.env.example](./.env.example) to `.env.development` and fill in the values.
-
-Key variables:
-
-- `CLIENT_ID` — the Discord application (client) id, used to register slash commands.
-- `CHATBOT_TOKEN` — bot token for the AI chat bot.
-- `POLICE_BOT_TOKEN` — bot token for the moderation / police bot.
-- `AI_API_KEY` — Google Cloud API key used by the `google-genai` provider.
-- `BEARER_TOKEN` — a hard-to-guess shared secret that gates access to the private REST API routes (make up your own value).
-- `SLEEP_REMINDER_SERVER_ID` — the guild id where the sleep-reminder feature is active (optional).
-
-### 5. Create `config.json`
-
-The codebase requires a `config.json` configuration file to run. Copy [./config.example.json](./config.example.json) to `config.json` in the `app/` directory and customize it with your guild IDs, routing rules, and parameters:
+Copy `.env.example` to `.env.development` and populate the values:
 
 ```bash
-# In the app/ directory
+cp .env.example .env.development
+```
+
+| Variable | Description | Default |
+|---|---|---|
+| `DISCORD_CLIENT_ID` | Discord Application Client ID | Required for OAuth2 & commands |
+| `DISCORD_CLIENT_SECRET` | Discord Application Client Secret | Required for OAuth2 |
+| `DISCORD_OAUTH_REDIRECT_URI` | OAuth2 Callback URL | `http://localhost:3001/api/v1/auth/discord/callback` |
+| `CHATBOT_TOKEN` | Primary Gemini AI ChatBot token | Required for default chatbot |
+| `POLICE_BOT_TOKEN` | Police moderation bot token | Optional |
+| `AI_API_KEY` | Google GenAI API key | Required for Gemini models |
+| `BEARER_TOKEN` | Secret bearer token for administrative REST calls | Required |
+| `SESSION_SECRET` | Secret key used to sign Discord OAuth2 session cookies | Random string |
+| `BOT_VAULT_ENCRYPTION_KEY` | AES-256 master key for bot token encryption at rest | 32-char secret |
+| `ADMIN_DISCORD_USER_IDS` | Comma-separated Discord User IDs for Super Admins | `123456789,...` |
+| `MEMORY_STORE_TYPE` | Persistence backend: `local` or `firestore` | `local` (dev) / `firestore` (prod) |
+| `PORT` | Express server port | `3001` |
+
+---
+
+### 4. Configure `config.json`
+
+Copy `config.example.json` to `config.json`:
+
+```bash
 cp config.example.json config.json
 ```
 
-Rules:
+Key configuration parameters (managed locally or synchronized via Firebase Remote Config):
+- `guilds`: Guild-specific routing rules, channel whitelists (`replyChannelIds`, `ignoredChannelIds`), and system prompts (`systemInstruction`).
+- `smartReply`: Smart Reply & Ambient Intent classification configurations (`mode`, `replyStrategy`, `debounceMs`, `classifierModel`).
+- `tools`: Feature flags for extensible tools (`googleSearch`, `discord`).
+- `aiProvider`: `"google-genai"` or `"vertex"`.
+- `aiModelId`: Gemini model identifier (e.g. `gemini-2.0-flash`, `gemini-1.5-pro`).
+- `aiMaxOutputTokens`: Token ceiling per AI response (default: `8192`).
+- `aiMaxConversationHistory`: Sliding-window message turn limit (default: `60`).
+- `guildEmojis`: Mapping of emoji symbols to custom server emoji names.
+- `guildMembers`: Guild roster metadata (real name, pronouns/gender).
 
-- `guilds` contains the guild-specific routing rules for a bot.
-- If a guild is missing from a bot's `guilds` config, that bot ignores the guild entirely.
-- `replyChannelIds` — channels where the bot replies without needing to be @mentioned.
-- `ignoredChannelIds` — channels where the bot never processes messages.
-- `respondToMentions` — whether the bot replies when directly @mentioned outside reply channels.
-- `systemInstruction` (optional) — per-guild bot persona or system instruction prompt.
-- `replyDelay` (optional) — per-guild message debounce delay in milliseconds (defaults to 5000ms).
+---
 
-Key configuration parameters (which can also be managed dynamically via Firebase Remote Config):
+## 📡 REST API & Telemetry Endpoints (`/api/v1/*`)
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `aiProvider` | string | `"google-genai"` | AI provider: `google-genai` or `vertex` |
-| `aiModelId` | string | `"gemini-3.6-flash"` | Model ID (e.g. `gemini-3.6-flash`) |
-| `aiMaxOutputTokens` | number | `8192` | Max tokens per AI response |
-| `aiMaxConversationHistory` | number | `60` | Sliding-window message limit for conversation memory |
-| `memoryStoreType` | string | `"firestore"` | Persistence backend: `local` or `firestore` (see Step 6) |
-| `guildMembers` | JSON | `{}` | Member metadata (nickname, username, gender) per guild |
-| `guildEmojis` | JSON | `{}` | Custom emoji mappings per guild |
+All protected endpoints require either a Discord OAuth2 session cookie (`session_token`) or `Authorization: Bearer <TOKEN>` header.
 
-### 6. Configure persistence (conversation memory)
+### Authentication (`/api/v1/auth`)
+- `GET /api/v1/auth/discord/login` — Initiates Discord OAuth2 login redirect.
+- `GET /api/v1/auth/discord/callback` — Handles OAuth2 callback, verifies admin permissions, sets signed session cookie.
+- `GET /api/v1/auth/me` — Returns current authenticated user session, role, and authorized guilds.
+- `POST /api/v1/auth/logout` — Clears session cookie and invalidates session.
 
-The bot supports two memory store backends for persisting conversation history across restarts.
+### Bot Lifecycle & Registry (`/api/v1/bots`)
+- `GET /api/v1/bots` — List all registered bot instances and runtime telemetry metrics.
+- `POST /api/v1/bots` — Register a new bot instance with AES-256-GCM token encryption.
+- `GET /api/v1/bots/:id` — Get detailed metadata and status for a bot.
+- `PATCH /api/v1/bots/:id` — Update bot metadata or configuration overrides.
+- `DELETE /api/v1/bots/:id` — Unregister and stop a bot instance.
+- `POST /api/v1/bots/:id/start` — Start a registered bot instance.
+- `POST /api/v1/bots/:id/stop` — Stop a running bot instance.
+- `POST /api/v1/bots/:id/restart` — Restart an active bot instance.
+- `GET /api/v1/bots/:id/guilds` — List all joined Discord servers and channel hierarchies.
+- `POST /api/v1/bots/:id/guilds/:guildId/deploy-commands` — Deploy slash commands to a single guild.
+- `POST /api/v1/bots/:id/deploy-commands-all` — Bulk deploy slash commands to all joined guilds.
 
-#### Local file store (development)
+### Dashboard & Telemetry (`/api/v1/dashboard`)
+- `GET /api/v1/dashboard/stats` — High-level system statistics and process memory telemetry.
+- `GET /api/v1/dashboard/events` — Server-Sent Events (SSE) live telemetry tick and activity stream.
 
-When `NODE_ENV=development` or when `memoryStoreType` is `"local"`, the bot automatically writes conversation history to a local JSON file at `app/.data/conversations.json`. The `.data/` directory is created automatically if it does not exist.
+### Configuration (`/api/v1/config`)
+- `GET /api/v1/config` — Retrieve active system configuration.
+- `POST /api/v1/config/reload` — Force running bots to reload configuration from Remote Config / template.
 
-#### Cloud Firestore store (production)
+### Conversation Memory (`/api/v1/memory`)
+- `GET /api/v1/memory/conversations/:botId/:channelId` — Retrieve stored conversation turns for a channel.
+- `DELETE /api/v1/memory/conversations/:botId/:channelId` — Clear conversation history for a channel.
+- `DELETE /api/v1/memory/conversations` — Purge all conversation history across all bots (Super Admin).
 
-When `NODE_ENV=production` or when `memoryStoreType` is `"firestore"`, the bot uses Cloud Firestore. Make sure:
+---
 
-1. Firestore is enabled in your Google Cloud project.
-2. The service account (`service-account.json`) has the **Cloud Datastore User** (or **Firebase Admin SDK Administrator**) IAM role.
-3. Set `memoryStoreType` to `"firestore"` in `config.json` or Remote Config.
+## 🛠️ Development Commands
 
-Conversations are stored in the `conversations` Firestore collection with document IDs in the format `<botId>_<channelId>` (e.g. `1087094723984572416_123456789012345678`).
-
-#### Overriding the store type via environment variable
-
-You can override Remote Config or `config.json` by setting `MEMORY_STORE_TYPE` in your `.env` file:
-
-```env
-# Force local file store regardless of environment
-MEMORY_STORE_TYPE=local
-
-# Force Firestore store
-MEMORY_STORE_TYPE=firestore
-```
-
-## Get Started
-
-Make sure you have done the setup steps first.
-
-### Install
-
-This project uses [pnpm](https://pnpm.io/) as the package manager. If you don't have it installed, you can install it globally with:
-
-```shell
-npm install -g pnpm
-```
-
-Then, install the dependencies with
-
-```shell
-pnpm i
-```
-
-### Develop
-
-```shell
+```bash
+# Start development server with nodemon & ts-node
 pnpm dev
-```
 
-### Run
+# Start development with debugger on port 9229
+pnpm debug
 
-Run the app in production mode.
-
-```shell
+# Build TypeScript to build/
 pnpm build
+
+# Start compiled production server
 pnpm start
-```
 
-### Test
-
-The project uses [Vitest](https://vitest.dev/) for unit, integration, and end-to-end testing, alongside [Supertest](https://github.com/ladjs/supertest) for HTTP API validation:
-
-- **Unit Tests**: Co-located in nested `__tests__/` subdirectories within each module under `src/**/__tests__/` (e.g. `src/utils/__tests__/emoji.test.ts`).
-- **Integration Tests**: Placed under `tests/integration/**/__tests__/`.
-- **E2E Tests**: Placed under `tests/e2e/**/__tests__/`.
-
-```shell
-# Run all tests
+# Run all test suites
 pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
 
 # Run unit tests only
 pnpm test:unit
 
-# Run integration tests only
+# Run integration tests
 pnpm test:integration
 
-# Run E2E tests only
+# Run E2E tests
 pnpm test:e2e
 
-# Generate code coverage report
-pnpm test:coverage
+# Run TypeScript type check
+pnpm typecheck
+
+# Format and lint code with Biome
+pnpm format
+pnpm lint
 ```
-
-### Debug with VS Code
-
-There are debug configurations for VS Code in `.vscode/launch.json`:
-
-- `app: debug start`: Run and debug locally with `ts-node`.
-- `app: debug watch`: Run and debug locally with `nodemon` watcher.
-- `Docker: Attach to Node (port 9229)` / `app: attach (port 9229)`: Attach to an active Node inspector instance on port `9229` (local or Docker container).
-
-## Docker
-
-Docker can be used to run the bot in an isolated container environment for both development and production.
-
-### Commands
-
-From within the `app/` directory (or using `pnpm --prefix app <command>` from the root):
-
-```shell
-# Build the Docker image
-pnpm docker-build
-
-# Run in development mode container
-pnpm docker-dev
-
-# Run in production mode container
-pnpm docker-prod
-```
-
-### Local Development with Docker
-
-When running in development mode via `pnpm docker-dev`:
-- The container is named `chat-bot-dev-server` and uses `compose.development.yaml`.
-- Environment variables are loaded from `.env.development`.
-- The HTTP server port is configurable via the `PORT` environment variable in your environment or `.env.development` (defaults to `3001` if unset):
-  ```shell
-  PORT=3005 pnpm docker-dev
-  ```
-- View real-time container logs:
-  ```shell
-  docker logs -f chat-bot-dev-server
-  ```
-- Stop the development container:
-  ```shell
-  docker compose -f compose.yaml -f compose.development.yaml down
-  ```
-
