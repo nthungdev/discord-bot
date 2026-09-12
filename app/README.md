@@ -32,18 +32,18 @@ cp .env.example .env.development
 
 | Variable | Description | Default |
 |---|---|---|
-| `DISCORD_CLIENT_ID` | Discord Application Client ID | Required for OAuth2 & commands |
-| `DISCORD_CLIENT_SECRET` | Discord Application Client Secret | Required for OAuth2 |
-| `DISCORD_OAUTH_REDIRECT_URI` | OAuth2 Callback URL | `http://localhost:3001/api/v1/auth/discord/callback` |
-| `CHATBOT_TOKEN` | Primary Gemini AI ChatBot token | Required for default chatbot |
-| `POLICE_BOT_TOKEN` | Police moderation bot token | Optional |
+| `DISCORD_TOKEN` | Discord Bot Token from Discord Developer Portal | Required |
+| `DISCORD_CLIENT_ID` | Discord Application Client ID (Used for bot invite link, slash commands & OAuth2) | Required |
+| `DISCORD_CLIENT_SECRET` | Discord Application Client Secret (Used for web portal OAuth2 login) | Required for Portal OAuth2 |
+| `DISCORD_REDIRECT_URI` | Discord OAuth2 Callback URL | `http://localhost:3001/api/v1/auth/discord/callback` |
 | `AI_API_KEY` | Google GenAI API key | Required for Gemini models |
 | `BEARER_TOKEN` | Secret bearer token for administrative REST calls | Required |
 | `SESSION_SECRET` | Secret key used to sign Discord OAuth2 session cookies | Random string |
-| `BOT_VAULT_ENCRYPTION_KEY` | AES-256 master key for bot token encryption at rest | 32-char secret |
 | `ADMIN_DISCORD_USER_IDS` | Comma-separated Discord User IDs for Super Admins | `123456789,...` |
 | `MEMORY_STORE_TYPE` | Persistence backend: `local` or `firestore` | `local` (dev) / `firestore` (prod) |
 | `PORT` | Express server port | `3001` |
+
+
 
 ---
 
