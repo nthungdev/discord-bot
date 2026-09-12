@@ -15,7 +15,7 @@ const DISCORD_API_BASE = "https://discord.com/api/v10";
 authRouter.get("/discord/login", (req, res) => {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const redirectUri =
-    process.env.DISCORD_OAUTH_REDIRECT_URI ||
+    process.env.DISCORD_REDIRECT_URI ||
     `${req.protocol}://${req.get("host")}/api/v1/auth/discord/callback`;
 
   if (!clientId) {
@@ -44,13 +44,14 @@ authRouter.get("/discord/callback", async (req, res, next) => {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
   const redirectUri =
-    process.env.DISCORD_OAUTH_REDIRECT_URI ||
+    process.env.DISCORD_REDIRECT_URI ||
     `${req.protocol}://${req.get("host")}/api/v1/auth/discord/callback`;
 
   if (!(clientId && clientSecret)) {
     res.status(500).json({
       ok: false,
-      message: "Discord OAuth credentials not configured on server",
+      message:
+        "Discord OAuth credentials (DISCORD_CLIENT_ID & DISCORD_CLIENT_SECRET) not configured on server",
     });
     return;
   }
