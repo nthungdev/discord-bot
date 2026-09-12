@@ -1,8 +1,7 @@
-# Design Document: Smart Reply & Multi-User Conversational Intent (OMA-69)
+# Design Document: Smart Reply & Multi-User Conversational Intent
 
-**Issue**: [OMA-69: Smart reply](https://linear.app/hungnguyendev/issue/OMA-69/smart-reply)  
 **Author**: Hung Nguyen  
-**Status**: Proposed / Design Specification (Updated with Hybrid Default & Clean References)  
+**Status**: Implemented  
 **Target Platform**: `discord-bot` (Node.js 22, TypeScript 5, Discord.js v14, Redux Toolkit, Google GenAI / Gemini)  
 **Date**: 2026-09-11  
 
@@ -641,7 +640,7 @@ export interface BotGuildConfig {
 
 ## 14. Implementation Plan & Work Breakdown
 
-Upon approval of this design doc, ticket **OMA-69** will be tracked and delivered in the following progressive phases:
+The smart reply system is delivered in the following progressive phases:
 
 ### Phase 1: Core Redux Batching & Per-User Scheduler
 * Refactor `app/src/features/chatbot.ts` to implement `userMessageBatches`, `activeUserSessions`, and `channelSilenceCooldowns`.
