@@ -2,9 +2,11 @@ name: chat-bot-dev
 
 services:
   server:
-    container_name: server
+    container_name: chat-bot-dev-server
     environment:
       NODE_ENV: development
-    env_file: ./.env.development
+      PORT: ${PORT:-3001}
+    env_file:
+      - ./.env.development
     ports:
-      - 3001:3001
+      - "${PORT:-3001}:${PORT:-3001}"

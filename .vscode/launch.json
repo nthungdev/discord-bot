@@ -42,10 +42,24 @@
       "envFile": "${workspaceFolder}/app/.env.development"
     },
     {
+      "name": "Docker: Attach to Node (port 9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}/app",
+      "remoteRoot": "/app",
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
       "name": "app: attach (port 9229)",
       "type": "node",
       "request": "attach",
       "port": 9229,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}/app",
+      "remoteRoot": "/app",
       "restart": true,
       "skipFiles": ["<node_internals>/**"],
       "cwd": "${workspaceFolder}/app"

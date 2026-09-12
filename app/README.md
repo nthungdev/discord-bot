@@ -161,18 +161,46 @@ pnpm test:coverage
 
 ### Debug with VS Code
 
-There are 2 debug configurations for VS Code
+There are debug configurations for VS Code in `.vscode/launch.json`:
 
-- `app: debug start`: Build, run then debug the app.
-- `app: debug watch`: Build, run then debug the app with watcher enabled.
+- `app: debug start`: Run and debug locally with `ts-node`.
+- `app: debug watch`: Run and debug locally with `nodemon` watcher.
+- `Docker: Attach to Node (port 9229)` / `app: attach (port 9229)`: Attach to an active Node inspector instance on port `9229` (local or Docker container).
 
 ## Docker
 
+Docker can be used to run the bot in an isolated container environment for both development and production.
+
+### Commands
+
+From within the `app/` directory (or using `pnpm --prefix app <command>` from the root):
+
 ```shell
+# Build the Docker image
 pnpm docker-build
 
 # Run in development mode container
 pnpm docker-dev
+
 # Run in production mode container
 pnpm docker-prod
 ```
+
+### Local Development with Docker
+
+When running in development mode via `pnpm docker-dev`:
+- The container is named `chat-bot-dev-server` and uses `compose.development.yaml`.
+- Environment variables are loaded from `.env.development`.
+- The HTTP server port is configurable via the `PORT` environment variable in your environment or `.env.development` (defaults to `3001` if unset):
+  ```shell
+  PORT=3005 pnpm docker-dev
+  ```
+- View real-time container logs:
+  ```shell
+  docker logs -f chat-bot-dev-server
+  ```
+- Stop the development container:
+  ```shell
+  docker compose -f compose.yaml -f compose.development.yaml down
+  ```
+

@@ -17,7 +17,7 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
     "test:coverage": "vitest run --coverage",
-    "debug": "nodemon --inspect src/main.ts",
+    "debug": "nodemon --inspect=0.0.0.0:9229 src/main.ts",
     "dev": "nodemon src/main.ts",
     "start": "NODE_ENV=production node build/src/main.js",
     "docker-build": "docker compose build",
