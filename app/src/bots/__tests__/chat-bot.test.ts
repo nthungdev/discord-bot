@@ -279,4 +279,55 @@ describe("ChatBot", () => {
       expect(mockSend).not.toHaveBeenCalled();
     });
   });
+
+  describe("handleNewInteraction routing", () => {
+    it("should route roast button interaction to RoastService", async () => {
+      const bot = new ChatBot(botConfig);
+      const roastModule = await import("../../services/roast");
+      const handleButtonSpy = vi
+        .spyOn(roastModule.getRoastService(), "handleButtonInteraction")
+        .mockResolvedValue();
+
+      const mockButtonInteraction = {
+        isButton: () => true,
+        customId: "roast:burn:roast-123",
+        guildId: "guild-123",
+      };
+
+      await bot.handleNewInteraction(
+        mockButtonInteraction as unknown as Parameters<
+          typeof bot.handleNewInteraction
+        >[0],
+      );
+      expect(handleButtonSpy).toHaveBeenCalledWith(
+        mockButtonInteraction,
+        expect.any(String),
+        expect.any(Object),
+      );
+    });
+
+    it("should route user context menu interaction to command execution", async () => {
+      const bot = new ChatBot(botConfig);
+      await bot.loadCommands();
+
+      const roastHandler = await import("../../services/roast/handler");
+      const executeSpy = vi
+        .spyOn(roastHandler, "executeRoast")
+        .mockResolvedValue();
+
+      const mockContextMenuInteraction = {
+        isButton: () => false,
+        isChatInputCommand: () => false,
+        isUserContextMenuCommand: () => true,
+        commandName: "Roast User",
+      };
+
+      await bot.handleNewInteraction(
+        mockContextMenuInteraction as unknown as Parameters<
+          typeof bot.handleNewInteraction
+        >[0],
+      );
+      expect(executeSpy).toHaveBeenCalledWith(mockContextMenuInteraction);
+    });
+  });
 });

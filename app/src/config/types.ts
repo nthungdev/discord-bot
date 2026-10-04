@@ -48,6 +48,17 @@ export interface SmartReplyConfig {
   optOutTopicTag?: string;
 }
 
+export interface RoastFeatureConfig {
+  enabled?: boolean;
+  defaultLocale?: "vi" | "en-US";
+  maxIntensity?: "mild" | "medium" | "savage";
+  allowedChannelIds?: string[];
+  ignoredChannelIds?: string[];
+  targetShieldCooldownSeconds?: number;
+  callerCooldownSeconds?: number;
+  allowCounterRoast?: boolean;
+}
+
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
@@ -60,6 +71,7 @@ export interface BotGuildConfig {
   replyDelay?: number;
   tools?: BotGuildToolsConfig;
   smartReply?: SmartReplyConfig;
+  roast?: RoastFeatureConfig;
 }
 
 export interface BotGuildsConfig {

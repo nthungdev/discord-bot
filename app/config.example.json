@@ -55,6 +55,16 @@
             "sendTypingBehavior": "deferred_for_ambient",
             "threadAutoListen": true,
             "optOutTopicTag": "[no-bot]"
+          },
+          "roast": {
+            "enabled": true,
+            "defaultLocale": "vi",
+            "maxIntensity": "savage",
+            "allowedChannelIds": [],
+            "ignoredChannelIds": [],
+            "targetShieldCooldownSeconds": 300,
+            "callerCooldownSeconds": 60,
+            "allowCounterRoast": true
           }
         }
       }

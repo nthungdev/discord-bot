@@ -1,5 +1,5 @@
-import { isAxiosError } from "axios";
 import {
+  type ButtonInteraction,
   Client,
   Collection,
   Events,
@@ -9,17 +9,25 @@ import {
   type Message,
   MessageType,
 } from "discord.js";
+import { isAxiosError } from "axios";
 import type { BotGuildConfig } from "../config/types";
 import { parseCommands } from "../discord/helpers";
 import { buildChatBotSystemInstruction } from "../genAi/helpers";
 import { getAddresseeService } from "../services/addressee";
 import { getMemoryService } from "../services/memory";
+import { getRoastService } from "../services/roast";
+import {
+  ROAST_BUTTON_PREFIX_BURN,
+  ROAST_BUTTON_PREFIX_COUNTER,
+  ROAST_BUTTON_PREFIX_LAUGH,
+} from "../services/roast/types";
 import { chatbotActions, store } from "../store";
 import { getToolRegistry } from "../tools/registry";
 import type { ToolDefinition, ToolExecutionContext } from "../tools/types";
 import type {
   AiPrompt,
   AppCommand,
+  AppCommandInteraction,
   DiscordMessage,
   DiscordUser,
   UserActorInfo,
@@ -637,6 +645,61 @@ function scheduleDebounceTimers(
   }
 }
 
+/**
+ * Determines whether an interaction is a roast button component interaction.
+ */
+function isRoastButtonInteraction(
+  interaction: Interaction,
+): interaction is ButtonInteraction {
+  if (typeof interaction.isButton !== "function" || !interaction.isButton()) {
+    return false;
+  }
+  const customId = interaction.customId;
+  return (
+    customId.startsWith(ROAST_BUTTON_PREFIX_BURN) ||
+    customId.startsWith(ROAST_BUTTON_PREFIX_LAUGH) ||
+    customId.startsWith(ROAST_BUTTON_PREFIX_COUNTER)
+  );
+}
+
+/**
+ * Checks whether an incoming interaction can be dispatched as a command.
+ */
+function isExecutableCommandInteraction(
+  interaction: Interaction,
+): interaction is AppCommandInteraction {
+  const isChatInput =
+    typeof interaction.isChatInputCommand === "function" &&
+    interaction.isChatInputCommand();
+  const isContextMenu =
+    typeof interaction.isUserContextMenuCommand === "function" &&
+    interaction.isUserContextMenuCommand();
+  return Boolean(isChatInput || isContextMenu);
+}
+
+/**
+ * Safely dispatches a command execution with error boundary reply handling.
+ */
+async function dispatchCommandExecution(
+  command: AppCommand,
+  interaction: AppCommandInteraction,
+): Promise<void> {
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    const errorMessage = {
+      content: "There was an error while executing this command!",
+      ephemeral: true,
+    };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(errorMessage);
+    } else {
+      await interaction.reply(errorMessage);
+    }
+  }
+}
+
 export default class ChatBot extends BaseBot {
   protected client: Client;
   config: BaseBotConfig;
@@ -701,10 +764,23 @@ export default class ChatBot extends BaseBot {
   }
 
   public async handleNewInteraction(interaction: Interaction): Promise<void> {
-    if (!interaction.isChatInputCommand()) return;
+    if (isRoastButtonInteraction(interaction)) {
+      const guildConfig = this.getGuildConfig(interaction.guildId);
+      await getRoastService().handleButtonInteraction(
+        interaction,
+        this.client.user?.id ?? "",
+        guildConfig,
+      );
+      return;
+    }
 
-    const command = this.commands.get(interaction.commandName);
+    if (!isExecutableCommandInteraction(interaction)) {
+      return;
+    }
 
+    const command = this.commands.get(interaction.commandName) as
+      | AppCommand
+      | undefined;
     if (!command) {
       console.error(
         `No command matching ${interaction.commandName} was found.`,
@@ -712,22 +788,7 @@ export default class ChatBot extends BaseBot {
       return;
     }
 
-    try {
-      await (command as AppCommand).execute(interaction);
-    } catch (error) {
-      console.error(error);
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.reply({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      }
-    }
+    await dispatchCommandExecution(command, interaction);
   }
 
   public async handleNewMessage(
