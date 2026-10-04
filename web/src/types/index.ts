@@ -111,6 +111,16 @@ export interface BotGuildConfig {
     silenceDurationMinutes?: number;
     enableKeywordDismissal?: boolean;
   };
+  roast?: {
+    enabled?: boolean;
+    defaultLocale?: "vi" | "en-US";
+    maxIntensity?: "mild" | "medium" | "savage";
+    allowedChannelIds?: string[];
+    ignoredChannelIds?: string[];
+    targetShieldCooldownSeconds?: number;
+    callerCooldownSeconds?: number;
+    allowCounterRoast?: boolean;
+  };
 }
 
 export interface JoinedGuildDetail {

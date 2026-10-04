@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   CheckCircle,
   ExternalLink,
+  Flame,
   Hash,
   Save,
   Send,
@@ -34,7 +35,7 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string>("");
   const [savingConfig, setSavingConfig] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"channels" | "persona" | "smartReply">("channels");
+  const [activeTab, setActiveTab] = useState<"channels" | "persona" | "smartReply" | "roast">("channels");
 
   // Active Guild Config Form State
   const [guildConfig, setGuildConfig] = useState<BotGuildConfig>({
@@ -47,6 +48,16 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
       enabled: true,
       mode: "ambient_intent",
       ambientConfidenceThreshold: 0.75,
+    },
+    roast: {
+      enabled: true,
+      defaultLocale: "vi",
+      maxIntensity: "savage",
+      allowedChannelIds: [],
+      ignoredChannelIds: [],
+      targetShieldCooldownSeconds: 300,
+      callerCooldownSeconds: 60,
+      allowCounterRoast: true,
     },
   });
 
@@ -74,6 +85,16 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
               enabled: true,
               mode: "ambient_intent",
               ambientConfidenceThreshold: 0.75,
+            },
+            roast: res.config.roast || {
+              enabled: true,
+              defaultLocale: "vi",
+              maxIntensity: "savage",
+              allowedChannelIds: [],
+              ignoredChannelIds: [],
+              targetShieldCooldownSeconds: 300,
+              callerCooldownSeconds: 60,
+              allowCounterRoast: true,
             },
           });
         }
@@ -329,6 +350,17 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
                 <Shield className="w-3.5 h-3.5" />
                 Smart Reply & Moderation
               </button>
+              <button
+                onClick={() => setActiveTab("roast")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === "roast"
+                    ? "bg-discord-blurple text-white"
+                    : "text-discord-muted hover:text-white"
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-orange-400" />
+                AI Roast / Chan
+              </button>
             </div>
 
             {/* Tab 1: Channels Routing */}
@@ -509,6 +541,159 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
                         className="w-4 h-4 rounded bg-discord-dark border-white/10 text-discord-blurple"
                       />
                       Discord Server Operations
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: AI Roast / Chan */}
+            {activeTab === "roast" && (
+              <div className="space-y-6">
+                <div className="bg-discord-darkest/40 p-4 rounded-xl border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Flame className="w-4 h-4 text-orange-400" />
+                        AI Roast Feature Toggle
+                      </h4>
+                      <p className="text-xs text-discord-muted">
+                        Enable or disable playful AI-powered roasts (/chan and /roast) in this server.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={guildConfig.roast?.enabled ?? true}
+                        onChange={(e) =>
+                          setGuildConfig({
+                            ...guildConfig,
+                            roast: { ...guildConfig.roast, enabled: e.target.checked },
+                          })
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-discord-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-discord-green" />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-discord-darkest/40 p-4 rounded-xl border border-white/5 space-y-2">
+                    <label className="text-xs font-bold text-white uppercase tracking-wider block">
+                      Default Locale / Language
+                    </label>
+                    <p className="text-[11px] text-discord-muted">
+                      Fallback language if Discord user and guild locales are uncalibrated.
+                    </p>
+                    <select
+                      value={guildConfig.roast?.defaultLocale || "vi"}
+                      onChange={(e) =>
+                        setGuildConfig({
+                          ...guildConfig,
+                          roast: {
+                            ...guildConfig.roast,
+                            defaultLocale: e.target.value as "vi" | "en-US",
+                          },
+                        })
+                      }
+                      className="w-full bg-discord-darkest border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-discord-blurple"
+                    >
+                      <option value="vi">Tiếng Việt (Default - "chan")</option>
+                      <option value="en-US">English ("roast")</option>
+                    </select>
+                  </div>
+
+                  <div className="bg-discord-darkest/40 p-4 rounded-xl border border-white/5 space-y-2">
+                    <label className="text-xs font-bold text-white uppercase tracking-wider block">
+                      Maximum Intensity Cap
+                    </label>
+                    <p className="text-[11px] text-discord-muted">
+                      Cap the maximum spiciness tier allowed for members in this server.
+                    </p>
+                    <select
+                      value={guildConfig.roast?.maxIntensity || "savage"}
+                      onChange={(e) =>
+                        setGuildConfig({
+                          ...guildConfig,
+                          roast: {
+                            ...guildConfig.roast,
+                            maxIntensity: e.target.value as "mild" | "medium" | "savage",
+                          },
+                        })
+                      }
+                      className="w-full bg-discord-darkest border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-discord-blurple"
+                    >
+                      <option value="mild">Mild / Nhẹ nhàng (Gentle ribbing)</option>
+                      <option value="medium">Medium / Vừa phải (Sarcastic banter)</option>
+                      <option value="savage">Savage / Cực gắt (Sharp burns)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-discord-darkest/40 p-4 rounded-xl border border-white/5 space-y-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Anti-Harassment & Cooldown Controls
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-discord-text">Caller Cooldown (Seconds)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="3600"
+                        value={guildConfig.roast?.callerCooldownSeconds ?? 60}
+                        onChange={(e) =>
+                          setGuildConfig({
+                            ...guildConfig,
+                            roast: {
+                              ...guildConfig.roast,
+                              callerCooldownSeconds: Number.parseInt(e.target.value, 10) || 0,
+                            },
+                          })
+                        }
+                        className="w-full bg-discord-darkest border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-discord-blurple"
+                      />
+                      <p className="text-[10px] text-discord-muted">Default: 60s per user</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs text-discord-text">Harassment Shield Duration (Seconds)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="3600"
+                        value={guildConfig.roast?.targetShieldCooldownSeconds ?? 300}
+                        onChange={(e) =>
+                          setGuildConfig({
+                            ...guildConfig,
+                            roast: {
+                              ...guildConfig.roast,
+                              targetShieldCooldownSeconds: Number.parseInt(e.target.value, 10) || 0,
+                            },
+                          })
+                        }
+                        className="w-full bg-discord-darkest border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-discord-blurple"
+                      />
+                      <p className="text-[10px] text-discord-muted">Default: 300s (5 min) protection</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/5">
+                    <label className="flex items-center gap-2 text-xs text-discord-text cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={guildConfig.roast?.allowCounterRoast ?? true}
+                        onChange={(e) =>
+                          setGuildConfig({
+                            ...guildConfig,
+                            roast: { ...guildConfig.roast, allowCounterRoast: e.target.checked },
+                          })
+                        }
+                        className="w-4 h-4 rounded bg-discord-dark border-white/10 text-discord-blurple"
+                      />
+                      Enable Counter-Roast Duel Button ([🔄 Chan lại])
                     </label>
                   </div>
                 </div>
