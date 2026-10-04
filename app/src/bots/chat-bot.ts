@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import {
   type ButtonInteraction,
   Client,
@@ -9,7 +10,6 @@ import {
   type Message,
   MessageType,
 } from "discord.js";
-import { isAxiosError } from "axios";
 import type { BotGuildConfig } from "../config/types";
 import { parseCommands } from "../discord/helpers";
 import { buildChatBotSystemInstruction } from "../genAi/helpers";
