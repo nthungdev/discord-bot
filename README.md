@@ -186,4 +186,5 @@ pnpm --prefix app docker-prod
 - [Smart Reply & Addressee Intent Design (OMA-69)](docs/smart-reply-design.md)
 - [Persistent Conversation Memory Design (OMA-40)](docs/persistent-memory-design.md)
 - [Bouncergon Voice Bouncer & Matchmaking Design](docs/bouncergon-design.md)
+- [AI Roast Feature PRD](docs/roast-feature-prd.md)
 - [AI Agent Guidelines](AGENTS.md)
