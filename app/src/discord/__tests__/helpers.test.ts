@@ -21,6 +21,24 @@ describe("discord helpers", () => {
       expect(result).toBe("Hello <@111>!");
     });
 
+    it("should match member nickname when distinct from username", () => {
+      const members: DiscordUser[] = [
+        { id: "333", username: "hungnguyen.dev", nickname: "Hung" },
+      ];
+      const message = "Chào @Hung nhé!";
+      const result = replaceWithUserMentions(message, members);
+      expect(result).toBe("Chào <@333> nhé!");
+    });
+
+    it("should match member nickname with spaces", () => {
+      const members: DiscordUser[] = [
+        { id: "444", username: "john_d", nickname: "John Doe" },
+      ];
+      const message = "Hello @John Doe how are you?";
+      const result = replaceWithUserMentions(message, members);
+      expect(result).toBe("Hello <@444> how are you?");
+    });
+
     it("should leave unmatched mentions unmodified", () => {
       const message = "Hello @charlie!";
       const result = replaceWithUserMentions(message, serverMembers);

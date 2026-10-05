@@ -142,23 +142,29 @@ describe("Roast Ammunition Pipeline", () => {
         "hello team",
         "i missed",
       ]);
-      expect(prompt).toContain("Mục tiêu: @Bob (tên tài khoản: bob)");
+      expect(prompt).toContain(
+        "Mục tiêu: Bob (tên tài khoản: bob, Discord ID: target-1)",
+      );
       expect(prompt).toContain("Vai trò nổi bật: Gamer, Dev");
       expect(prompt).toContain("Hoạt động / Game đang chơi: Valorant");
       expect(prompt).toContain('1. "hello team"');
       expect(prompt).toContain(
         'Chủ đề / Phốt cụ thể cần chan (ưu tiên cao): "feed 0/10"',
       );
+      expect(prompt).toContain("<@target-1>");
     });
 
     it("should build structured English ammunition prompt", () => {
       const enRequest = { ...mockRequest, locale: "en-US" as const };
       const prompt = buildAmmunitionPrompt(enRequest, ["hello team"]);
-      expect(prompt).toContain("Target: @Bob (username: bob)");
+      expect(prompt).toContain(
+        "Target: Bob (username: bob, Discord ID: target-1)",
+      );
       expect(prompt).toContain("Prominent roles: Gamer, Dev");
       expect(prompt).toContain(
         'Specific focus topic / blunder (high priority): "feed 0/10"',
       );
+      expect(prompt).toContain("<@target-1>");
     });
 
     it("should handle inactive target with zero messages gracefully", () => {

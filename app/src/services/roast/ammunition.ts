@@ -184,7 +184,7 @@ export function buildAmmunitionPrompt(
 
   if (locale === "vi") {
     const lines: string[] = [
-      `Mục tiêu: @${target.displayName} (tên tài khoản: ${target.username})`,
+      `Mục tiêu: ${target.displayName} (tên tài khoản: ${target.username}, Discord ID: ${target.id})`,
       `Thời gian trong máy chủ: ${tenure}`,
       `Vai trò nổi bật: ${rolesStr}`,
       `Hoạt động / Game đang chơi: ${activityStr}`,
@@ -205,11 +205,15 @@ export function buildAmmunitionPrompt(
       lines.push(`Chủ đề / Phốt cụ thể cần chan (ưu tiên cao): "${topic}"`);
     }
 
+    lines.push(
+      `Lưu ý định dạng: Tiêu đề tin nhắn đã tự động gắn thẻ Discord của mục tiêu (<@${target.id}>). Trong câu chan, hãy xưng hô trực tiếp tự nhiên (ví dụ: 'bạn', 'cậu', 'ông tướng'). KHÔNG tự ý chèn thẻ '@tên' dạng văn bản thường. Nếu nhắc đích danh, chỉ dùng chính xác thẻ mention Discord: <@${target.id}>.`,
+    );
+
     return lines.join("\n");
   }
 
   const lines: string[] = [
-    `Target: @${target.displayName} (username: ${target.username})`,
+    `Target: ${target.displayName} (username: ${target.username}, Discord ID: ${target.id})`,
     `Server tenure: ${tenure}`,
     `Prominent roles: ${rolesStr}`,
     `Current activity / game: ${activityStr}`,
@@ -229,6 +233,10 @@ export function buildAmmunitionPrompt(
   if (topic) {
     lines.push(`Specific focus topic / blunder (high priority): "${topic}"`);
   }
+
+  lines.push(
+    `Formatting note: The message header already mentions the target (<@${target.id}>). Address them directly with natural pronouns ('you'). DO NOT insert broken plain text '@name' tags. If you must explicitly mention them, use the exact Discord mention format: <@${target.id}>.`,
+  );
 
   return lines.join("\n");
 }
