@@ -1,6 +1,5 @@
 import { isAxiosError } from "axios";
 import {
-  type ButtonInteraction,
   Client,
   Collection,
   Events,
