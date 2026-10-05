@@ -1,43 +1,59 @@
 import type { BotGuildConfig } from "../../config/types";
+import { getGuildLocaleStore } from "../locale/store";
 import { RoastIntensity, type SupportedRoastLocale } from "./types";
 
 /**
- * Resolves the appropriate roast locale according to the priority cascade in PRD 3.6:
- * 1. User client locale (`interaction.locale`)
- * 2. Guild locale (`interaction.guildLocale`)
- * 3. Guild Config Override (`guildConfig.roast?.defaultLocale`)
- * 4. Default fallback: "vi"
+ * Resolves the appropriate roast locale according to the priority cascade:
+ * 1. Persistent Server/Guild Locale Override (`GuildLocaleStore`)
+ * 2. Guild Config Override (`guildConfig.roast?.localeOverride ?? guildConfig.localeOverride`)
+ * 3. User client locale (`interaction.locale`)
+ * 4. Guild Discord locale setting (`interaction.guildLocale`)
+ * 5. Guild Config Default Locale (`guildConfig.roast?.defaultLocale`)
+ * 6. Default fallback: "vi"
  */
+/**
+ * Extracts and maps supported locale prefixes from locale strings.
+ */
+function parseLocalePrefix(
+  locale?: string | null,
+): SupportedRoastLocale | null {
+  if (!locale) return null;
+  const lower = locale.toLowerCase();
+  if (lower.startsWith("vi")) return "vi";
+  if (lower.startsWith("en")) return "en-US";
+  return null;
+}
+
 export function resolveRoastLocale(
-  interaction?: { locale?: string | null; guildLocale?: string | null },
+  interaction?: {
+    locale?: string | null;
+    guildLocale?: string | null;
+    guildId?: string | null;
+  },
   guildConfig?: BotGuildConfig,
 ): SupportedRoastLocale {
-  const userLocale = interaction?.locale?.toLowerCase();
-  if (userLocale) {
-    if (userLocale.startsWith("vi")) {
-      return "vi";
-    }
-    if (userLocale.startsWith("en")) {
-      return "en-US";
-    }
+  // 1. Persistent server-wide locale override
+  const storeLocale = getGuildLocaleStore().getLocale(
+    interaction?.guildId,
+    guildConfig,
+  );
+  if (storeLocale === "vi" || storeLocale === "en-US") {
+    return storeLocale;
   }
 
-  const guildLocale = interaction?.guildLocale?.toLowerCase();
-  if (guildLocale) {
-    if (guildLocale.startsWith("en")) {
-      return "en-US";
-    }
-    if (guildLocale.startsWith("vi")) {
-      return "vi";
-    }
+  // 2. Explicit guild config override
+  const configOverride =
+    guildConfig?.roast?.localeOverride ?? guildConfig?.localeOverride;
+  if (configOverride === "vi" || configOverride === "en-US") {
+    return configOverride;
   }
 
-  const configDefault = guildConfig?.roast?.defaultLocale;
-  if (configDefault === "en-US" || configDefault === "vi") {
-    return configDefault;
-  }
-
-  return "vi";
+  // 3. User client locale -> 4. Discord Guild setting -> 5. Config default -> 6. Fallback 'vi'
+  return (
+    parseLocalePrefix(interaction?.locale) ??
+    parseLocalePrefix(interaction?.guildLocale) ??
+    (guildConfig?.roast?.defaultLocale === "en-US" ? "en-US" : "vi")
+  );
 }
 
 /**
@@ -74,7 +90,8 @@ Nguyên tắc cốt lõi:
 2. Độ dài & Súc tích: Chỉ viết từ 1 đến 3 câu ngắn gọn, đắt giá (tối đa 60 từ). Tuyệt đối không viết đoạn văn dài dòng.
 3. Độ xác thực (Grounding): Tận dụng thông tin ngữ cảnh được cung cấp (tin nhắn gần đây, vai trò, hoạt động chơi game, chủ đề yêu cầu) để câu chan mang tính cá nhân hóa cao.
 4. Định dạng đầu ra: Chỉ trả về nội dung câu chan. Không thêm lời dẫn (ví dụ: 'Đây là câu chan dành cho bạn:'), không để trong dấu ngoặc kép, không xin lỗi.
-5. Ranh giới an toàn: Tuyệt đối tuân thủ không chửi thề thô tục, không xúc phạm danh dự cá nhân, không phân biệt vùng miền, không body shaming.`;
+5. Ranh giới an toàn: Tuyệt đối tuân thủ không chửi thề thô tục, không xúc phạm danh dự cá nhân, không phân biệt vùng miền, không body shaming.
+6. Xưng hô & Đề cập: Tiêu đề tin nhắn đã tự động tag Discord của mục tiêu. Hãy xưng hô tự nhiên trực diện (bạn, cậu, ông tướng), KHÔNG tự chèn '@tên' dạng văn bản thường làm hỏng tính năng mention của Discord.`;
 
 export const ENGLISH_SYSTEM_INSTRUCTION = `You are Slavegon, the witty and sarcastic Discord bot assistant of this server.
 Your task is to write a comedy roast targeting a specific server member.
@@ -84,7 +101,8 @@ Core Guidelines:
 2. Directness: Deliver 1 to 3 punchy sentences (maximum 60 words). Never write long essays or rambling paragraphs.
 3. Grounding: Incorporate the provided ammunition (recent messages, activity, roles, or topic) naturally so the roast feels tailored.
 4. Output Format: Return only the roast text. Do not add conversational intros (like 'Here is your roast:'), quotes, or apologies.
-5. Safety Boundaries: Strictly adhere to non-harassment rules: no hate speech, no vulgar slurs, no body shaming.`;
+5. Safety Boundaries: Strictly adhere to non-harassment rules: no hate speech, no vulgar slurs, no body shaming.
+6. Addressing & Mentions: The message header already mentions the target with their Discord tag. Address them directly using natural pronouns ('you'). Never output plain text '@name' tags that fail to mention properly on Discord.`;
 
 export const INTENSITY_INSTRUCTIONS: Record<
   SupportedRoastLocale,
@@ -127,10 +145,7 @@ export const INTENSITY_LABELS: Record<
 export const ROAST_MESSAGES = {
   vi: {
     header: (targetId: string) => `🔥 **Slavegon chan <@${targetId}>**`,
-    footer: (callerId: string, intensity: string, topic?: string | null) => {
-      const topicPart = topic ? ` · Chủ đề: ${topic}` : "";
-      return `*(Yêu cầu bởi <@${callerId}> · Mức độ: ${intensity}${topicPart})*`;
-    },
+    footer: (callerId: string) => `*(Yêu cầu bởi <@${callerId}>)*`,
     buttonBurn: (count: number) => `🔥 Cay!${count > 0 ? ` (${count})` : ""}`,
     buttonLaugh: (count: number) =>
       `💀 Chết cười${count > 0 ? ` (${count})` : ""}`,
@@ -161,15 +176,24 @@ export const ROAST_MESSAGES = {
     statusOptedOut: "Đã từ chối",
     statusShieldActive: (time: string) => `Đang bật (hết hạn sau ${time})`,
     statusShieldInactive: "Không kích hoạt",
+    previewHeader: (targetId: string) =>
+      `👁️ **Xem trước câu chan dành cho <@${targetId}>**`,
+    previewNotice: () =>
+      "*(Chỉ bạn mới nhìn thấy bản xem trước này. Bấm nút bên dưới để gửi vào kênh hoặc hủy bỏ.)*",
+    buttonPreviewProceed: () => "🚀 Gửi vào kênh",
+    buttonPreviewCancel: () => "❌ Hủy",
+    previewPostedSuccess: () => "✅ Đã đăng câu chan vào kênh!",
+    previewCancelled: () => "❌ Đã hủy câu chan.",
+    previewExpired: () =>
+      "⚠️ Bản xem trước này đã hết hạn hoặc không còn tồn tại.",
+    previewOnlyCaller: () =>
+      "Chỉ người yêu cầu mới có thể sử dụng các nút xem trước này!",
     errorGeneric: () =>
       "Đã có lỗi xảy ra trong quá trình tạo câu chan. Vui lòng thử lại sau!",
   },
   "en-US": {
     header: (targetId: string) => `🔥 **Slavegon's Roast on <@${targetId}>**`,
-    footer: (callerId: string, intensity: string, topic?: string | null) => {
-      const topicPart = topic ? ` · Topic: ${topic}` : "";
-      return `*(Requested by <@${callerId}> · Intensity: ${intensity}${topicPart})*`;
-    },
+    footer: (callerId: string) => `*(Requested by <@${callerId}>)*`,
     buttonBurn: (count: number) => `🔥 Oof!${count > 0 ? ` (${count})` : ""}`,
     buttonLaugh: (count: number) => `💀 Dead${count > 0 ? ` (${count})` : ""}`,
     buttonCounter: () => "🔄 Counter-Roast",
@@ -199,6 +223,18 @@ export const ROAST_MESSAGES = {
     statusOptedOut: "Opted out",
     statusShieldActive: (time: string) => `Active (expires in ${time})`,
     statusShieldInactive: "Inactive",
+    previewHeader: (targetId: string) =>
+      `👁️ **Roast Preview for <@${targetId}>**`,
+    previewNotice: () =>
+      "*(Only you can see this preview. Click a button below to post it to the channel or discard.)*",
+    buttonPreviewProceed: () => "🚀 Post to Channel",
+    buttonPreviewCancel: () => "❌ Discard",
+    previewPostedSuccess: () => "✅ Roast successfully posted to the channel!",
+    previewCancelled: () => "❌ Roast preview discarded.",
+    previewExpired: () =>
+      "⚠️ This roast preview has expired or no longer exists.",
+    previewOnlyCaller: () =>
+      "Only the requester can interact with this preview!",
     errorGeneric: () =>
       "An error occurred while generating the roast. Please try again later!",
   },

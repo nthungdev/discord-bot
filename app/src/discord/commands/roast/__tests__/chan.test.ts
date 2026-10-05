@@ -12,16 +12,22 @@ describe("/chan command", () => {
         "en-US": "roast",
       }),
     );
-    expect(json.options?.length).toBe(4);
+    const options = json.options || [];
+    expect(options.length).toBe(4);
 
-    const targetOpt = json.options?.find((o) => o.name === "muc-tieu");
-    expect(targetOpt).toBeDefined();
-    expect(targetOpt?.required).toBe(true);
+    expect(options[0].name).toBe("muc-tieu");
+    expect(options[0].required).toBe(true);
 
-    const intensityOpt = json.options?.find((o) => o.name === "muc-do");
-    expect(intensityOpt).toBeDefined();
+    expect(options[1].name).toBe("chu-de");
+    expect(options[1].required).toBe(true);
+
+    expect(options[2].name).toBe("muc-do");
+    expect(options[2].required).toBeFalsy();
     // @ts-expect-error choices property check
-    expect(intensityOpt?.choices?.length).toBe(3);
+    expect(options[2].choices?.length).toBe(3);
+
+    expect(options[3].name).toBe("xem-truoc");
+    expect(options[3].required).toBeFalsy();
   });
 
   it("should delegate execution to executeRoast", async () => {

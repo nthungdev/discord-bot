@@ -38,6 +38,20 @@ export const data = new SlashCommandBuilder()
   )
   .addStringOption((option) =>
     option
+      .setName(CommandRoastOptionVi.Topic)
+      .setNameLocalizations({
+        [Locale.Vietnamese]: "chu-de",
+        [Locale.EnglishUS]: "topic",
+      })
+      .setDescription("Chủ đề hoặc phốt cụ thể muốn chan")
+      .setDescriptionLocalizations({
+        [Locale.Vietnamese]: "Chủ đề hoặc phốt cụ thể muốn chan",
+        [Locale.EnglishUS]: "Specific topic or blunder to focus on",
+      })
+      .setRequired(true),
+  )
+  .addStringOption((option) =>
+    option
       .setName(CommandRoastOptionVi.Intensity)
       .setNameLocalizations({
         [Locale.Vietnamese]: "muc-do",
@@ -77,31 +91,17 @@ export const data = new SlashCommandBuilder()
       )
       .setRequired(false),
   )
-  .addStringOption((option) =>
-    option
-      .setName(CommandRoastOptionVi.Topic)
-      .setNameLocalizations({
-        [Locale.Vietnamese]: "chu-de",
-        [Locale.EnglishUS]: "topic",
-      })
-      .setDescription("Chủ đề hoặc phốt cụ thể muốn chan")
-      .setDescriptionLocalizations({
-        [Locale.Vietnamese]: "Chủ đề hoặc phốt cụ thể muốn chan",
-        [Locale.EnglishUS]: "Specific topic or blunder to focus on",
-      })
-      .setRequired(false),
-  )
   .addBooleanOption((option) =>
     option
-      .setName(CommandRoastOptionVi.Ephemeral)
+      .setName(CommandRoastOptionVi.Preview)
       .setNameLocalizations({
-        [Locale.Vietnamese]: "rieng-tu",
-        [Locale.EnglishUS]: "ephemeral",
+        [Locale.Vietnamese]: "xem-truoc",
+        [Locale.EnglishUS]: "preview",
       })
-      .setDescription("Chỉ gửi kết quả cho riêng bạn")
+      .setDescription("Xem trước câu chan trước khi gửi vào kênh")
       .setDescriptionLocalizations({
-        [Locale.Vietnamese]: "Chỉ gửi kết quả cho riêng bạn",
-        [Locale.EnglishUS]: "Send roast only to you ephemerally",
+        [Locale.Vietnamese]: "Xem trước câu chan trước khi gửi vào kênh",
+        [Locale.EnglishUS]: "Preview roast before posting to channel",
       })
       .setRequired(false),
   );

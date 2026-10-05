@@ -47,6 +47,24 @@ describe("Roast i18n and Localization", () => {
       ).toBe("vi");
     });
 
+    it("should prioritize guildConfig localeOverride over user client locale", () => {
+      expect(
+        resolveRoastLocale(
+          { locale: "en-US" },
+          // @ts-expect-error partial config
+          { localeOverride: "vi" },
+        ),
+      ).toBe("vi");
+
+      expect(
+        resolveRoastLocale(
+          { locale: "vi" },
+          // @ts-expect-error partial config
+          { roast: { localeOverride: "en-US" } },
+        ),
+      ).toBe("en-US");
+    });
+
     it("should default to 'vi' as platform default", () => {
       expect(resolveRoastLocale()).toBe("vi");
       expect(resolveRoastLocale({ locale: "es", guildLocale: "es" })).toBe(
@@ -79,24 +97,11 @@ describe("Roast i18n and Localization", () => {
       );
     });
 
-    it("should generate proper Vietnamese and English footers with topic", () => {
-      expect(ROAST_MESSAGES.vi.footer("999", "Cực gắt", "duyệt code")).toBe(
-        "*(Yêu cầu bởi <@999> · Mức độ: Cực gắt · Chủ đề: duyệt code)*",
-      );
+    it("should generate proper Vietnamese and English footers attributing caller", () => {
+      expect(ROAST_MESSAGES.vi.footer("999")).toBe("*(Yêu cầu bởi <@999>)*");
 
-      expect(
-        ROAST_MESSAGES["en-US"].footer("999", "Savage", "code review"),
-      ).toBe(
-        "*(Requested by <@999> · Intensity: Savage · Topic: code review)*",
-      );
-    });
-
-    it("should generate proper footers without topic", () => {
-      expect(ROAST_MESSAGES.vi.footer("999", "Vừa phải", null)).toBe(
-        "*(Yêu cầu bởi <@999> · Mức độ: Vừa phải)*",
-      );
-      expect(ROAST_MESSAGES["en-US"].footer("999", "Medium", null)).toBe(
-        "*(Requested by <@999> · Intensity: Medium)*",
+      expect(ROAST_MESSAGES["en-US"].footer("999")).toBe(
+        "*(Requested by <@999>)*",
       );
     });
 

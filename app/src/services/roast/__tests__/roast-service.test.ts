@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoastCooldownManager } from "../cooldown";
-import { clampIntensity, RoastService } from "../index";
+import {
+  clampIntensity,
+  isRoastButtonInteraction,
+  RoastService,
+} from "../index";
 import type { IRoastOptOutStore } from "../opt-out";
 import {
+  DEFAULT_PREVIEW_TTL_MS,
   MAX_COUNTER_ROAST_CHAIN_DEPTH,
   ROAST_BUTTON_PREFIX_BURN,
   ROAST_BUTTON_PREFIX_COUNTER,
+  ROAST_BUTTON_PREFIX_PREVIEW_CANCEL,
+  ROAST_BUTTON_PREFIX_PREVIEW_PROCEED,
   RoastIntensity,
+  type RoastPreviewRecord,
   type RoastRequest,
 } from "../types";
 
@@ -161,7 +169,7 @@ describe("RoastService", () => {
       }
     });
 
-    it("should reject if target is protected by harassment shield", async () => {
+    it("should allow roast by default even if target was recently roasted (shield off by default)", async () => {
       cooldownManager.recordRoast("guild-1", "someone-else", "target-1");
       const res = await roastService.validateRoastRequest(
         "guild-1",
@@ -169,6 +177,25 @@ describe("RoastService", () => {
         "caller-1",
         "target-1",
         "bot-1",
+      );
+      expect(res.allowed).toBe(true);
+    });
+
+    it("should reject if target is protected by harassment shield when configured in guild", async () => {
+      cooldownManager.recordRoast("guild-1", "someone-else", "target-1");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const guildConfig = {
+        roast: {
+          targetShieldCooldownSeconds: 300,
+        },
+      } as any;
+      const res = await roastService.validateRoastRequest(
+        "guild-1",
+        "chan-1",
+        "caller-1",
+        "target-1",
+        "bot-1",
+        guildConfig,
       );
       expect(res.allowed).toBe(false);
       if (!res.allowed) {
@@ -277,10 +304,25 @@ describe("RoastService", () => {
           .isShielded,
       ).toBe(true);
     });
+
+    it("should post-process raw @displayName or @username mentions into Discord <@id> mentions", async () => {
+      const { generateChatMessageWithGenAi } = await import(
+        "../../../utils/genAi"
+      );
+      vi.mocked(generateChatMessageWithGenAi).mockResolvedValueOnce({
+        content: "Chào @Bob và @Alice, chơi gà lắm @bob!",
+        data: null,
+      });
+
+      const result = await roastService.generateRoast(baseRequest, "bot-1");
+      expect(result.content).toBe(
+        "Chào <@target-1> và <@caller-1>, chơi gà lắm <@target-1>!",
+      );
+    });
   });
 
   describe("buildRoastMessagePayload", () => {
-    it("should format message and components with buttons", () => {
+    it("should format message and components with buttons and allowedMentions", () => {
       const payload = roastService.buildRoastMessagePayload("roast-123", {
         content: "Duyệt code mất 4 ngày.",
         locale: "vi",
@@ -294,8 +336,11 @@ describe("RoastService", () => {
 
       expect(payload.content).toContain("🔥 **Slavegon chan <@target-1>**");
       expect(payload.content).toContain('"Duyệt code mất 4 ngày."');
-      expect(payload.content).toContain("Chủ đề: code review");
+      expect(payload.content).toContain("*(Yêu cầu bởi <@caller-1>)*");
+      expect(payload.content).not.toContain("Chủ đề:");
+      expect(payload.content).not.toContain("Mức độ:");
       expect(payload.components.length).toBe(1);
+      expect(payload.allowedMentions?.parse).toEqual(["users"]);
 
       // Verify 3 buttons: Burn, Laugh, Counter
       const components = payload.components[0].components;
@@ -403,5 +448,287 @@ describe("RoastService", () => {
         }),
       );
     });
+
+    describe("Preview Interaction Flow", () => {
+      const mockPreviewRecord: RoastPreviewRecord = {
+        previewId: "preview-123",
+        guildId: "guild-1",
+        channelId: "chan-1",
+        callerId: "caller-1",
+        targetId: "target-1",
+        result: {
+          content: "Câu chan xem trước cực gắt.",
+          locale: "vi",
+          targetId: "target-1",
+          callerId: "caller-1",
+          intensity: RoastIntensity.Savage,
+          isCounterRoast: false,
+          chainDepth: 0,
+        },
+        createdAt: Date.now(),
+      };
+
+      it("should reject preview proceed if preview has expired or is missing", async () => {
+        const updateMock = vi.fn();
+        const mockInteraction = {
+          customId: `${ROAST_BUTTON_PREFIX_PREVIEW_PROCEED}:non-existent`,
+          user: { id: "caller-1" },
+          guildId: "guild-1",
+          update: updateMock,
+        };
+
+        // @ts-expect-error partial mock
+        await roastService.handleButtonInteraction(mockInteraction, "bot-1");
+        expect(updateMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("hết hạn"),
+            components: [],
+          }),
+        );
+      });
+
+      it("should reject preview proceed if clicked by a non-caller", async () => {
+        roastService.storePreview({ ...mockPreviewRecord });
+        const replyMock = vi.fn();
+        const mockInteraction = {
+          customId: `${ROAST_BUTTON_PREFIX_PREVIEW_PROCEED}:preview-123`,
+          user: { id: "intruder" },
+          guildId: "guild-1",
+          reply: replyMock,
+        };
+
+        // @ts-expect-error partial mock
+        await roastService.handleButtonInteraction(mockInteraction, "bot-1");
+        expect(replyMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("Chỉ người yêu cầu"),
+            ephemeral: true,
+          }),
+        );
+      });
+
+      it("should reject preview proceed if preview record exceeded TTL", async () => {
+        roastService.storePreview({
+          ...mockPreviewRecord,
+          createdAt: Date.now() - DEFAULT_PREVIEW_TTL_MS - 5000,
+        });
+
+        const updateMock = vi.fn();
+        const mockInteraction = {
+          customId: `${ROAST_BUTTON_PREFIX_PREVIEW_PROCEED}:preview-123`,
+          user: { id: "caller-1" },
+          guildId: "guild-1",
+          update: updateMock,
+        };
+
+        // @ts-expect-error partial mock
+        await roastService.handleButtonInteraction(mockInteraction, "bot-1");
+        expect(updateMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("hết hạn"),
+            components: [],
+          }),
+        );
+      });
+
+      it("should successfully post to channel and record cooldown on preview proceed", async () => {
+        roastService.storePreview({ ...mockPreviewRecord });
+
+        const sendMock = vi.fn().mockResolvedValue({});
+        const updateMock = vi.fn().mockResolvedValue({});
+        const mockChannel = {
+          isSendable: () => true,
+          send: sendMock,
+        };
+
+        const mockInteraction = {
+          customId: `${ROAST_BUTTON_PREFIX_PREVIEW_PROCEED}:preview-123`,
+          user: { id: "caller-1" },
+          guildId: "guild-1",
+          channel: mockChannel,
+          client: {
+            user: { id: "bot-1" },
+            channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+          },
+          update: updateMock,
+        };
+
+        // @ts-expect-error partial mock
+        await roastService.handleButtonInteraction(mockInteraction, "bot-1");
+
+        // Channel receives the public roast message
+        expect(sendMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("Câu chan xem trước cực gắt."),
+          }),
+        );
+
+        // Caller cooldown is now recorded
+        expect(
+          cooldownManager.checkCallerCooldown("guild-1", "caller-1", 60)
+            .onCooldown,
+        ).toBe(true);
+
+        // Preview record was cleaned up
+        expect(roastService.getPreview("preview-123")).toBeUndefined();
+
+        // Interaction is updated with confirmation
+        expect(updateMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("Đã đăng câu chan vào kênh!"),
+            components: [],
+          }),
+        );
+      });
+
+      it("should reject cancel if user is not the caller", async () => {
+        roastService.storePreview({ ...mockPreviewRecord });
+        const replyMock = vi.fn();
+        const mockInteraction = {
+          customId: `${ROAST_BUTTON_PREFIX_PREVIEW_CANCEL}:preview-123`,
+          user: { id: "intruder" },
+          guildId: "guild-1",
+          reply: replyMock,
+        };
+
+        // @ts-expect-error partial mock
+        await roastService.handleButtonInteraction(mockInteraction, "bot-1");
+        expect(replyMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("Chỉ người yêu cầu"),
+            ephemeral: true,
+          }),
+        );
+      });
+
+      it("should delete preview and update message with cancelled notice on preview cancel", async () => {
+        roastService.storePreview({ ...mockPreviewRecord });
+        const updateMock = vi.fn().mockResolvedValue({});
+        const mockInteraction = {
+          customId: `${ROAST_BUTTON_PREFIX_PREVIEW_CANCEL}:preview-123`,
+          user: { id: "caller-1" },
+          guildId: "guild-1",
+          update: updateMock,
+        };
+
+        // @ts-expect-error partial mock
+        await roastService.handleButtonInteraction(mockInteraction, "bot-1");
+
+        expect(roastService.getPreview("preview-123")).toBeUndefined();
+        expect(updateMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            content: expect.stringContaining("Đã hủy câu chan."),
+            components: [],
+          }),
+        );
+      });
+    });
+  });
+
+  describe("buildRoastPreviewPayload", () => {
+    it("should format preview message and action buttons", () => {
+      const payload = roastService.buildRoastPreviewPayload("preview-999", {
+        content: "Bạn code như AI tạo vậy.",
+        locale: "vi",
+        targetId: "target-1",
+        callerId: "caller-1",
+        intensity: RoastIntensity.Medium,
+        isCounterRoast: false,
+        chainDepth: 0,
+      });
+
+      expect(payload.content).toContain(
+        "👁️ **Xem trước câu chan dành cho <@target-1>**",
+      );
+      expect(payload.content).toContain('"Bạn code như AI tạo vậy."');
+      expect(payload.content).toContain("Chỉ bạn mới nhìn thấy");
+      expect(payload.components.length).toBe(1);
+
+      const buttons = payload.components[0].components;
+      expect(buttons.length).toBe(2);
+      expect(payload.allowedMentions?.parse).toEqual([]);
+      expect(buttons[0].data).toEqual(
+        expect.objectContaining({
+          custom_id: `${ROAST_BUTTON_PREFIX_PREVIEW_PROCEED}:preview-999`,
+        }),
+      );
+      expect(buttons[1].data).toEqual(
+        expect.objectContaining({
+          custom_id: `${ROAST_BUTTON_PREFIX_PREVIEW_CANCEL}:preview-999`,
+        }),
+      );
+    });
+  });
+
+  describe("generateRoast with skipCooldown", () => {
+    it("should not record caller cooldown if skipCooldown is true", async () => {
+      const req: RoastRequest = {
+        guildId: "guild-cooldown-skip",
+        channelId: "chan-1",
+        locale: "vi",
+        caller: {
+          id: "caller-preview",
+          username: "alice",
+          displayName: "Alice",
+        },
+        target: {
+          id: "target-preview",
+          username: "bob",
+          displayName: "Bob",
+          roles: [],
+        },
+        intensity: RoastIntensity.Medium,
+        skipCooldown: true,
+      };
+
+      await roastService.generateRoast(req, "bot-1");
+
+      expect(
+        cooldownManager.checkCallerCooldown(
+          "guild-cooldown-skip",
+          "caller-preview",
+          60,
+        ).onCooldown,
+      ).toBe(false);
+    });
+  });
+});
+
+describe("isRoastButtonInteraction", () => {
+  it("should recognize all roast button customIds", () => {
+    expect(
+      isRoastButtonInteraction({
+        isButton: () => true,
+        customId: "roast:burn:123",
+      } as unknown as Parameters<typeof isRoastButtonInteraction>[0]),
+    ).toBe(true);
+
+    expect(
+      isRoastButtonInteraction({
+        isButton: () => true,
+        customId: "roast:preview:proceed:123",
+      } as unknown as Parameters<typeof isRoastButtonInteraction>[0]),
+    ).toBe(true);
+
+    expect(
+      isRoastButtonInteraction({
+        isButton: () => true,
+        customId: "roast:preview:cancel:123",
+      } as unknown as Parameters<typeof isRoastButtonInteraction>[0]),
+    ).toBe(true);
+
+    expect(
+      isRoastButtonInteraction({
+        isButton: () => true,
+        customId: "other:action:123",
+      } as unknown as Parameters<typeof isRoastButtonInteraction>[0]),
+    ).toBe(false);
+
+    expect(
+      isRoastButtonInteraction({
+        isButton: () => false,
+        customId: "roast:burn:123",
+      } as unknown as Parameters<typeof isRoastButtonInteraction>[0]),
+    ).toBe(false);
   });
 });

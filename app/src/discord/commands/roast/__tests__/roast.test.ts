@@ -12,16 +12,22 @@ describe("/roast command alias", () => {
         "en-US": "roast",
       }),
     );
-    expect(json.options?.length).toBe(4);
+    const options = json.options || [];
+    expect(options.length).toBe(4);
 
-    const targetOpt = json.options?.find((o) => o.name === "target");
-    expect(targetOpt).toBeDefined();
-    expect(targetOpt?.required).toBe(true);
+    expect(options[0].name).toBe("target");
+    expect(options[0].required).toBe(true);
 
-    const intensityOpt = json.options?.find((o) => o.name === "intensity");
-    expect(intensityOpt).toBeDefined();
+    expect(options[1].name).toBe("topic");
+    expect(options[1].required).toBe(true);
+
+    expect(options[2].name).toBe("intensity");
+    expect(options[2].required).toBeFalsy();
     // @ts-expect-error choices property check
-    expect(intensityOpt?.choices?.length).toBe(3);
+    expect(options[2].choices?.length).toBe(3);
+
+    expect(options[3].name).toBe("preview");
+    expect(options[3].required).toBeFalsy();
   });
 
   it("should delegate execution to executeRoast", async () => {

@@ -8,15 +8,17 @@ export enum RoastIntensity {
 
 export enum CommandRoastOption {
   Target = "target",
-  Intensity = "intensity",
   Topic = "topic",
+  Intensity = "intensity",
+  Preview = "preview",
   Ephemeral = "ephemeral",
 }
 
 export enum CommandRoastOptionVi {
   Target = "muc-tieu",
-  Intensity = "muc-do",
   Topic = "chu-de",
+  Intensity = "muc-do",
+  Preview = "xem-truoc",
   Ephemeral = "rieng-tu",
 }
 
@@ -46,6 +48,7 @@ export interface RoastRequest {
   topic?: string | null;
   isCounterRoast?: boolean;
   chainDepth?: number;
+  skipCooldown?: boolean;
 }
 
 export interface RoastResult {
@@ -57,6 +60,16 @@ export interface RoastResult {
   topic?: string | null;
   isCounterRoast: boolean;
   chainDepth: number;
+}
+
+export interface RoastPreviewRecord {
+  previewId: string;
+  guildId: string;
+  channelId: string;
+  callerId: string;
+  targetId: string;
+  result: RoastResult;
+  createdAt: number;
 }
 
 export interface RoastReactionRecord {
@@ -89,9 +102,12 @@ export type PreflightCheckResult =
 export const ROAST_BUTTON_PREFIX_BURN = "roast:burn";
 export const ROAST_BUTTON_PREFIX_LAUGH = "roast:laugh";
 export const ROAST_BUTTON_PREFIX_COUNTER = "roast:counter";
+export const ROAST_BUTTON_PREFIX_PREVIEW_PROCEED = "roast:preview:proceed";
+export const ROAST_BUTTON_PREFIX_PREVIEW_CANCEL = "roast:preview:cancel";
 
 export const DEFAULT_CALLER_COOLDOWN_SECONDS = 60;
-export const DEFAULT_TARGET_SHIELD_SECONDS = 300;
+export const DEFAULT_TARGET_SHIELD_SECONDS = 0;
+export const DEFAULT_PREVIEW_TTL_MS = 10 * 60 * 1000;
 export const MAX_COUNTER_ROAST_CHAIN_DEPTH = 2;
 export const MAX_RECENT_CHANNEL_MESSAGES_FETCH = 20;
 export const MAX_TARGET_MESSAGES_SAMPLE = 5;

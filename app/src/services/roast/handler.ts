@@ -54,6 +54,8 @@ function parseRoastCommandInputs(
     null;
 
   const ephemeral =
+    interaction.options.getBoolean(CommandRoastOption.Preview) ??
+    interaction.options.getBoolean(CommandRoastOptionVi.Preview) ??
     interaction.options.getBoolean(CommandRoastOption.Ephemeral) ??
     interaction.options.getBoolean(CommandRoastOptionVi.Ephemeral) ??
     false;
@@ -69,6 +71,9 @@ export async function executeRoast(
 ): Promise<void> {
   const guildId = interaction.guildId;
   const channelId = interaction.channelId;
+  console.info(
+    `[RoastHandler] executeRoast starting: command=${interaction.commandName}, user=${interaction.user?.tag ?? interaction.user?.id ?? "unknown"}, guild=${guildId}, channel=${channelId}`,
+  );
 
   if (!(guildId && channelId)) {
     await interaction.reply({
@@ -88,6 +93,7 @@ export async function executeRoast(
     parseRoastCommandInputs(interaction);
 
   if (!targetUser) {
+    console.warn("[RoastHandler] No target user provided or resolved.");
     await interaction.reply({
       content: ROAST_MESSAGES[locale].errorGeneric(),
       ephemeral: true,
@@ -106,6 +112,10 @@ export async function executeRoast(
     targetUser.id,
     botUserId,
     guildConfig,
+  );
+
+  console.info(
+    `[RoastHandler] Preflight result: allowed=${preflight.allowed}, reason=${preflight.allowed ? "OK" : preflight.reasonKey}`,
   );
 
   if (!preflight.allowed) {
@@ -156,6 +166,7 @@ export async function executeRoast(
       topic,
       isCounterRoast: false,
       chainDepth: 0,
+      skipCooldown: ephemeral,
     };
 
     const result = await roastService.generateRoast(
@@ -164,6 +175,25 @@ export async function executeRoast(
       guild,
       recentMessages,
     );
+
+    if (ephemeral) {
+      const previewId = `roast-preview-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      roastService.storePreview({
+        previewId,
+        guildId,
+        channelId,
+        callerId: interaction.user.id,
+        targetId: targetUser.id,
+        result,
+        createdAt: Date.now(),
+      });
+      const previewPayload = roastService.buildRoastPreviewPayload(
+        previewId,
+        result,
+      );
+      await interaction.editReply(previewPayload);
+      return;
+    }
 
     const roastId = `roast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const payload = roastService.buildRoastMessagePayload(

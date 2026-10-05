@@ -75,6 +75,10 @@ export const data = new SlashCommandBuilder()
 export async function execute(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
+  const subcommand = interaction.options.getSubcommand();
+  console.info(
+    `[ShieldCommand] execute: subcommand=${subcommand}, user=${interaction.user?.tag ?? interaction.user?.id ?? "unknown"}, guild=${interaction.guildId}`,
+  );
   const guildId = interaction.guildId;
   if (!guildId) {
     await interaction.reply({
@@ -93,8 +97,6 @@ export async function execute(
   const optOutStore = getRoastOptOutStore();
   const cooldownManager = getRoastCooldownManager();
   const userId = interaction.user.id;
-
-  const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === ShieldSubcommand.OptOut || subcommand === "tu-choi") {
     await optOutStore.optOut(guildId, userId);

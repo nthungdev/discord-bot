@@ -4,6 +4,8 @@ import {
   type ButtonInteraction,
   ButtonStyle,
   type Guild,
+  type Interaction,
+  type MessageMentionOptions,
 } from "discord.js";
 import type { BotGuildConfig } from "../../config/types";
 import type { DiscordUser } from "../../types";
@@ -18,23 +20,28 @@ import {
   ENGLISH_SYSTEM_INSTRUCTION,
   formatDuration,
   INTENSITY_INSTRUCTIONS,
-  INTENSITY_LABELS,
   ROAST_MESSAGES,
   VIETNAMESE_SYSTEM_INSTRUCTION,
 } from "./i18n";
 import { getRoastOptOutStore, type IRoastOptOutStore } from "./opt-out";
 import {
   DEFAULT_CALLER_COOLDOWN_SECONDS,
+  DEFAULT_PREVIEW_TTL_MS,
   DEFAULT_TARGET_SHIELD_SECONDS,
   MAX_COUNTER_ROAST_CHAIN_DEPTH,
   type PreflightCheckResult,
   ROAST_BUTTON_PREFIX_BURN,
   ROAST_BUTTON_PREFIX_COUNTER,
   ROAST_BUTTON_PREFIX_LAUGH,
+  ROAST_BUTTON_PREFIX_PREVIEW_CANCEL,
+  ROAST_BUTTON_PREFIX_PREVIEW_PROCEED,
   RoastIntensity,
+  type RoastCallerActor,
+  type RoastPreviewRecord,
   type RoastReactionRecord,
   type RoastRequest,
   type RoastResult,
+  type RoastTargetActor,
   type SupportedRoastLocale,
 } from "./types";
 
@@ -43,6 +50,18 @@ const INTENSITY_WEIGHT: Record<RoastIntensity, number> = {
   [RoastIntensity.Medium]: 2,
   [RoastIntensity.Savage]: 3,
 };
+
+/**
+ * Determines whether an interaction is a roast button component interaction.
+ */
+export function isRoastButtonInteraction(
+  interaction: Interaction,
+): interaction is ButtonInteraction {
+  if (typeof interaction.isButton !== "function" || !interaction.isButton()) {
+    return false;
+  }
+  return interaction.customId.startsWith("roast:");
+}
 
 /**
  * Clamps requested intensity if guild has configured a lower maximum intensity.
@@ -59,10 +78,39 @@ export function clampIntensity(
   return requested;
 }
 
+/**
+ * Normalizes raw @mention handles into valid Discord user mentions.
+ */
+function normalizeActorMentions(
+  content: string,
+  target: RoastTargetActor,
+  caller: RoastCallerActor,
+): string {
+  let normalized = content;
+  const actors = [
+    {
+      names: [target.displayName, target.nickname, target.username],
+      id: target.id,
+    },
+    { names: [caller.displayName, caller.username], id: caller.id },
+  ];
+
+  for (const actor of actors) {
+    for (const name of actor.names) {
+      if (name) {
+        normalized = normalized.replaceAll(`@${name}`, `<@${actor.id}>`);
+      }
+    }
+  }
+
+  return normalized;
+}
+
 export class RoastService {
   private cooldownManager: RoastCooldownManager;
   private optOutStore: IRoastOptOutStore;
   private activeRoasts = new Map<string, RoastReactionRecord>();
+  private previewStore = new Map<string, RoastPreviewRecord>();
 
   constructor(
     cooldownManager?: RoastCooldownManager,
@@ -217,6 +265,22 @@ export class RoastService {
         }))
       : [];
 
+    // Ensure target and caller are always in users list for mention mapping
+    if (!users.some((u) => u.id === request.target.id)) {
+      users.push({
+        id: request.target.id,
+        username: request.target.username,
+        nickname: request.target.displayName,
+      });
+    }
+    if (!users.some((u) => u.id === request.caller.id)) {
+      users.push({
+        id: request.caller.id,
+        username: request.caller.username,
+        nickname: request.caller.displayName,
+      });
+    }
+
     try {
       const genAi = getGenAi({
         apiKey: process.env.AI_API_KEY,
@@ -234,16 +298,23 @@ export class RoastService {
 
       // Clean wrapping quotes or spaces if any
       const cleaned = content.replace(/^["']|["']$/g, "").trim();
-
-      // Record successful roast cooldowns
-      this.cooldownManager.recordRoast(
-        request.guildId,
-        request.caller.id,
-        request.target.id,
+      const normalizedContent = normalizeActorMentions(
+        cleaned,
+        request.target,
+        request.caller,
       );
 
+      // Record successful roast cooldowns (unless skipped, e.g. for preview)
+      if (!request.skipCooldown) {
+        this.cooldownManager.recordRoast(
+          request.guildId,
+          request.caller.id,
+          request.target.id,
+        );
+      }
+
       return {
-        content: cleaned || ROAST_MESSAGES[locale].errorGeneric(),
+        content: normalizedContent || ROAST_MESSAGES[locale].errorGeneric(),
         locale,
         targetId: request.target.id,
         callerId: request.caller.id,
@@ -277,15 +348,11 @@ export class RoastService {
   ): {
     content: string;
     components: ActionRowBuilder<ButtonBuilder>[];
+    allowedMentions: MessageMentionOptions;
   } {
     const locale = result.locale;
     const header = ROAST_MESSAGES[locale].header(result.targetId);
-    const intensityLabel = INTENSITY_LABELS[locale][result.intensity];
-    const footer = ROAST_MESSAGES[locale].footer(
-      result.callerId,
-      intensityLabel,
-      result.topic,
-    );
+    const footer = ROAST_MESSAGES[locale].footer(result.callerId);
 
     const messageText = `${header}\n"${result.content}"\n\n${footer}`;
 
@@ -338,7 +405,194 @@ export class RoastService {
     return {
       content: messageText,
       components: [actionRow],
+      allowedMentions: {
+        parse: ["users"],
+      },
     };
+  }
+
+  /**
+   * Stores a roast preview awaiting confirmation.
+   */
+  public storePreview(record: RoastPreviewRecord): void {
+    this.previewStore.set(record.previewId, record);
+  }
+
+  /**
+   * Retrieves a roast preview record by ID.
+   */
+  public getPreview(previewId: string): RoastPreviewRecord | undefined {
+    return this.previewStore.get(previewId);
+  }
+
+  /**
+   * Removes a roast preview record by ID.
+   */
+  public removePreview(previewId: string): void {
+    this.previewStore.delete(previewId);
+  }
+
+  /**
+   * Builds the formatted message text and action row buttons for preview confirmation.
+   */
+  public buildRoastPreviewPayload(
+    previewId: string,
+    result: RoastResult,
+  ): {
+    content: string;
+    components: ActionRowBuilder<ButtonBuilder>[];
+    allowedMentions: MessageMentionOptions;
+  } {
+    const locale = result.locale;
+    const header = ROAST_MESSAGES[locale].previewHeader(result.targetId);
+    const notice = ROAST_MESSAGES[locale].previewNotice();
+    const messageText = `${header}\n\n"${result.content}"\n\n${notice}`;
+
+    const proceedButton = new ButtonBuilder()
+      .setCustomId(`${ROAST_BUTTON_PREFIX_PREVIEW_PROCEED}:${previewId}`)
+      .setLabel(ROAST_MESSAGES[locale].buttonPreviewProceed())
+      .setStyle(ButtonStyle.Success);
+
+    const cancelButton = new ButtonBuilder()
+      .setCustomId(`${ROAST_BUTTON_PREFIX_PREVIEW_CANCEL}:${previewId}`)
+      .setLabel(ROAST_MESSAGES[locale].buttonPreviewCancel())
+      .setStyle(ButtonStyle.Secondary);
+
+    const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      proceedButton,
+      cancelButton,
+    );
+
+    return {
+      content: messageText,
+      components: [actionRow],
+      allowedMentions: {
+        parse: [],
+      },
+    };
+  }
+
+  /**
+   * Handles user confirming roast preview to send it to the channel publicly.
+   */
+  private async handlePreviewProceed(
+    interaction: ButtonInteraction,
+    previewId: string,
+    guildConfig?: BotGuildConfig,
+  ): Promise<void> {
+    const record = this.previewStore.get(previewId);
+    const locale = record?.result.locale ?? "vi";
+
+    if (!record) {
+      await interaction.update({
+        content: ROAST_MESSAGES[locale].previewExpired(),
+        components: [],
+      });
+      return;
+    }
+
+    if (interaction.user.id !== record.callerId) {
+      await interaction.reply({
+        content: ROAST_MESSAGES[locale].previewOnlyCaller(),
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (Date.now() - record.createdAt > DEFAULT_PREVIEW_TTL_MS) {
+      this.previewStore.delete(previewId);
+      await interaction.update({
+        content: ROAST_MESSAGES[locale].previewExpired(),
+        components: [],
+      });
+      return;
+    }
+
+    const botUserId = interaction.client.user?.id ?? "";
+    const preflight = await this.validateRoastRequest(
+      record.guildId,
+      record.channelId,
+      record.callerId,
+      record.targetId,
+      botUserId,
+      guildConfig,
+    );
+
+    if (!preflight.allowed) {
+      const notice = this.formatPreflightNotice(
+        preflight,
+        locale,
+        record.targetId,
+      );
+      this.previewStore.delete(previewId);
+      await interaction.update({
+        content: notice,
+        components: [],
+      });
+      return;
+    }
+
+    const channel =
+      interaction.channel ??
+      (await interaction.client.channels
+        .fetch(record.channelId)
+        .catch(() => null));
+
+    if (!channel?.isSendable()) {
+      await interaction.update({
+        content: ROAST_MESSAGES[locale].errorGeneric(),
+        components: [],
+      });
+      return;
+    }
+
+    const roastId = `roast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const publicPayload = this.buildRoastMessagePayload(
+      roastId,
+      record.result,
+      guildConfig?.roast?.allowCounterRoast !== false,
+    );
+
+    await channel.send(publicPayload);
+
+    this.cooldownManager.recordRoast(
+      record.guildId,
+      record.callerId,
+      record.targetId,
+    );
+
+    this.previewStore.delete(previewId);
+
+    await interaction.update({
+      content: ROAST_MESSAGES[locale].previewPostedSuccess(),
+      components: [],
+    });
+  }
+
+  /**
+   * Handles user cancelling roast preview.
+   */
+  private async handlePreviewCancel(
+    interaction: ButtonInteraction,
+    previewId: string,
+  ): Promise<void> {
+    const record = this.previewStore.get(previewId);
+    const locale = record?.result.locale ?? "vi";
+
+    if (record && interaction.user.id !== record.callerId) {
+      await interaction.reply({
+        content: ROAST_MESSAGES[locale].previewOnlyCaller(),
+        ephemeral: true,
+      });
+      return;
+    }
+
+    this.previewStore.delete(previewId);
+
+    await interaction.update({
+      content: ROAST_MESSAGES[locale].previewCancelled(),
+      components: [],
+    });
   }
 
   /**
@@ -515,7 +769,7 @@ export class RoastService {
   }
 
   /**
-   * Handles button click interactions for reactions and counter-roast triggers.
+   * Handles button click interactions for reactions, counter-roast triggers, and preview confirmation.
    */
   public async handleButtonInteraction(
     interaction: ButtonInteraction,
@@ -523,6 +777,23 @@ export class RoastService {
     guildConfig?: BotGuildConfig,
   ): Promise<void> {
     const customId = interaction.customId;
+
+    if (customId.startsWith(ROAST_BUTTON_PREFIX_PREVIEW_PROCEED)) {
+      const previewId = customId.substring(
+        ROAST_BUTTON_PREFIX_PREVIEW_PROCEED.length + 1,
+      );
+      await this.handlePreviewProceed(interaction, previewId, guildConfig);
+      return;
+    }
+
+    if (customId.startsWith(ROAST_BUTTON_PREFIX_PREVIEW_CANCEL)) {
+      const previewId = customId.substring(
+        ROAST_BUTTON_PREFIX_PREVIEW_CANCEL.length + 1,
+      );
+      await this.handlePreviewCancel(interaction, previewId);
+      return;
+    }
+
     const parts = customId.split(":");
     if (parts.length < 3) return;
 
@@ -607,6 +878,7 @@ export class RoastService {
    */
   public clearState(): void {
     this.activeRoasts.clear();
+    this.previewStore.clear();
     this.cooldownManager.clearAll();
   }
 }
