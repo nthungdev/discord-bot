@@ -60,6 +60,7 @@ export default abstract class BaseBot {
         replyDelay: guildConfig.replyDelay,
         tools: guildConfig.tools,
         smartReply: guildConfig.smartReply,
+        roast: guildConfig.roast,
       };
     } catch {
       const guildConfig = this.config.botConfig.guilds?.[guildId];
@@ -78,6 +79,7 @@ export default abstract class BaseBot {
         replyDelay: guildConfig.replyDelay,
         tools: guildConfig.tools,
         smartReply: guildConfig.smartReply,
+        roast: guildConfig.roast,
       };
     }
   }

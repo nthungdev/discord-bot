@@ -135,6 +135,8 @@ export const createMockInteraction = (
     channel,
     channelId: channel.id,
     isChatInputCommand: vi.fn().mockReturnValue(true),
+    isUserContextMenuCommand: vi.fn().mockReturnValue(false),
+    isButton: vi.fn().mockReturnValue(false),
     reply: vi.fn().mockResolvedValue({}),
     deferReply: vi.fn().mockResolvedValue({}),
     editReply: vi.fn().mockResolvedValue({}),

@@ -1,5 +1,12 @@
-import type { ChatInputCommandInteraction } from "discord.js";
+import type {
+  ChatInputCommandInteraction,
+  UserContextMenuCommandInteraction,
+} from "discord.js";
 import type { ToolDefinition, ToolExecutionContext } from "./tools/types";
+
+export type AppCommandInteraction =
+  | ChatInputCommandInteraction
+  | UserContextMenuCommandInteraction;
 
 export type UserActorInfo = {
   userId?: string;
@@ -84,5 +91,5 @@ export type DiscordMessage = {
 };
 
 export type AppCommand = {
-  execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  execute: (interaction: AppCommandInteraction) => Promise<void>;
 };

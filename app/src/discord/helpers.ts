@@ -6,32 +6,45 @@ import type { DiscordUser } from "../types";
 export const replaceWithUserMentions = (
   message: string,
   serverMembers: DiscordUser[],
-) => {
+): string => {
+  if (!(message && serverMembers?.length)) return message;
   let messageWithMentions = message;
-  const mentionMatches = new Set<string>();
-  [...message.matchAll(/(?<=@)((\.?(?:[\w]+\.)*\w+)\.?)/g)].forEach((match) => {
-    const [, withDot, withoutDot] = match;
-    mentionMatches.add(withDot);
-    mentionMatches.add(withoutDot);
-  });
-  // console.log({mentionMatches})
-  if (mentionMatches !== null) {
-    messageWithMentions = [...mentionMatches].reduce(
-      (acc, mentionedUsername) => {
-        const serverMember = serverMembers?.find(
-          (m) => mentionedUsername.toLowerCase() === m.username.toLowerCase(),
-        );
-        return serverMember
-          ? acc.replaceAll(
-              `@${mentionedUsername}`,
-              userMention(serverMember.id),
-            )
-          : acc;
-      },
-      message,
-    );
+
+  // 1. Replace exact @nickname for members with spaces or non-word characters in nickname
+  for (const member of serverMembers) {
+    if (member.nickname?.includes(" ")) {
+      const escaped = member.nickname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`@${escaped}\\b`, "gi");
+      messageWithMentions = messageWithMentions.replace(
+        regex,
+        userMention(member.id),
+      );
+    }
   }
-  return messageWithMentions ?? message;
+
+  // 2. Token-based matching for standard word tokens
+  const mentionMatches = new Set<string>();
+  [...messageWithMentions.matchAll(/(?<=@)((\.?(?:[\w]+\.)*\w+)\.?)/g)].forEach(
+    (match) => {
+      const [, withDot, withoutDot] = match;
+      mentionMatches.add(withDot);
+      mentionMatches.add(withoutDot);
+    },
+  );
+
+  messageWithMentions = [...mentionMatches].reduce((acc, mentionedName) => {
+    const lower = mentionedName.toLowerCase();
+    const serverMember = serverMembers.find(
+      (m) =>
+        lower === m.username.toLowerCase() ||
+        (m.nickname && lower === m.nickname.toLowerCase()),
+    );
+    return serverMember
+      ? acc.replaceAll(`@${mentionedName}`, userMention(serverMember.id))
+      : acc;
+  }, messageWithMentions);
+
+  return messageWithMentions;
 };
 
 export const parseCommands = async () => {

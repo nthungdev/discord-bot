@@ -14,12 +14,14 @@ import { parseCommands } from "../discord/helpers";
 import { buildChatBotSystemInstruction } from "../genAi/helpers";
 import { getAddresseeService } from "../services/addressee";
 import { getMemoryService } from "../services/memory";
+import { getRoastService, isRoastButtonInteraction } from "../services/roast";
 import { chatbotActions, store } from "../store";
 import { getToolRegistry } from "../tools/registry";
 import type { ToolDefinition, ToolExecutionContext } from "../tools/types";
 import type {
   AiPrompt,
   AppCommand,
+  AppCommandInteraction,
   DiscordMessage,
   DiscordUser,
   UserActorInfo,
@@ -637,6 +639,59 @@ function scheduleDebounceTimers(
   }
 }
 
+/**
+ * Checks whether an incoming interaction can be dispatched as a command.
+ */
+function isExecutableCommandInteraction(
+  interaction: Interaction,
+): interaction is AppCommandInteraction {
+  const isChatInput =
+    typeof interaction.isChatInputCommand === "function" &&
+    interaction.isChatInputCommand();
+  const isContextMenu =
+    typeof interaction.isUserContextMenuCommand === "function" &&
+    interaction.isUserContextMenuCommand();
+  return Boolean(isChatInput || isContextMenu);
+}
+
+/**
+ * Safely dispatches a command execution with error boundary reply handling.
+ */
+async function dispatchCommandExecution(
+  command: AppCommand,
+  interaction: AppCommandInteraction,
+): Promise<void> {
+  console.info(
+    `[ChatBot] Executing command: /${interaction.commandName} by ${interaction.user?.tag ?? interaction.user?.id ?? "unknown"}`,
+  );
+  try {
+    await command.execute(interaction);
+    console.info(
+      `[ChatBot] Command /${interaction.commandName} completed successfully`,
+    );
+  } catch (error) {
+    console.error(
+      `[ChatBot] Command /${interaction.commandName} execution error:`,
+      error,
+    );
+    const errorMessage = {
+      content: "There was an error while executing this command!",
+      ephemeral: true,
+    };
+    if (interaction.replied || interaction.deferred) {
+      await interaction
+        .followUp(errorMessage)
+        .catch((err) =>
+          console.error("[ChatBot] Failed to followUp error:", err),
+        );
+    } else {
+      await interaction
+        .reply(errorMessage)
+        .catch((err) => console.error("[ChatBot] Failed to reply error:", err));
+    }
+  }
+}
+
 export default class ChatBot extends BaseBot {
   protected client: Client;
   config: BaseBotConfig;
@@ -696,38 +751,59 @@ export default class ChatBot extends BaseBot {
     const commandsToReg = await parseCommands();
     commandsToReg.forEach((command) => {
       this.commands.set(command.data.name, command);
+      if (
+        "name_localizations" in command.data &&
+        command.data.name_localizations
+      ) {
+        for (const locName of Object.values(command.data.name_localizations)) {
+          if (locName && typeof locName === "string") {
+            this.commands.set(locName, command);
+          }
+        }
+      }
+      if (command.data.name === "roast-shield") {
+        this.commands.set("chan-khien", command);
+      }
+      if (command.data.name === "Roast User") {
+        this.commands.set("Chan người này", command);
+      }
     });
-    console.log(`Loaded ${this.commands.size} commands.`);
+    console.log(`Loaded ${this.commands.size} command bindings.`);
   }
 
   public async handleNewInteraction(interaction: Interaction): Promise<void> {
-    if (!interaction.isChatInputCommand()) return;
+    console.info(
+      `[ChatBot] handleNewInteraction: type=${interaction.type}, isButton=${isRoastButtonInteraction(interaction)}, isCmd=${isExecutableCommandInteraction(interaction)}`,
+    );
 
-    const command = this.commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(
-        `No command matching ${interaction.commandName} was found.`,
+    if (isRoastButtonInteraction(interaction)) {
+      console.info(
+        `[ChatBot] Roast button clicked: ${interaction.customId} by ${interaction.user?.tag ?? interaction.user?.id ?? "unknown"}`,
+      );
+      const guildConfig = this.getGuildConfig(interaction.guildId);
+      await getRoastService().handleButtonInteraction(
+        interaction,
+        this.client.user?.id ?? "",
+        guildConfig,
       );
       return;
     }
 
-    try {
-      await (command as AppCommand).execute(interaction);
-    } catch (error) {
-      console.error(error);
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.reply({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        });
-      }
+    if (!isExecutableCommandInteraction(interaction)) {
+      return;
     }
+
+    const command = this.commands.get(interaction.commandName) as
+      | AppCommand
+      | undefined;
+    if (!command) {
+      console.error(
+        `[ChatBot] No command matching '${interaction.commandName}' was found. Registered: ${Array.from(this.commands.keys()).join(", ")}`,
+      );
+      return;
+    }
+
+    await dispatchCommandExecution(command, interaction);
   }
 
   public async handleNewMessage(
