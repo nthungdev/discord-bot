@@ -6,4 +6,5 @@ export enum DiscordCommand {
   Chan = "chan",
   RoastUser = "Roast User",
   RoastShield = "roast-shield",
+  Locale = "locale",
 }

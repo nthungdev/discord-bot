@@ -212,6 +212,9 @@ export class DiscordBotEngine {
     });
 
     this.client.on(Events.InteractionCreate, (interaction: Interaction) => {
+      console.info(
+        `[DiscordBotEngine] Interaction received: id=${interaction.id}, type=${interaction.type}, isCommand=${interaction.isCommand()}, isButton=${interaction.isButton()}`,
+      );
       this.dispatchInteractionPipeline(interaction).catch((error) => {
         console.error(
           "[DiscordBotEngine] Uncaught error in interaction pipeline:",

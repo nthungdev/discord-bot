@@ -51,6 +51,7 @@ export interface SmartReplyConfig {
 export interface RoastFeatureConfig {
   enabled?: boolean;
   defaultLocale?: "vi" | "en-US";
+  localeOverride?: "vi" | "en-US";
   maxIntensity?: "mild" | "medium" | "savage";
   allowedChannelIds?: string[];
   ignoredChannelIds?: string[];
@@ -69,6 +70,7 @@ export interface BotGuildConfig {
   respondToMentions: boolean;
   systemInstruction?: string;
   replyDelay?: number;
+  localeOverride?: "vi" | "en-US";
   tools?: BotGuildToolsConfig;
   smartReply?: SmartReplyConfig;
   roast?: RoastFeatureConfig;
