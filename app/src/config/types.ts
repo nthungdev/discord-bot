@@ -60,6 +60,10 @@ export interface RoastFeatureConfig {
   allowCounterRoast?: boolean;
 }
 
+export interface ModerationCapabilityConfig {
+  enabled?: boolean;
+}
+
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
@@ -74,6 +78,7 @@ export interface BotGuildConfig {
   tools?: BotGuildToolsConfig;
   smartReply?: SmartReplyConfig;
   roast?: RoastFeatureConfig;
+  moderation?: ModerationCapabilityConfig;
 }
 
 export interface BotGuildsConfig {

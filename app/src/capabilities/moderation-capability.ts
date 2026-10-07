@@ -6,6 +6,10 @@ import type { BotGuildConfig } from "../config/types";
 import { getMetricsService } from "../services/metrics";
 import type { IBotCapability } from "./types";
 
+export interface ModerationCapabilityOptions {
+  enabled?: boolean;
+}
+
 /**
  * Moderation Capability (Police Bot Module)
  * Evaluates messages for hate speech, censored terms, and policy violations.
@@ -14,15 +18,28 @@ import type { IBotCapability } from "./types";
 export class ModerationCapability implements IBotCapability {
   readonly id = "moderation";
   readonly name = "Police Moderation Engine";
+  private enabled: boolean;
+
+  constructor(options?: ModerationCapabilityOptions) {
+    this.enabled =
+      options?.enabled ?? process.env.ENABLE_POLICE_CAPABILITY === "true";
+  }
 
   init(_client: Client, _config: Config): void {
-    console.info("[ModerationCapability] Initialized.");
+    console.info(
+      `[ModerationCapability] Initialized (enabled: ${this.enabled}).`,
+    );
   }
 
   async handleMessage(
     message: Message,
     guildConfig?: BotGuildConfig,
   ): Promise<boolean | undefined> {
+    const isGuildEnabled = guildConfig?.moderation?.enabled ?? this.enabled;
+    if (!isGuildEnabled) {
+      return undefined;
+    }
+
     if (message.author.bot || !message.guild) {
       return undefined;
     }
