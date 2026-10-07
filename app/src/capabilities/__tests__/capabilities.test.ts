@@ -11,9 +11,22 @@ describe("Capability System", () => {
     let mockClient: Client;
 
     beforeEach(() => {
-      capability = new ModerationCapability();
+      capability = new ModerationCapability({ enabled: true });
       mockClient = {} as Client;
       capability.init(mockClient, {} as Config);
+    });
+
+    it("should return undefined when capability is disabled", async () => {
+      const disabledCap = new ModerationCapability({ enabled: false });
+      const mockMessage = {
+        author: { bot: false },
+        guild: { id: "guild-123" },
+        content: "nigger",
+        channelId: "channel-123",
+      } as unknown as Message;
+
+      const result = await disabledCap.handleMessage(mockMessage);
+      expect(result).toBeUndefined();
     });
 
     it("should return undefined for innocent messages", async () => {
@@ -28,7 +41,7 @@ describe("Capability System", () => {
       expect(result).toBeUndefined();
     });
 
-    it("should intercept and return true for violating messages", async () => {
+    it("should intercept and return true for violating messages when enabled", async () => {
       const mockDelete = vi.fn().mockResolvedValue(undefined);
       const mockSend = vi.fn().mockResolvedValue(undefined);
 
@@ -59,6 +72,46 @@ describe("Capability System", () => {
   });
 
   describe("DiscordBotEngine Pipeline", () => {
+    it("should not register ModerationCapability by default when police capabilities are turned off", () => {
+      const mockClient = {
+        on: vi.fn(),
+        once: vi.fn(),
+      } as unknown as Client;
+
+      const prevEnv = process.env.ENABLE_POLICE_CAPABILITY;
+      delete process.env.ENABLE_POLICE_CAPABILITY;
+
+      const engine = new DiscordBotEngine(mockClient);
+      const capabilityIds = engine.getCapabilities().map((c) => c.id);
+
+      expect(capabilityIds).not.toContain("moderation");
+      expect(capabilityIds).toContain("chat");
+
+      process.env.ENABLE_POLICE_CAPABILITY = prevEnv;
+    });
+
+    it("should register ModerationCapability when ENABLE_POLICE_CAPABILITY is 'true'", () => {
+      const mockClient = {
+        on: vi.fn(),
+        once: vi.fn(),
+      } as unknown as Client;
+
+      const prevEnv = process.env.ENABLE_POLICE_CAPABILITY;
+      process.env.ENABLE_POLICE_CAPABILITY = "true";
+
+      const engine = new DiscordBotEngine(mockClient);
+      const capabilityIds = engine.getCapabilities().map((c) => c.id);
+
+      expect(capabilityIds).toContain("moderation");
+      expect(capabilityIds).toContain("chat");
+
+      if (prevEnv !== undefined) {
+        process.env.ENABLE_POLICE_CAPABILITY = prevEnv;
+      } else {
+        delete process.env.ENABLE_POLICE_CAPABILITY;
+      }
+    });
+
     it("should halt pipeline propagation when first capability intercepts", async () => {
       const mockClient = {
         on: vi.fn(),

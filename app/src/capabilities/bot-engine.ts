@@ -38,7 +38,17 @@ export class DiscordBotEngine {
       });
 
     // Register built-in capabilities in pipeline priority order
-    this.registerCapability(new ModerationCapability());
+    const enablePoliceCapability =
+      process.env.ENABLE_POLICE_CAPABILITY === "true";
+
+    if (enablePoliceCapability) {
+      this.registerCapability(new ModerationCapability());
+    } else {
+      console.info(
+        "[DiscordBotEngine] Police capabilities (ModerationCapability / Popogon) are turned off.",
+      );
+    }
+
     this.registerCapability(new ChatCapability());
   }
 

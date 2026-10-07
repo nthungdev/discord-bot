@@ -128,8 +128,9 @@ export interface IBotCapability {
 
 ### 3.2 Built-in Capabilities
 
-1. **`ModerationCapability` (Police)**:
-   - **Priority**: 1 (Runs first in the message pipeline).
+1. **`ModerationCapability` (Police / Popogon)**:
+   - **Status**: Disabled by default (`ENABLE_POLICE_CAPABILITY=false`). When disabled, it is not registered in the pipeline and messages pass directly to downstream capabilities.
+   - **Priority**: 1 (Runs first when enabled).
    - **Responsibilities**: Censors prohibited wordlists, matches forbidden regex patterns, deletes offending messages, issues user warnings, logs moderation audit trails.
    - **Interception**: If a message violates server policies, it deletes the message, logs the incident, and returns `true`, completely halting further processing so `ChatCapability` never generates AI responses to toxic inputs.
 
