@@ -44,6 +44,76 @@ describe("discord helpers", () => {
       const result = replaceWithUserMentions(message, serverMembers);
       expect(result).toBe("Hello @charlie!");
     });
+
+    it("should unwrap backticks enclosing username mentions (`@username` -> <@userId>)", () => {
+      const message = "Hello `@alice` and `@bob.dev`!";
+      const result = replaceWithUserMentions(message, serverMembers);
+      expect(result).toBe("Hello <@111> and <@222>!");
+    });
+
+    it("should unwrap backticks enclosing Discord user snowflake mentions (`<@userId>` -> <@userId>)", () => {
+      const message = "Hello `<@111>` and `<@!222>`!";
+      const result = replaceWithUserMentions(message, serverMembers);
+      expect(result).toBe("Hello <@111> and <@!222>!");
+    });
+
+    it("should resolve bracketed username pseudo-mentions (<@username> -> <@userId>)", () => {
+      const message = "Hello <@alice> and <@bob.dev>!";
+      const result = replaceWithUserMentions(message, serverMembers);
+      expect(result).toBe("Hello <@111> and <@222>!");
+    });
+
+    it("should unwrap backticks around bracketed username pseudo-mentions (`<@username>` -> <@userId>)", () => {
+      const message = "Hello `<@alice>` and `<@bob.dev>`!";
+      const result = replaceWithUserMentions(message, serverMembers);
+      expect(result).toBe("Hello <@111> and <@222>!");
+    });
+
+    it("should unwrap backticks around member nicknames with spaces", () => {
+      const members: DiscordUser[] = [
+        { id: "444", username: "john_d", nickname: "John Doe" },
+      ];
+      const message = "Hello `@John Doe` and `<@John Doe>`!";
+      const result = replaceWithUserMentions(message, members);
+      expect(result).toBe("Hello <@444> and <@444>!");
+    });
+
+    it("should correctly unwrap backticks from the OMA-85 production reproduction payload", () => {
+      const members: DiscordUser[] = [
+        {
+          id: "1062776956623519846",
+          username: "mariner__",
+          nickname: "Mariner",
+        },
+        {
+          id: "1352332790238154884",
+          username: "babypikapika",
+          nickname: "BabyPikapika",
+        },
+      ];
+      const message =
+        'Nào nào bro `<@1062776956623519846>`, tính "thịt" kiểu gì đây? Rán hay xào bro `<@1352332790238154884>` nào? 🦖 Mới bị gõ bonk một cái đã vội gọi tớ vào đòi trảm người ta rồi, kém thế sir!';
+      const result = replaceWithUserMentions(message, members);
+      expect(result).toBe(
+        'Nào nào bro <@1062776956623519846>, tính "thịt" kiểu gì đây? Rán hay xào bro <@1352332790238154884> nào? 🦖 Mới bị gõ bonk một cái đã vội gọi tớ vào đòi trảm người ta rồi, kém thế sir!',
+      );
+    });
+
+    it("should unwrap snowflake mentions even if serverMembers is empty or undefined", () => {
+      const message = "Hello `<@1062776956623519846>`!";
+      expect(replaceWithUserMentions(message)).toBe(
+        "Hello <@1062776956623519846>!",
+      );
+      expect(replaceWithUserMentions(message, [])).toBe(
+        "Hello <@1062776956623519846>!",
+      );
+    });
+
+    it("should preserve non-mention code blocks", () => {
+      const message = 'Run `pnpm test` and check `const user = "<@111>";`';
+      const result = replaceWithUserMentions(message, serverMembers);
+      expect(result).toBe('Run `pnpm test` and check `const user = "<@111>";`');
+    });
   });
 
   describe("parseCommands", () => {
