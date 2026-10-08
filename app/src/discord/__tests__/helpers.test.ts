@@ -114,6 +114,22 @@ describe("discord helpers", () => {
       const result = replaceWithUserMentions(message, serverMembers);
       expect(result).toBe('Run `pnpm test` and check `const user = "<@111>";`');
     });
+
+    it("should preserve multiline fenced code blocks containing mentions", () => {
+      const message = "```\n<@1062776956623519846>\n```";
+      const result = replaceWithUserMentions(message);
+      expect(result).toBe("```\n<@1062776956623519846>\n```");
+    });
+
+    it("should resolve handles for members with numeric usernames or nicknames", () => {
+      const members: DiscordUser[] = [
+        { id: "999", username: "123", nickname: "123" },
+      ];
+      // @123 should resolve to member 999, while <@123> remains raw mention syntax
+      const message = "Hello @123, `@123` and existing <@123>!";
+      const result = replaceWithUserMentions(message, members);
+      expect(result).toBe("Hello <@999>, <@999> and existing <@123>!");
+    });
   });
 
   describe("parseCommands", () => {
