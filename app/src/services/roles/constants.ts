@@ -16,3 +16,12 @@ export const DEFAULT_WITTY_GREETINGS = [
 
 export const DEFAULT_WELCOME_MESSAGE = DEFAULT_WITTY_GREETINGS[0];
 
+export const DEFAULT_WITTY_GREETINGS_VI = [
+  "Xem mèo tha ai về kìa! Chào mừng {user} đến với {server}. Nhớ ngoan ngoãn nha thành viên thứ #{count}!",
+  "Một {user} hoang dã vừa xuất hiện tại {server}! Giờ chúng ta đã có {count} mạng rồi. Giấu đồ ăn đi!",
+  "Chào mừng {user} gia nhập {server}! Đang yên đang lành thì thành viên thứ #{count} xuất hiện.",
+  "Mọi người chuẩn bị tinh thần đi, {user} vừa đáp xuống {server}! Thành viên thứ #{count} ơi, đừng phá phách nhé.",
+  "Chào mừng {user} đến với {server}! Kiếm chỗ ngồi, đừng cho bot ăn linh tinh và tận hưởng vị trí thành viên #{count} nhé!",
+];
+
+export const DEFAULT_WELCOME_MESSAGE_VI = DEFAULT_WITTY_GREETINGS_VI[0];

@@ -48,6 +48,8 @@ export interface OnboardingConfig {
   channelId?: string;
   /** Custom welcome greeting template supporting {user}, {server}, and {count} */
   welcomeMessage?: string;
+  /** Optional locale override ('vi' | 'en-US') for welcome greetings */
+  localeOverride?: string;
   /** Last updated timestamp in milliseconds */
   updatedAt: number;
 }

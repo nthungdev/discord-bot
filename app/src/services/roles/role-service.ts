@@ -5,7 +5,7 @@ import type {
   Role,
   StringSelectMenuInteraction,
 } from "discord.js";
-import { buildWelcomeGreeting } from "./panel-builder";
+import { generateWittyWelcomeGreeting } from "./panel-builder";
 import { getRoleStore } from "./store";
 import type { IRoleStore, RolePanel } from "./types";
 import { type ValidationResult, validateRoleManageable } from "./validation";
@@ -376,7 +376,7 @@ export class RoleService {
    */
   public async handleGuildMemberAdd(member: GuildMember): Promise<void> {
     const config = await this.store.getOnboardingConfig(member.guild.id);
-    if (!config?.enabled || !config.channelId) {
+    if (!(config?.enabled && config.channelId)) {
       return;
     }
 
@@ -390,7 +390,10 @@ export class RoleService {
       return;
     }
 
-    const greeting = buildWelcomeGreeting(config.welcomeMessage, member);
+    const greeting = await generateWittyWelcomeGreeting(
+      member,
+      config.localeOverride,
+    );
 
     try {
       await channel.send({
