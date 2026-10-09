@@ -131,23 +131,28 @@ describe("Role Validation Guardrails", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("should reject roles possessing Administrator or sensitive permissions", () => {
+  it("should reject roles possessing Administrator or sensitive moderation permissions", () => {
     const guild = createMockGuild({ botHighestPos: 20 });
-    const roleAdmin = createMockRole({
-      position: 5,
-      permissions: [PermissionFlagsBits.Administrator],
-    });
-    const resultAdmin = validateRoleManageable(guild, roleAdmin);
-    expect(resultAdmin.valid).toBe(false);
-    expect(resultAdmin.error).toContain("sensitive administrative permissions");
+    const sensitivePerms = [
+      PermissionFlagsBits.Administrator,
+      PermissionFlagsBits.BanMembers,
+      PermissionFlagsBits.ManageChannels,
+      PermissionFlagsBits.ManageMessages,
+      PermissionFlagsBits.ModerateMembers,
+      PermissionFlagsBits.MentionEveryone,
+    ];
 
-    const roleBan = createMockRole({
-      position: 5,
-      permissions: [PermissionFlagsBits.BanMembers],
-    });
-    const resultBan = validateRoleManageable(guild, roleBan);
-    expect(resultBan.valid).toBe(false);
-    expect(resultBan.error).toContain("sensitive administrative permissions");
+    for (const perm of sensitivePerms) {
+      const role = createMockRole({
+        position: 5,
+        permissions: [perm],
+      });
+      const result = validateRoleManageable(guild, role);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain(
+        "sensitive administrative or moderation permissions",
+      );
+    }
   });
 
   it("should reject managed or integration roles", () => {

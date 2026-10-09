@@ -17,6 +17,7 @@ import {
 import type {
   IRoleStore,
   RoleComponentType,
+  RoleOption,
   RolePanel,
   RoleSelectionMode,
 } from "../../../services/roles/types";
@@ -34,6 +35,7 @@ export const data = new SlashCommandBuilder()
         opt
           .setName("id")
           .setDescription("Unique panel slug (e.g. notifications, colors)")
+          .setMaxLength(40)
           .setRequired(true),
       )
       .addStringOption((opt) =>
@@ -170,6 +172,16 @@ async function handleCreate(
   store: IRoleStore,
 ): Promise<void> {
   const id = interaction.options.getString("id", true).trim().toLowerCase();
+  const PANEL_ID_REGEX = /^[a-z0-9_-]{1,40}$/;
+  if (!PANEL_ID_REGEX.test(id)) {
+    await interaction.reply({
+      content:
+        "⚠️ Panel ID must be 1-40 alphanumeric characters, hyphens, or underscores (no colons or special characters).",
+      ephemeral: true,
+    });
+    return;
+  }
+
   const title = interaction.options.getString("title", true).trim();
   const type = interaction.options.getString("type", true) as RoleComponentType;
   const mode = (interaction.options.getString("mode") ??
@@ -262,12 +274,13 @@ async function handleAddRole(
     return;
   }
 
-  panel.roles.push({
+  const roleOption: RoleOption = {
     roleId: role.id,
     label,
-    emoji: emoji || undefined,
-    description: description || undefined,
-  });
+    ...(emoji ? { emoji } : {}),
+    ...(description ? { description } : {}),
+  };
+  panel.roles.push(roleOption);
   panel.updatedAt = Date.now();
 
   await store.savePanel(panel);

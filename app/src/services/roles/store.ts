@@ -121,6 +121,25 @@ export class LocalFileRoleStore implements IRoleStore {
   }
 }
 
+/**
+ * Recursively removes undefined fields from an object to ensure safe Firestore serialization.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined || typeof data !== "object") {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result as T;
+}
+
 export class FirestoreRoleStore implements IRoleStore {
   private panelCollectionName = "role_panels";
   private onboardingCollectionName = "role_onboarding";
@@ -168,7 +187,7 @@ export class FirestoreRoleStore implements IRoleStore {
       await this.getDb()
         .collection(this.panelCollectionName)
         .doc(this.getPanelDocId(panel.guildId, panel.id))
-        .set(panel);
+        .set(sanitizeForFirestore(panel));
     } catch (error) {
       console.error("[FirestoreRoleStore] savePanel error:", error);
       throw error;
@@ -208,7 +227,7 @@ export class FirestoreRoleStore implements IRoleStore {
       await this.getDb()
         .collection(this.onboardingCollectionName)
         .doc(config.guildId)
-        .set(config);
+        .set(sanitizeForFirestore(config));
     } catch (error) {
       console.error("[FirestoreRoleStore] saveOnboardingConfig error:", error);
       throw error;
