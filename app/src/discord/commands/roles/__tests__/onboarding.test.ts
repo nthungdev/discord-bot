@@ -15,6 +15,7 @@ describe("/role-onboarding Slash Command", () => {
     mockStore = {
       getPanel: vi.fn(),
       getPanelsByGuild: vi.fn(),
+      getPanelByMessageId: vi.fn(),
       savePanel: vi.fn(),
       deletePanel: vi.fn(),
       getOnboardingConfig: vi.fn(),
