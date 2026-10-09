@@ -350,6 +350,44 @@ describe("RoleService", () => {
       expect(mockTargetRoles.remove).toHaveBeenCalledWith("role-1");
       expect(result.message).toContain("Revoked **@VIP**");
     });
+
+    it("should revoke an already-assigned role even if it has sensitive moderation permissions", async () => {
+      const role = {
+        ...createMockRole("role-mod", "Moderator", 5),
+        permissions: {
+          has: (perm: bigint) => perm === PermissionFlagsBits.ManageChannels,
+        },
+      } as unknown as Role;
+      const rolesMap = new Map([["role-mod", role]]);
+      const mockGuild = createMockGuild(rolesMap);
+
+      const mockCaller = {
+        id: "mod-1",
+        roles: { highest: { position: 20 } },
+      } as unknown as GuildMember;
+
+      const mockTargetRoles = {
+        cache: new Map([["role-mod", role]]),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockTarget = {
+        id: "target-1",
+        user: { tag: "TargetUser#1234" },
+        roles: mockTargetRoles,
+      } as unknown as GuildMember;
+
+      const result = await roleService.removeRole(
+        mockGuild,
+        mockCaller,
+        mockTarget,
+        role,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockTargetRoles.remove).toHaveBeenCalledWith("role-mod");
+      expect(result.message).toContain("Revoked **@Moderator**");
+    });
   });
 
   describe("handleGuildMemberAdd", () => {
@@ -402,6 +440,7 @@ describe("RoleService", () => {
       expect(mockStore.getPanel).not.toHaveBeenCalled();
       expect(mockChannelSend).toHaveBeenCalledWith({
         content: expect.stringContaining("<@user-new>"),
+        allowedMentions: { users: ["user-new"], parse: [] },
       });
     });
 
@@ -442,6 +481,7 @@ describe("RoleService", () => {
 
       expect(mockChannelSend).toHaveBeenCalledWith({
         content: expect.stringContaining("<@user-new>"),
+        allowedMentions: { users: ["user-new"], parse: [] },
       });
     });
   });

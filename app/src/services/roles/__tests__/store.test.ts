@@ -159,14 +159,54 @@ describe("RoleStore", () => {
       const panel = await store.getPanel("guild-1", "notifications");
       expect(panel?.id).toBe("notifications");
 
-      await store.savePanel(samplePanel);
-      expect(mockDocSet).toHaveBeenCalledWith(samplePanel);
+      const panelWithUndefined: RolePanel = {
+        ...samplePanel,
+        roles: [
+          {
+            roleId: "role-1",
+            label: "Role 1",
+            emoji: undefined,
+            description: undefined,
+          },
+        ],
+      };
+
+      await store.savePanel(panelWithUndefined);
+      expect(mockDocSet).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          roles: [
+            expect.objectContaining({
+              emoji: undefined,
+            }),
+          ],
+        }),
+      );
 
       await store.deletePanel("guild-1", "notifications");
       expect(mockDocDelete).toHaveBeenCalled();
 
       const panels = await store.getPanelsByGuild("guild-1");
       expect(panels.length).toBe(1);
+    });
+
+    it("should strip undefined values in sanitizeForFirestore", async () => {
+      const { sanitizeForFirestore } = await import("../store");
+      const dirty = {
+        a: "hello",
+        b: undefined,
+        nested: {
+          c: 123,
+          d: undefined,
+        },
+        arr: [{ x: 1, y: undefined }],
+      };
+      const cleaned = sanitizeForFirestore(dirty);
+      expect(cleaned).toEqual({
+        a: "hello",
+        nested: { c: 123 },
+        arr: [{ x: 1 }],
+      });
+      expect(cleaned).not.toHaveProperty("b");
     });
   });
 

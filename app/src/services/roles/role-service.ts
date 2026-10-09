@@ -8,7 +8,11 @@ import type {
 import { generateWittyWelcomeGreeting } from "./panel-builder";
 import { getRoleStore } from "./store";
 import type { IRoleStore, RolePanel } from "./types";
-import { type ValidationResult, validateRoleManageable } from "./validation";
+import {
+  type ValidationResult,
+  validateRoleManageable,
+  validateRoleRevocable,
+} from "./validation";
 
 /**
  * Executes role addition or removal for a button interaction.
@@ -78,12 +82,21 @@ function computeDropdownDiff(
  */
 function validateDropdownRoles(
   guild: Guild,
-  roleIds: readonly string[],
+  rolesToAdd: readonly string[],
+  rolesToRemove: readonly string[],
 ): ValidationResult {
-  for (const rId of roleIds) {
+  for (const rId of rolesToAdd) {
     const r = guild.roles.cache.get(rId);
     if (!r) continue;
     const val = validateRoleManageable(guild, r);
+    if (!val.valid) {
+      return val;
+    }
+  }
+  for (const rId of rolesToRemove) {
+    const r = guild.roles.cache.get(rId);
+    if (!r) continue;
+    const val = validateRoleRevocable(guild, r);
     if (!val.valid) {
       return val;
     }
@@ -189,7 +202,11 @@ export class RoleService {
       return;
     }
 
-    const validation = validateRoleManageable(guild, role);
+    const isRevocation =
+      panel.mode === "multi" && member.roles.cache.has(role.id);
+    const validation = isRevocation
+      ? validateRoleRevocable(guild, role)
+      : validateRoleManageable(guild, role);
     if (!validation.valid) {
       await interaction.editReply({
         content: `⚠️ Unable to update roles: ${validation.error ?? "Role hierarchy restriction."}`,
@@ -262,10 +279,7 @@ export class RoleService {
       return;
     }
 
-    const validation = validateDropdownRoles(guild, [
-      ...rolesToAdd,
-      ...rolesToRemove,
-    ]);
+    const validation = validateDropdownRoles(guild, rolesToAdd, rolesToRemove);
     if (!validation.valid) {
       await interaction.editReply({
         content: `⚠️ Unable to update roles: ${validation.error ?? "Hierarchy restriction."}`,
@@ -341,7 +355,7 @@ export class RoleService {
     targetMember: GuildMember,
     role: Role,
   ): Promise<{ success: boolean; message: string }> {
-    const validation = validateRoleManageable(guild, role, caller);
+    const validation = validateRoleRevocable(guild, role, caller);
     if (!validation.valid) {
       return {
         success: false,
@@ -398,6 +412,7 @@ export class RoleService {
     try {
       await channel.send({
         content: greeting,
+        allowedMentions: { users: [member.id], parse: [] },
       });
     } catch (error) {
       console.error(

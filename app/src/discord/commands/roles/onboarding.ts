@@ -86,7 +86,7 @@ async function handleSet(
     guildId: guild.id,
     enabled,
     channelId: targetChannel.id,
-    localeOverride,
+    ...(localeOverride ? { localeOverride } : {}),
     updatedAt: Date.now(),
   };
 
