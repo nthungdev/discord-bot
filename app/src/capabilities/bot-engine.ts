@@ -25,6 +25,7 @@ export class DiscordBotEngine {
   private status: BotLifecycleStatus = "STOPPED";
   private startTime = 0;
   private token = "";
+  private eventsBound = false;
 
   constructor(client?: Client) {
     this.client =
@@ -143,6 +144,7 @@ export class DiscordBotEngine {
       }
     }
     this.client.destroy();
+    this.eventsBound = false;
     this.status = "STOPPED";
   }
 
@@ -211,6 +213,9 @@ export class DiscordBotEngine {
   }
 
   private bindEvents(): void {
+    if (this.eventsBound) return;
+    this.eventsBound = true;
+
     this.client.once(Events.ClientReady, (readyClient) => {
       console.info(`[DiscordBotEngine] Client ready: @${readyClient.user.tag}`);
     });

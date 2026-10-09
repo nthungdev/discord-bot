@@ -16,6 +16,7 @@ import {
   DEFAULT_WELCOME_MESSAGE_VI,
   DEFAULT_WITTY_GREETINGS,
   DEFAULT_WITTY_GREETINGS_VI,
+  DISCORD_MAX_MESSAGE_LENGTH,
   MAX_BUTTONS_PER_ROW,
   MAX_DROPDOWN_OPTIONS,
   MAX_TOTAL_BUTTONS,
@@ -306,6 +307,14 @@ export async function generateWittyWelcomeGreeting(
           : `Chào mừng <@${member.id}>!`;
         content = `${prefix} ${content}`;
       }
+
+      if (content.length > DISCORD_MAX_MESSAGE_LENGTH) {
+        console.warn(
+          `[RoleService] Generated witty welcome greeting exceeds ${DISCORD_MAX_MESSAGE_LENGTH} characters (${content.length}), falling back to curated greeting.`,
+        );
+        return buildWelcomeGreeting(undefined, member, localeOverride);
+      }
+
       return content;
     }
   } catch (error) {

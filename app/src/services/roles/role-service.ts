@@ -5,6 +5,7 @@ import type {
   Role,
   StringSelectMenuInteraction,
 } from "discord.js";
+import { DISCORD_MAX_MESSAGE_LENGTH } from "./constants";
 import { generateWittyWelcomeGreeting } from "./panel-builder";
 import { getRoleStore } from "./store";
 import type { IRoleStore, RolePanel } from "./types";
@@ -408,10 +409,14 @@ export class RoleService {
       member,
       config.localeOverride,
     );
+    const content =
+      greeting.length > DISCORD_MAX_MESSAGE_LENGTH
+        ? greeting.slice(0, DISCORD_MAX_MESSAGE_LENGTH)
+        : greeting;
 
     try {
       await channel.send({
-        content: greeting,
+        content,
         allowedMentions: { users: [member.id], parse: [] },
       });
     } catch (error) {
