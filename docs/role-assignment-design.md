@@ -139,6 +139,8 @@ export interface OnboardingConfig {
   channelId?: string;
   /** Custom welcome greeting template supporting {user}, {server}, and {count} */
   welcomeMessage?: string;
+  /** Optional locale override ('vi' | 'en-US') for welcome greetings */
+  localeOverride?: string;
   /** Last updated timestamp in milliseconds */
   updatedAt: number;
 }
@@ -363,6 +365,7 @@ sequenceDiagram
     participant Engine as DiscordBotEngine
     participant RoleCap as RoleCapability
     participant Store as IRoleStore
+    participant GenAI as Google GenAI (getGenAi)
     participant DiscordAPI as Discord API (#welcome channel)
 
     Gateway->>Engine: Events.GuildMemberAdd (member)
@@ -373,7 +376,8 @@ sequenceDiagram
     else Onboarding Enabled
         alt Target Channel Configured
             RoleCap->>DiscordAPI: fetchChannel(config.channelId)
-            Note over RoleCap, DiscordAPI: Format witty greeting with {user}, {server}, {count}
+            RoleCap->>GenAI: generateWittyWelcomeGreeting(member)
+            GenAI-->>RoleCap: AI-generated witty greeting
             RoleCap->>DiscordAPI: channel.send({ content: greeting })
         end
     end

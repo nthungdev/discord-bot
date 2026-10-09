@@ -136,6 +136,7 @@ sequenceDiagram
     participant Discord as Discord Gateway
     participant Bot as Bot Onboarding Handler
     participant Store as Role Store
+    participant GenAI as Google GenAI / Gemini
     participant WelcomeCh as Welcome Channel (#welcome)
 
     Member->>Discord: Joins Guild
@@ -144,18 +145,16 @@ sequenceDiagram
     alt Onboarding Disabled or Unconfigured
         Bot-->>Discord: No action taken
     else Onboarding Enabled
-        Bot->>WelcomeCh: Send Witty Greeting
-        Note over WelcomeCh: Witty greeting template with {user}, {server}, {count}
+        Bot->>GenAI: Generate witty, playful welcome message
+        GenAI-->>Bot: AI-generated greeting (falls back to curated greetings)
+        Bot->>WelcomeCh: Send Witty Greeting (<@Member>)
     end
 ```
 
 #### Onboarding Configuration Attributes
 * **`enabled` (boolean)**: Master toggle for onboarding in the guild.
-* **`channelId` (string)**: Dedicated text channel where the welcome message is posted.
-* **`welcomeMessage` (string, optional)**: Customizable template text (falls back to rotating witty greetings). Supports template variables:
-  * `{user}`: Mentions the joining member (e.g. `<@123456789>`).
-  * `{server}`: Guild name (e.g. `My Gaming Community`).
-  * `{count}`: Total server member count.
+* **`channelId` (string)**: Dedicated text channel where the AI-generated welcome message is posted.
+* **Greeting Generation**: Dynamically generated via Google GenAI (`getGenAi()`), celebrating the new member's arrival with playful comedic flair and tagging `<@Member>`. If GenAI is temporarily unavailable, gracefully falls back to curated witty greetings.
 
 ---
 
@@ -200,9 +199,9 @@ sequenceDiagram
 | Subcommand | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `set` | `channel` | Channel | No | Channel to post welcome messages in (defaults to current). |
-| | `enabled` | Boolean | No | Enable or disable onboarding (defaults to `true`). |
-| | `welcome_message` | String | No | Custom greeting supporting `{user}`, `{server}`, and `{count}` tokens. |
-| `status` | *(none)* | *(none)* | No | Displays current onboarding setup, target channel, and greeting template. |
+| | `enabled` | Boolean | No | Enable or disable AI witty welcome onboarding (defaults to `true`). |
+| | `locale` | String | No | Locale override for greetings (`vi` for Tiếng Việt or `en-US` for English). |
+| `status` | *(none)* | *(none)* | No | Displays current onboarding setup, target channel, active locale, and AI greeting status. |
 | `disable` | *(none)* | *(none)* | No | Disables the onboarding greeting flow. |
 
 ---
