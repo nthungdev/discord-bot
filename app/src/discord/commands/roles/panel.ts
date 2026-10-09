@@ -10,6 +10,7 @@ import {
 import {
   buildPanelComponents,
   buildPanelEmbed,
+  DISCORD_MAX_EMBED_FIELDS,
   getRoleStore,
   validatePanelRoleCapacity,
   validateRoleManageable,
@@ -475,7 +476,9 @@ async function handleList(
     .setTitle(`Configured Role Panels (${panels.length})`)
     .setColor(0x5865f2);
 
-  for (const p of panels) {
+  const displayedPanels = panels.slice(0, DISCORD_MAX_EMBED_FIELDS);
+
+  for (const p of displayedPanels) {
     const status =
       p.channelId && p.messageId
         ? `<#${p.channelId}> (Posted)`
@@ -484,6 +487,12 @@ async function handleList(
       name: `🏷️ ${p.title} (\`${p.id}\`)`,
       value: `**Style**: ${p.type} | **Mode**: ${p.mode}\n**Roles**: ${p.roles.length}\n**Status**: ${status}`,
       inline: false,
+    });
+  }
+
+  if (panels.length > DISCORD_MAX_EMBED_FIELDS) {
+    embed.setFooter({
+      text: `Showing first ${DISCORD_MAX_EMBED_FIELDS} of ${panels.length} panels.`,
     });
   }
 
@@ -506,6 +515,27 @@ async function handleDelete(
       ephemeral: true,
     });
     return;
+  }
+
+  if (panel.channelId && panel.messageId) {
+    try {
+      const channel = await guild.channels
+        .fetch(panel.channelId)
+        .catch(() => null);
+      if (channel?.isTextBased()) {
+        const message = await channel.messages
+          .fetch(panel.messageId)
+          .catch(() => null);
+        if (message) {
+          await message.delete().catch(() => null);
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `[RolePanelCommand] Best-effort cleanup of published message failed for panel '${id}':`,
+        error,
+      );
+    }
   }
 
   await store.deletePanel(guild.id, id);
