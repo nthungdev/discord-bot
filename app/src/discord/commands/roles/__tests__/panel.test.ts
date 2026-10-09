@@ -43,8 +43,6 @@ describe("/role-panel Slash Command", () => {
         getString: (name: string) => {
           if (name === "id") return "notifications";
           if (name === "title") return "Notification Preferences";
-          if (name === "type") return "button";
-          if (name === "mode") return "multi";
           if (name === "description") return "Select your notifications";
           return null;
         },
@@ -79,7 +77,6 @@ describe("/role-panel Slash Command", () => {
         getString: (name: string) => {
           if (name === "id") return "invalid:panel:id";
           if (name === "title") return "Invalid Panel";
-          if (name === "type") return "button";
           return null;
         },
       },

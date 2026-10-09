@@ -142,6 +142,15 @@ pnpm --prefix app lint
 pnpm --prefix app format
 ```
 
+### Slash Command Deployment
+```bash
+# Deploy all slash commands to a specific guild (instant effect)
+pnpm --prefix app deploy-commands <guildId>
+
+# Deploy with locale override ('vi' or 'en-US')
+pnpm --prefix app deploy-commands <guildId> --locale vi
+```
+
 ### Docker
 ```bash
 # Build Docker image

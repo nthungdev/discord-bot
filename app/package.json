@@ -23,7 +23,8 @@
     "docker-build": "docker compose build",
     "docker-dev": "docker compose -f compose.yaml -f compose.development.yaml up -d",
     "docker-prod": "docker compose -f compose.yaml -f compose.production.yaml up -d",
-    "sync-config": "ts-node src/scripts/syncRemoteConfig.ts"
+    "sync-config": "ts-node src/scripts/syncRemoteConfig.ts",
+    "deploy-commands": "ts-node src/scripts/deployCommands.ts"
   },
   "engines": {
     "node": ">=22",

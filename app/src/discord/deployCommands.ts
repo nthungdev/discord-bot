@@ -145,7 +145,7 @@ export const deployGuildCommands = async (
   clientId: string,
   guildId: string,
   localeOverride?: string | null,
-) => {
+): Promise<RESTPutAPIApplicationCommandsResult> => {
   try {
     const rawCommands = (await parseCommands()).map((command) =>
       command.data.toJSON(),
@@ -170,7 +170,9 @@ export const deployGuildCommands = async (
     console.log(
       `Successfully reloaded ${data.length} application (/) commands for guild ${guildId}.`,
     );
+    return data;
   } catch (error) {
-    console.error(error);
+    console.error(`Failed to deploy commands for guild ${guildId}:`, error);
+    throw error;
   }
 };

@@ -121,6 +121,11 @@ pnpm build
 # Start compiled production server
 pnpm start
 
+# Deploy slash commands to a Discord server
+pnpm deploy-commands <guildId>
+# or with locale override
+pnpm deploy-commands <guildId> --locale vi
+
 # Run all test suites
 pnpm test
 
@@ -140,3 +145,144 @@ pnpm typecheck
 pnpm format
 pnpm lint
 ```
+
+---
+
+## ⚡ Developing & Testing Slash Commands
+
+### 1. Command Structure & Architecture
+
+All slash commands are located under [`src/discord/commands/<category>/`](src/discord/commands).
+
+Each command file exports:
+- `data`: An instance of `SlashCommandBuilder` describing the command name, description, options, subcommands, and permissions.
+- `execute`: An async function handling the command invocation `(interaction: ChatInputCommandInteraction) => Promise<void>`.
+
+Commands are dynamically registered at runtime and during deployment via `parseCommands()` in [`src/discord/helpers.ts`](src/discord/helpers.ts).
+
+#### Example Command Template
+```typescript
+import {
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  SlashCommandBuilder,
+} from "discord.js";
+import { DiscordCommand } from "../../constants";
+
+export const data = new SlashCommandBuilder()
+  .setName(DiscordCommand.Ping)
+  .setDescription("Check bot latency and gateway status.")
+  .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
+
+export async function execute(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
+  const sent = await interaction.reply({
+    content: "Pinging...",
+    fetchReply: true,
+  });
+  const latency = sent.createdTimestamp - interaction.createdTimestamp;
+  await interaction.editReply(`🏓 Pong! Latency: ${latency}ms.`);
+}
+```
+
+> [!TIP]
+> Always add your command identifier to the `DiscordCommand` enum in [`src/discord/constants.ts`](src/discord/constants.ts) to avoid magic strings.
+
+---
+
+### 2. Deploying Commands to a Discord Server
+
+Discord slash commands registered per-guild update **instantly** (unlike global commands which can take up to an hour to propagate).
+
+#### Option A: Local CLI Script (Recommended)
+From the `app` directory (or with `--prefix app`):
+```bash
+# Deploy all slash commands to a target server
+pnpm deploy-commands <guildId>
+
+# Deploy with a specific language override ('vi' or 'en-US')
+pnpm deploy-commands <guildId> --locale vi
+```
+
+#### Option B: Via Administrative REST API
+Send an authenticated HTTP POST request to the local Express server:
+```bash
+curl -X POST http://localhost:3001/utility/deploy-command \
+  -H "Authorization: Bearer <BEARER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "<DISCORD_TOKEN>",
+    "clientId": "<DISCORD_CLIENT_ID>",
+    "guildId": "<GUILD_ID>"
+  }'
+```
+
+Or using the versioned API route:
+```bash
+curl -X POST http://localhost:3001/api/v1/guilds/<GUILD_ID>/deploy-commands \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+#### Option C: In Production / Remote Docker Container (e.g. Synology NAS)
+Execute the deployment function directly inside the running container:
+```bash
+ssh <hostname> "sudo docker exec <container_name> node -e \"const { deployGuildCommands } = require('./build/src/discord/deployCommands.js'); deployGuildCommands(process.env.DISCORD_TOKEN, process.env.DISCORD_CLIENT_ID, '<GUILD_ID>').then(() => console.log('Deployed!')).catch(console.error);\""
+```
+
+---
+
+### 3. Testing Commands
+
+#### A. Co-located Unit Tests
+Unit tests should live in a nested `__tests__` directory next to the command file (e.g., `src/discord/commands/roles/__tests__/panel.test.ts`).
+
+Mock the `ChatInputCommandInteraction` to verify validation, error handling, and business logic:
+```typescript
+import type { ChatInputCommandInteraction } from "discord.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { execute } from "../panel";
+
+it("handles subcommand execution", async () => {
+  const mockInteraction = {
+    guild: { id: "guild-1" },
+    member: { id: "user-1" },
+    options: {
+      getSubcommand: () => "create",
+      getString: (name: string) => (name === "id" ? "test-panel" : "Test Title"),
+    },
+    reply: vi.fn().mockResolvedValue(undefined),
+  } as unknown as ChatInputCommandInteraction;
+
+  await execute(mockInteraction);
+
+  expect(mockInteraction.reply).toHaveBeenCalledWith(
+    expect.objectContaining({
+      content: expect.stringContaining("Created role panel"),
+    }),
+  );
+});
+```
+
+Run unit tests:
+```bash
+pnpm test:unit
+# or run a specific test file:
+pnpm test src/discord/commands/roles/__tests__/panel.test.ts
+```
+
+#### B. End-to-End Simulation Tests
+E2E tests simulate full command flows from slash command submission to button interactions and database persistence. Located under `tests/e2e/__tests__/`:
+```bash
+pnpm test:e2e
+```
+
+#### C. Live Interactive Discord Testing
+1. Ensure your test bot has permissions (`Manage Roles`, `Send Messages`, `Use Application Commands`) on your development Discord server.
+2. Run `pnpm dev` locally or start the bot container.
+3. Deploy commands to your development server:
+   ```bash
+   pnpm deploy-commands <your-dev-server-id>
+   ```
+4. In Discord, type `/` in any channel to see the refreshed command autocomplete and test interactive buttons/modals live.
+

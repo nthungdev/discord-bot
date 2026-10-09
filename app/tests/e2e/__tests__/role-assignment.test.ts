@@ -119,8 +119,6 @@ describe("E2E Simulation: Role Assignment & Onboarding Flow", () => {
         getString: (name: string) => {
           if (name === "id") return "notifications";
           if (name === "title") return "Notification Hub";
-          if (name === "type") return "button";
-          if (name === "mode") return "multi";
           return null;
         },
       },
