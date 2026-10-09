@@ -1,10 +1,10 @@
-export type RoleComponentType = "button" | "dropdown";
+export type RoleComponentType = "button" | "dropdown" | "emoji";
 export type RoleSelectionMode = "multi" | "single";
 
 export interface RoleOption {
   /** Target Discord role snowflake ID */
   roleId: string;
-  /** Display label for button or dropdown item */
+  /** Display label for button, dropdown item, or embed listing */
   label: string;
   /** Optional Unicode emoji or custom Discord emoji */
   emoji?: string;
@@ -57,6 +57,10 @@ export interface OnboardingConfig {
 export interface IRoleStore {
   getPanel(guildId: string, panelId: string): Promise<RolePanel | null>;
   getPanelsByGuild(guildId: string): Promise<RolePanel[]>;
+  getPanelByMessageId(
+    guildId: string,
+    messageId: string,
+  ): Promise<RolePanel | null>;
   savePanel(panel: RolePanel): Promise<void>;
   deletePanel(guildId: string, panelId: string): Promise<void>;
   getOnboardingConfig(guildId: string): Promise<OnboardingConfig | null>;

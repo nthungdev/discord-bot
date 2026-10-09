@@ -107,6 +107,17 @@ export class LocalFileRoleStore implements IRoleStore {
     );
   }
 
+  public async getPanelByMessageId(
+    guildId: string,
+    messageId: string,
+  ): Promise<RolePanel | null> {
+    await this.ensureLoaded();
+    const panel = Object.values(this.data.panels).find(
+      (p) => p.guildId === guildId && p.messageId === messageId,
+    );
+    return panel ? { ...panel } : null;
+  }
+
   public async savePanel(panel: RolePanel): Promise<void> {
     await this.ensureLoaded();
     const key = this.getPanelKey(panel.guildId, panel.id);
@@ -212,6 +223,25 @@ export class FirestoreRoleStore implements IRoleStore {
     } catch (error) {
       console.error("[FirestoreRoleStore] getPanelsByGuild error:", error);
       return [];
+    }
+  }
+
+  public async getPanelByMessageId(
+    guildId: string,
+    messageId: string,
+  ): Promise<RolePanel | null> {
+    try {
+      const snapshot = await this.getDb()
+        .collection(this.panelCollectionName)
+        .where("guildId", "==", guildId)
+        .where("messageId", "==", messageId)
+        .limit(1)
+        .get();
+      if (snapshot.empty) return null;
+      return snapshot.docs[0].data() as RolePanel;
+    } catch (error) {
+      console.error("[FirestoreRoleStore] getPanelByMessageId error:", error);
+      return null;
     }
   }
 

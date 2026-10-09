@@ -2,8 +2,12 @@ import type {
   ButtonInteraction,
   Guild,
   GuildMember,
+  MessageReaction,
+  PartialMessageReaction,
+  PartialUser,
   Role,
   StringSelectMenuInteraction,
+  User,
 } from "discord.js";
 import { DISCORD_MAX_MESSAGE_LENGTH } from "./constants";
 import { generateWittyWelcomeGreeting } from "./panel-builder";
@@ -14,6 +18,29 @@ import {
   validateRoleManageable,
   validateRoleRevocable,
 } from "./validation";
+
+/**
+ * Matches a configured panel emoji string against a Discord reaction emoji.
+ * Supports:
+ * - Custom emoji string (<:name:id> or <a:name:id>)
+ * - Snowflake ID only (123456789012345678)
+ * - Unicode emoji (e.g. 🎮, 🎉)
+ */
+export function isEmojiMatching(
+  configuredEmoji: string,
+  reactionEmoji: { name: string | null; id: string | null },
+): boolean {
+  const trimmed = configuredEmoji.trim();
+  const customMatch = trimmed.match(/^<a?:([a-zA-Z0-9_]+):(\d+)>$/);
+  if (customMatch) {
+    const [, customName, customId] = customMatch;
+    return reactionEmoji.id === customId || reactionEmoji.name === customName;
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return reactionEmoji.id === trimmed;
+  }
+  return reactionEmoji.name === trimmed;
+}
 
 /**
  * Executes role addition or removal for a button interaction.
@@ -194,6 +221,74 @@ async function resolveFreshMember(
     } catch {
       return member;
     }
+  }
+}
+
+/**
+ * Resolves a reaction and its message, fetching partials if needed.
+ */
+async function resolveCompleteReaction(
+  reaction: MessageReaction | PartialMessageReaction,
+): Promise<MessageReaction | null> {
+  if (reaction.partial) {
+    try {
+      await reaction.fetch();
+    } catch (err) {
+      console.warn("[RoleService] Failed to fetch partial reaction:", err);
+      return null;
+    }
+  }
+
+  if (!reaction?.message) return null;
+
+  if (reaction.message.partial) {
+    try {
+      await reaction.message.fetch();
+    } catch (err) {
+      console.warn(
+        "[RoleService] Failed to fetch partial reaction message:",
+        err,
+      );
+      return null;
+    }
+  }
+
+  return reaction as MessageReaction;
+}
+
+/**
+ * Resolves a role from guild cache or by fetching it from the API.
+ */
+async function resolveGuildRole(
+  guild: Guild,
+  roleId: string,
+): Promise<Role | null> {
+  return (
+    guild.roles.cache.get(roleId) ??
+    (await guild.roles.fetch(roleId).catch(() => null))
+  );
+}
+
+/**
+ * Mutates member roles in single or multi mode upon reaction addition.
+ */
+async function mutateMemberRolesOnReactionAdd(
+  freshMember: GuildMember,
+  panel: RolePanel,
+  roleId: string,
+): Promise<void> {
+  if (panel.mode === "single") {
+    const otherPanelRoles = panel.roles
+      .filter(
+        (r) => r.roleId !== roleId && freshMember.roles.cache.has(r.roleId),
+      )
+      .map((r) => r.roleId);
+    if (otherPanelRoles.length > 0) {
+      await freshMember.roles.remove(otherPanelRoles);
+    }
+  }
+  if (!freshMember.roles.cache.has(roleId)) {
+    await freshMember.roles.add(roleId);
   }
 }
 
@@ -524,6 +619,139 @@ export class RoleService {
       console.error(
         `[RoleService] Failed to send onboarding welcome to channel ${config.channelId}:`,
         error,
+      );
+    }
+  }
+
+  /**
+   * Handles user reacting to an emoji on an emoji role panel message.
+   */
+  public async handleReactionAdd(
+    rawReaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void> {
+    if (user.bot) return;
+
+    const reaction = await resolveCompleteReaction(rawReaction);
+    if (!(reaction?.message.guild && reaction.message.guildId)) return;
+
+    const guild = reaction.message.guild;
+    const panel = await this.store.getPanelByMessageId(
+      reaction.message.guildId,
+      reaction.message.id,
+    );
+    if (!panel || panel.type !== "emoji") return;
+
+    const roleOption = panel.roles.find(
+      (r) => r.emoji && isEmojiMatching(r.emoji, reaction.emoji),
+    );
+
+    if (!roleOption) {
+      await reaction.users.remove(user.id).catch((err) => {
+        console.warn(
+          `[RoleService] Failed to remove unauthorized reaction '${reaction.emoji.name}' from user ${user.id}:`,
+          err,
+        );
+      });
+      return;
+    }
+
+    const member = await guild.members.fetch(user.id).catch(() => null);
+    if (!member) {
+      console.warn(
+        `[RoleService] Member ${user.id} not found in guild ${guild.id}`,
+      );
+      return;
+    }
+
+    const role = await resolveGuildRole(guild, roleOption.roleId);
+    if (!role) {
+      console.warn(
+        `[RoleService] Role ${roleOption.roleId} configured on panel '${panel.id}' not found in guild.`,
+      );
+      return;
+    }
+
+    const validation = validateRoleManageable(guild, role);
+    if (!validation.valid) {
+      console.warn(
+        `[RoleService] Cannot assign role '${role.name}' via reaction: ${validation.error}`,
+      );
+      return;
+    }
+
+    try {
+      await this.serializeMemberMutation(
+        guild.id,
+        panel.id,
+        member.id,
+        async () => {
+          const freshMember = await resolveFreshMember(guild, member);
+          await mutateMemberRolesOnReactionAdd(freshMember, panel, role.id);
+        },
+      );
+    } catch (err) {
+      console.error(
+        `[RoleService] Error adding role '${role.name}' on reaction add for user ${user.id}:`,
+        err,
+      );
+    }
+  }
+
+  /**
+   * Handles user removing their emoji reaction from an emoji role panel message.
+   */
+  public async handleReactionRemove(
+    rawReaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void> {
+    if (user.bot) return;
+
+    const reaction = await resolveCompleteReaction(rawReaction);
+    if (!(reaction?.message.guild && reaction.message.guildId)) return;
+
+    const guild = reaction.message.guild;
+    const panel = await this.store.getPanelByMessageId(
+      reaction.message.guildId,
+      reaction.message.id,
+    );
+    if (!panel || panel.type !== "emoji") return;
+
+    const roleOption = panel.roles.find(
+      (r) => r.emoji && isEmojiMatching(r.emoji, reaction.emoji),
+    );
+    if (!roleOption) return;
+
+    const member = await guild.members.fetch(user.id).catch(() => null);
+    if (!member) return;
+
+    const role = await resolveGuildRole(guild, roleOption.roleId);
+    if (!role) return;
+
+    const validation = validateRoleRevocable(guild, role);
+    if (!validation.valid) {
+      console.warn(
+        `[RoleService] Cannot revoke role '${role.name}' via reaction: ${validation.error}`,
+      );
+      return;
+    }
+
+    try {
+      await this.serializeMemberMutation(
+        guild.id,
+        panel.id,
+        member.id,
+        async () => {
+          const freshMember = await resolveFreshMember(guild, member);
+          if (freshMember.roles.cache.has(role.id)) {
+            await freshMember.roles.remove(role.id);
+          }
+        },
+      );
+    } catch (err) {
+      console.error(
+        `[RoleService] Error removing role '${role.name}' on reaction remove for user ${user.id}:`,
+        err,
       );
     }
   }

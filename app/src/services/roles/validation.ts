@@ -4,7 +4,11 @@ import {
   PermissionFlagsBits,
   type Role,
 } from "discord.js";
-import { MAX_DROPDOWN_OPTIONS, MAX_TOTAL_BUTTONS } from "./constants";
+import {
+  MAX_DROPDOWN_OPTIONS,
+  MAX_EMOJI_REACTIONS,
+  MAX_TOTAL_BUTTONS,
+} from "./constants";
 import type { RolePanel } from "./types";
 
 export interface ValidationResult {
@@ -107,8 +111,13 @@ export function validatePanelRoleCapacity(
   panel: RolePanel,
   additionalCount = 1,
 ): ValidationResult {
-  const limit =
-    panel.type === "button" ? MAX_TOTAL_BUTTONS : MAX_DROPDOWN_OPTIONS;
+  let limit = MAX_TOTAL_BUTTONS;
+  if (panel.type === "dropdown") {
+    limit = MAX_DROPDOWN_OPTIONS;
+  } else if (panel.type === "emoji") {
+    limit = MAX_EMOJI_REACTIONS;
+  }
+
   if (panel.roles.length + additionalCount > limit) {
     return {
       valid: false,

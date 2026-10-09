@@ -60,6 +60,32 @@ describe("RoleStore", () => {
       expect(retrieved?.roles.length).toBe(2);
     });
 
+    it("should find panel by messageId", async () => {
+      const store = new LocalFileRoleStore(testFilePath);
+      const postedPanel: RolePanel = {
+        ...samplePanel,
+        messageId: "msg-999",
+        channelId: "chan-123",
+      };
+      await store.savePanel(postedPanel);
+
+      const found = await store.getPanelByMessageId("guild-1", "msg-999");
+      expect(found).not.toBeNull();
+      expect(found?.id).toBe("notifications");
+
+      const notFoundWrongGuild = await store.getPanelByMessageId(
+        "guild-2",
+        "msg-999",
+      );
+      expect(notFoundWrongGuild).toBeNull();
+
+      const notFoundWrongMsg = await store.getPanelByMessageId(
+        "guild-1",
+        "msg-000",
+      );
+      expect(notFoundWrongMsg).toBeNull();
+    });
+
     it("should list panels by guild", async () => {
       const store = new LocalFileRoleStore(testFilePath);
       await store.savePanel(samplePanel);
@@ -211,6 +237,68 @@ describe("RoleStore", () => {
 
       const panels = await store.getPanelsByGuild("guild-1");
       expect(panels.length).toBe(1);
+    });
+
+    it("should get panel by messageId in Firestore", async () => {
+      const sampleWithMsg: RolePanel = {
+        ...samplePanel,
+        messageId: "msg-999",
+      };
+      const mockLimit = vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          empty: false,
+          docs: [{ data: () => sampleWithMsg }],
+        }),
+      });
+      const mockWhereMsg = vi.fn().mockReturnValue({
+        limit: mockLimit,
+      });
+      const mockWhereGuild = vi.fn().mockReturnValue({
+        where: mockWhereMsg,
+      });
+
+      const mockCollection = vi.fn().mockReturnValue({
+        where: mockWhereGuild,
+      });
+
+      vi.spyOn(admin, "firestore").mockReturnValue({
+        collection: mockCollection,
+      } as unknown as admin.firestore.Firestore);
+
+      const store = new FirestoreRoleStore();
+      const panel = await store.getPanelByMessageId("guild-1", "msg-999");
+      expect(panel).not.toBeNull();
+      expect(panel?.id).toBe("notifications");
+      expect(mockWhereGuild).toHaveBeenCalledWith("guildId", "==", "guild-1");
+      expect(mockWhereMsg).toHaveBeenCalledWith("messageId", "==", "msg-999");
+      expect(mockLimit).toHaveBeenCalledWith(1);
+    });
+
+    it("should return null if panel by messageId is not found in Firestore", async () => {
+      const mockLimit = vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          empty: true,
+          docs: [],
+        }),
+      });
+      const mockWhereMsg = vi.fn().mockReturnValue({
+        limit: mockLimit,
+      });
+      const mockWhereGuild = vi.fn().mockReturnValue({
+        where: mockWhereMsg,
+      });
+
+      const mockCollection = vi.fn().mockReturnValue({
+        where: mockWhereGuild,
+      });
+
+      vi.spyOn(admin, "firestore").mockReturnValue({
+        collection: mockCollection,
+      } as unknown as admin.firestore.Firestore);
+
+      const store = new FirestoreRoleStore();
+      const panel = await store.getPanelByMessageId("guild-1", "msg-missing");
+      expect(panel).toBeNull();
     });
 
     it("should strip undefined values in sanitizeForFirestore", async () => {

@@ -232,5 +232,34 @@ describe("Role Validation Guardrails", () => {
       const result = validatePanelRoleCapacity(panel, 1);
       expect(result.valid).toBe(true);
     });
+
+    it("should reject adding a 21st role to an emoji panel", () => {
+      const emojiPanel: RolePanel = {
+        ...samplePanel,
+        type: "emoji",
+        roles: Array.from({ length: 20 }, (_, i) => ({
+          roleId: `r-${i}`,
+          label: `Role ${i}`,
+          emoji: "😀",
+        })),
+      };
+      const result = validatePanelRoleCapacity(emojiPanel, 1);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("maximum capacity of 20");
+    });
+
+    it("should approve adding roles to emoji panel when within 20 limit", () => {
+      const emojiPanel: RolePanel = {
+        ...samplePanel,
+        type: "emoji",
+        roles: Array.from({ length: 19 }, (_, i) => ({
+          roleId: `r-${i}`,
+          label: `Role ${i}`,
+          emoji: "😀",
+        })),
+      };
+      const result = validatePanelRoleCapacity(emojiPanel, 1);
+      expect(result.valid).toBe(true);
+    });
   });
 });

@@ -10,6 +10,7 @@ import {
 } from "../constants";
 import {
   buildButtonRows,
+  buildPanelComponents,
   buildPanelEmbed,
   buildSelectMenuRow,
   buildWelcomeGreeting,
@@ -348,6 +349,65 @@ describe("PanelBuilder", () => {
       expect(embed.data.title).toBe("Game Roles");
       expect(embed.data.description).toBe("Click to select games");
       expect(embed.data.color).toBe(0x5865f2);
+      expect(embed.data.footer?.text).toBe(
+        "Multi-select mode (click to toggle roles)",
+      );
+    });
+
+    it("should display single choice footer for single button panel", () => {
+      const singlePanel: RolePanel = {
+        ...sampleButtonPanel,
+        mode: "single",
+      };
+      const embed = buildPanelEmbed(singlePanel);
+      expect(embed.data.footer?.text).toBe(
+        "Single choice mode (selecting a new role replaces previous)",
+      );
+    });
+
+    it("should display emoji multi-choice footer for emoji panel", () => {
+      const emojiPanel: RolePanel = {
+        ...sampleButtonPanel,
+        type: "emoji",
+        mode: "multi",
+      };
+      const embed = buildPanelEmbed(emojiPanel);
+      expect(embed.data.footer?.text).toBe(
+        "React with an emoji below to claim a role. Remove reaction to remove the role.",
+      );
+    });
+
+    it("should display emoji single-choice footer for single mode emoji panel", () => {
+      const emojiPanel: RolePanel = {
+        ...sampleButtonPanel,
+        type: "emoji",
+        mode: "single",
+      };
+      const embed = buildPanelEmbed(emojiPanel);
+      expect(embed.data.footer?.text).toBe(
+        "React with an emoji to claim a role (single choice). Remove reaction to remove the role.",
+      );
+    });
+  });
+
+  describe("buildPanelComponents", () => {
+    it("should return empty array for emoji panel", () => {
+      const emojiPanel: RolePanel = {
+        ...sampleButtonPanel,
+        type: "emoji",
+      };
+      const components = buildPanelComponents(emojiPanel);
+      expect(components).toEqual([]);
+    });
+
+    it("should return button rows for button panel", () => {
+      const components = buildPanelComponents(sampleButtonPanel);
+      expect(components.length).toBe(3);
+    });
+
+    it("should return select menu row for dropdown panel", () => {
+      const components = buildPanelComponents(sampleDropdownPanel);
+      expect(components.length).toBe(1);
     });
   });
 });
