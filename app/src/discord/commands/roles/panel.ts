@@ -17,10 +17,8 @@ import {
 } from "../../../services/roles";
 import type {
   IRoleStore,
-  RoleComponentType,
   RoleOption,
   RolePanel,
-  RoleSelectionMode,
 } from "../../../services/roles/types";
 import { DiscordCommand } from "../../constants";
 
@@ -44,28 +42,6 @@ export const data = new SlashCommandBuilder()
           .setName("title")
           .setDescription("Title shown on the panel embed")
           .setRequired(true),
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("type")
-          .setDescription("Display style: button or dropdown")
-          .setRequired(true)
-          .addChoices(
-            { name: "Button (Action rows)", value: "button" },
-            { name: "Dropdown (Select menu)", value: "dropdown" },
-          ),
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("mode")
-          .setDescription(
-            "Selection logic: multi-select or single-select (radio)",
-          )
-          .setRequired(false)
-          .addChoices(
-            { name: "Multi-select (Independent toggles)", value: "multi" },
-            { name: "Single-select (Radio mode)", value: "single" },
-          ),
       )
       .addStringOption((opt) =>
         opt
@@ -97,12 +73,6 @@ export const data = new SlashCommandBuilder()
         opt
           .setName("emoji")
           .setDescription("Unicode or custom emoji (e.g. 🔔, :bell:)")
-          .setRequired(false),
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("description")
-          .setDescription("Short description (for dropdown menus)")
           .setRequired(false),
       ),
   )
@@ -184,9 +154,6 @@ async function handleCreate(
   }
 
   const title = interaction.options.getString("title", true).trim();
-  const type = interaction.options.getString("type", true) as RoleComponentType;
-  const mode = (interaction.options.getString("mode") ??
-    "multi") as RoleSelectionMode;
   const description =
     interaction.options.getString("description") ?? "Select your roles below:";
 
@@ -204,8 +171,8 @@ async function handleCreate(
     guildId: guild.id,
     title,
     description,
-    type,
-    mode,
+    type: "button",
+    mode: "multi",
     roles: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -214,7 +181,7 @@ async function handleCreate(
   await store.savePanel(panel);
 
   await interaction.reply({
-    content: `✅ Created role panel **${id}** (${type}, ${mode}).\nUse \`/role-panel add-role id:${id} role:@Role\` to add options, then \`/role-panel post id:${id}\` to deploy it.`,
+    content: `✅ Created role panel **${id}**.\nUse \`/role-panel add-role id:${id} role:@Role\` to add options, then \`/role-panel post id:${id}\` to deploy it.`,
     ephemeral: true,
   });
 }
@@ -229,7 +196,6 @@ async function handleAddRole(
   const role = interaction.options.getRole("role", true);
   const label = interaction.options.getString("label")?.trim() || role.name;
   const emoji = interaction.options.getString("emoji")?.trim();
-  const description = interaction.options.getString("description")?.trim();
 
   const panel = await store.getPanel(guild.id, id);
   if (!panel) {
@@ -279,7 +245,6 @@ async function handleAddRole(
     roleId: role.id,
     label,
     ...(emoji ? { emoji } : {}),
-    ...(description ? { description } : {}),
   };
   panel.roles.push(roleOption);
   panel.updatedAt = Date.now();
