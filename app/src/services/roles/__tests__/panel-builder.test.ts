@@ -316,6 +316,30 @@ describe("PanelBuilder", () => {
       expect(result).toContain("Bluegon Land");
       expect(result).toContain("150");
     });
+
+    it("should fallback to static witty greeting when GenAI returns a response exceeding 2000 characters", async () => {
+      const genAiUtils = await import("../../../utils/genAi");
+      vi.mocked(genAiUtils.generateChatMessageWithGenAi).mockResolvedValueOnce({
+        content: "A".repeat(2005),
+        data: null,
+      });
+
+      const mockMember = {
+        id: "user-456",
+        displayName: "Sam",
+        user: { username: "sam_dev" },
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 150,
+        },
+      } as unknown as GuildMember;
+
+      const result = await generateWittyWelcomeGreeting(mockMember, "en-US");
+      expect(result.length).toBeLessThanOrEqual(2000);
+      expect(result).toContain("<@user-456>");
+      expect(result).toContain("Bluegon Land");
+    });
   });
 
   describe("buildPanelEmbed", () => {

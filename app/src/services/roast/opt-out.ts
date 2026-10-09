@@ -162,16 +162,20 @@ let optOutStoreInstance: IRoastOptOutStore | null = null;
 
 export function getRoastOptOutStore(): IRoastOptOutStore {
   if (!optOutStoreInstance) {
+    const envType = process.env.MEMORY_STORE_TYPE;
+    let configType: string | undefined;
     try {
-      const storeType = Config.getInstance().getConfigValue(
+      configType = Config.getInstance().getConfigValue(
         ConfigParameter.memoryStoreType,
       );
-      if (storeType === "firestore") {
-        optOutStoreInstance = new FirestoreRoastOptOutStore();
-      } else {
-        optOutStoreInstance = new LocalFileRoastOptOutStore();
-      }
     } catch {
+      // Config not initialized yet
+    }
+
+    const selectedType = envType || configType;
+    if (selectedType === "firestore") {
+      optOutStoreInstance = new FirestoreRoastOptOutStore();
+    } else {
       optOutStoreInstance = new LocalFileRoastOptOutStore();
     }
   }
