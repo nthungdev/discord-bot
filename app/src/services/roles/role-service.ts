@@ -51,6 +51,8 @@ async function applyButtonRoleMutation(
 
 /**
  * Computes roles to add and remove from a dropdown selection.
+ * In single mode: replaces previous panel roles with the selected role.
+ * In multi mode: toggles the selected roles without wiping unselected ones.
  */
 function computeDropdownDiff(
   panel: RolePanel,
@@ -58,22 +60,50 @@ function computeDropdownDiff(
   rawValues: readonly string[],
 ): { rolesToAdd: string[]; rolesToRemove: string[] } {
   const panelRoleIds = panel.roles.map((r) => r.roleId);
-  let selected = rawValues.filter((id) => panelRoleIds.includes(id));
+  const selected = rawValues.filter((id) => panelRoleIds.includes(id));
 
-  if (panel.mode === "single" && selected.length > 1) {
-    selected = [selected[0]];
+  if (panel.mode === "single") {
+    return computeSingleDropdownDiff(panelRoleIds, member, selected);
   }
 
-  const currentMemberPanelRoleIds = panelRoleIds.filter((id) =>
+  return computeMultiDropdownDiff(member, selected);
+}
+
+function computeSingleDropdownDiff(
+  panelRoleIds: readonly string[],
+  member: GuildMember,
+  selected: readonly string[],
+): { rolesToAdd: string[]; rolesToRemove: string[] } {
+  const chosenRoleId = selected[0];
+  const currentMemberRoleIds = panelRoleIds.filter((id) =>
     member.roles.cache.has(id),
   );
 
-  const rolesToAdd = selected.filter(
-    (id) => !currentMemberPanelRoleIds.includes(id),
+  const rolesToAdd =
+    chosenRoleId && !currentMemberRoleIds.includes(chosenRoleId)
+      ? [chosenRoleId]
+      : [];
+  const rolesToRemove = currentMemberRoleIds.filter(
+    (id) => id !== chosenRoleId,
   );
-  const rolesToRemove = currentMemberPanelRoleIds.filter(
-    (id) => !selected.includes(id),
-  );
+
+  return { rolesToAdd, rolesToRemove };
+}
+
+function computeMultiDropdownDiff(
+  member: GuildMember,
+  selected: readonly string[],
+): { rolesToAdd: string[]; rolesToRemove: string[] } {
+  const rolesToAdd: string[] = [];
+  const rolesToRemove: string[] = [];
+
+  for (const roleId of selected) {
+    if (member.roles.cache.has(roleId)) {
+      rolesToRemove.push(roleId);
+    } else {
+      rolesToAdd.push(roleId);
+    }
+  }
 
   return { rolesToAdd, rolesToRemove };
 }
@@ -140,11 +170,67 @@ async function applyDropdownRoleMutations(
   return feedbackLines.join("\n");
 }
 
+/**
+ * Safely fetches fresh member state if guild.members.fetch is available,
+ * falling back to the existing member reference.
+ */
+async function resolveFreshMember(
+  guild: Guild,
+  member: GuildMember,
+): Promise<GuildMember> {
+  if (typeof guild.members?.fetch !== "function") {
+    return member;
+  }
+  try {
+    const fetched = await guild.members.fetch({
+      user: member.id,
+      force: true,
+    });
+    return fetched ?? member;
+  } catch {
+    try {
+      const fetched = await guild.members.fetch(member.id);
+      return fetched ?? member;
+    } catch {
+      return member;
+    }
+  }
+}
+
 export class RoleService {
   private store: IRoleStore;
+  private memberMutationQueues = new Map<string, Promise<void>>();
 
   constructor(store?: IRoleStore) {
     this.store = store ?? getRoleStore();
+  }
+
+  private async serializeMemberMutation<T>(
+    guildId: string,
+    panelId: string,
+    memberId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const key = `${guildId}:${panelId}:${memberId}`;
+    const previous = this.memberMutationQueues.get(key) || Promise.resolve();
+
+    let result!: T;
+    const current = previous
+      .catch(() => {})
+      .then(async () => {
+        result = await operation();
+      });
+
+    this.memberMutationQueues.set(key, current);
+
+    try {
+      await current;
+      return result;
+    } finally {
+      if (this.memberMutationQueues.get(key) === current) {
+        this.memberMutationQueues.delete(key);
+      }
+    }
   }
 
   /**
@@ -216,7 +302,15 @@ export class RoleService {
     }
 
     try {
-      const response = await applyButtonRoleMutation(member, panel, role);
+      const response = await this.serializeMemberMutation(
+        guild.id,
+        panel.id,
+        member.id,
+        async () => {
+          const freshMember = await resolveFreshMember(guild, member);
+          return applyButtonRoleMutation(freshMember, panel, role);
+        },
+      );
       await interaction.editReply({ content: response });
     } catch (error) {
       console.error(
@@ -267,33 +361,40 @@ export class RoleService {
       return;
     }
 
-    const { rolesToAdd, rolesToRemove } = computeDropdownDiff(
-      panel,
-      member,
-      interaction.values,
-    );
-
-    if (rolesToAdd.length === 0 && rolesToRemove.length === 0) {
-      await interaction.editReply({
-        content: "ℹ️ No changes made to your roles.",
-      });
-      return;
-    }
-
-    const validation = validateDropdownRoles(guild, rolesToAdd, rolesToRemove);
-    if (!validation.valid) {
-      await interaction.editReply({
-        content: `⚠️ Unable to update roles: ${validation.error ?? "Hierarchy restriction."}`,
-      });
-      return;
-    }
-
     try {
-      const response = await applyDropdownRoleMutations(
-        guild,
-        member,
-        rolesToAdd,
-        rolesToRemove,
+      const response = await this.serializeMemberMutation(
+        guild.id,
+        panel.id,
+        member.id,
+        async () => {
+          const freshMember = await resolveFreshMember(guild, member);
+
+          const { rolesToAdd, rolesToRemove } = computeDropdownDiff(
+            panel,
+            freshMember,
+            interaction.values,
+          );
+
+          if (rolesToAdd.length === 0 && rolesToRemove.length === 0) {
+            return "ℹ️ No changes made to your roles.";
+          }
+
+          const validation = validateDropdownRoles(
+            guild,
+            rolesToAdd,
+            rolesToRemove,
+          );
+          if (!validation.valid) {
+            return `⚠️ Unable to update roles: ${validation.error ?? "Hierarchy restriction."}`;
+          }
+
+          return applyDropdownRoleMutations(
+            guild,
+            freshMember,
+            rolesToAdd,
+            rolesToRemove,
+          );
+        },
       );
       await interaction.editReply({ content: response });
     } catch (error) {
