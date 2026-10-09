@@ -9,6 +9,7 @@ import type { RolePanel } from "../types";
 import {
   validatePanelRoleCapacity,
   validateRoleManageable,
+  validateRoleRevocable,
 } from "../validation";
 
 describe("Role Validation Guardrails", () => {
@@ -174,6 +175,34 @@ describe("Role Validation Guardrails", () => {
 
     const result = validateRoleManageable(guild, role, caller);
     expect(result.valid).toBe(true);
+  });
+
+  describe("validateRoleRevocable", () => {
+    it("should allow revoking a role that contains sensitive permissions", () => {
+      const guild = createMockGuild({ botHighestPos: 20 });
+      const caller = createMockMember({ highestPos: 15 });
+      const role = createMockRole({
+        position: 5,
+        permissions: [
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ModerateMembers,
+        ],
+      });
+
+      const result = validateRoleRevocable(guild, role, caller);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should still fail revocation if role is higher than bot role", () => {
+      const guild = createMockGuild({ botHighestPos: 10 });
+      const role = createMockRole({ position: 15 });
+
+      const result = validateRoleRevocable(guild, role);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain(
+        "higher than or equal to the bot's highest role",
+      );
+    });
   });
 
   describe("validatePanelRoleCapacity", () => {
