@@ -4,6 +4,7 @@ import {
 } from "../../capabilities/bot-engine";
 import { deployGuildCommands } from "../../discord/deployCommands";
 import type { BotRuntimeMetrics, JoinedGuildDetail } from "../../shared";
+import { getGuildLocaleStore } from "../locale/store";
 
 /**
  * Bot & Server Connection Manager
@@ -37,6 +38,72 @@ export class BotManager {
     }
 
     this.isInitialized = true;
+
+    // Auto-deploy slash commands in background if configured via environment
+    void this.autoDeployConfiguredGuildCommands();
+  }
+
+  /**
+   * Automatically deploys slash commands to guilds specified in AUTO_DEPLOY_COMMAND_GUILDS.
+   */
+  async autoDeployConfiguredGuildCommands(): Promise<void> {
+    const rawSetting = process.env.AUTO_DEPLOY_COMMAND_GUILDS;
+    if (!rawSetting) {
+      return;
+    }
+
+    const token = process.env.DISCORD_TOKEN;
+    const clientId = process.env.DISCORD_CLIENT_ID;
+    if (!(token && clientId)) {
+      console.warn(
+        "[BotManager] Cannot auto-deploy commands: DISCORD_TOKEN or DISCORD_CLIENT_ID is missing.",
+      );
+      return;
+    }
+
+    if (rawSetting.trim().toLowerCase() === "all") {
+      try {
+        const guilds = await this.getJoinedGuildDetails();
+        for (const guild of guilds) {
+          await this.deployGuildCommandsSilently(guild.id);
+        }
+      } catch (error) {
+        console.error(
+          "[BotManager] Error fetching joined guilds for auto-deployment:",
+          error,
+        );
+      }
+      return;
+    }
+
+    const guildIds = rawSetting
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    for (const guildId of guildIds) {
+      await this.deployGuildCommandsSilently(guildId);
+    }
+  }
+
+  /**
+   * Deploys slash commands to a single guild and logs any errors without throwing.
+   */
+  private async deployGuildCommandsSilently(guildId: string): Promise<void> {
+    try {
+      console.info(
+        `[BotManager] Auto-deploying commands to guild '${guildId}'...`,
+      );
+      await this.deployGuildCommands(guildId);
+      console.info(
+        `[BotManager] Successfully auto-deployed commands to guild '${guildId}'.`,
+      );
+    } catch (error) {
+      console.error(
+        `[BotManager] Failed to auto-deploy commands to guild '${guildId}':`,
+        error,
+      );
+    }
   }
 
   /**
@@ -102,9 +169,12 @@ export class BotManager {
   }
 
   /**
-   * Deploys slash commands to a target server.
+   * Deploys slash commands to a target server with guild locale filtering.
    */
-  async deployGuildCommands(guildId: string): Promise<void> {
+  async deployGuildCommands(
+    guildId: string,
+    localeOverride?: string | null,
+  ): Promise<void> {
     const token = process.env.DISCORD_TOKEN || "";
     const clientId = process.env.DISCORD_CLIENT_ID || "";
     if (!(token && clientId)) {
@@ -112,7 +182,12 @@ export class BotManager {
         "Missing DISCORD_TOKEN or DISCORD_CLIENT_ID for command deployment.",
       );
     }
-    await deployGuildCommands(token, clientId, guildId);
+    const resolvedLocale =
+      localeOverride !== undefined
+        ? localeOverride
+        : getGuildLocaleStore().getLocale(guildId);
+    const effectiveLocale = resolvedLocale === "auto" ? null : resolvedLocale;
+    await deployGuildCommands(token, clientId, guildId, effectiveLocale);
   }
 }
 

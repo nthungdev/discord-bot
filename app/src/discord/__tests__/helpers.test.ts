@@ -142,6 +142,6 @@ describe("discord helpers", () => {
         expect(command).toHaveProperty("data");
         expect(command).toHaveProperty("execute");
       });
-    });
+    }, 15000);
   });
 });

@@ -3,10 +3,23 @@ name: chat-bot-prod
 services:
   server:
     container_name: server
+    image: ${IMAGE_NAME:-ghcr.io/nthungdev/discord-bot:latest}
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: ${PORT:-3001}
+      AUTO_DEPLOY_COMMAND_GUILDS: ${AUTO_DEPLOY_COMMAND_GUILDS:-}
     env_file:
       - ./.env.production
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - ./service-account.json:/app/service-account.json:ro
+      - ./service-account.json:/app/build/service-account.json:ro
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:$${PORT:-3001}/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

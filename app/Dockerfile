@@ -20,6 +20,10 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-l
 
 FROM base AS build
 
+# Ensure mock credentials and config exist for TypeScript compilation if missing
+RUN if [ ! -f /app/service-account.json ]; then cp /app/service-account.example.json /app/service-account.json; fi
+RUN if [ ! -f /app/config.json ]; then cp /app/config.example.json /app/config.json; fi
+
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build
 
