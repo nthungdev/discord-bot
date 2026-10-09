@@ -1,4 +1,10 @@
-import type { Client, Interaction, Message, VoiceState } from "discord.js";
+import type {
+  Client,
+  GuildMember,
+  Interaction,
+  Message,
+  VoiceState,
+} from "discord.js";
 import type { Config } from "../config";
 import type { BotGuildConfig } from "../config/types";
 
@@ -43,6 +49,11 @@ export interface IBotCapability {
     newState: VoiceState,
     guildConfig?: BotGuildConfig,
   ): Promise<void>;
+
+  /**
+   * Handles new member joins for onboarding flows.
+   */
+  handleGuildMemberAdd?(member: GuildMember): Promise<void>;
 
   /**
    * Cleanup resources upon shutdown or capability reload.
