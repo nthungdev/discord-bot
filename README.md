@@ -142,6 +142,26 @@ pnpm lint
 
 ---
 
+## ⚡ Slash Command Deployment
+
+Slash commands registered per-guild take effect **immediately** on Discord.
+
+```bash
+# Deploy all slash commands to a target guild
+pnpm --prefix app deploy-commands <guildId>
+
+# Deploy with language override ('vi' or 'en-US')
+pnpm --prefix app deploy-commands <guildId> --locale vi
+
+# Via Admin REST API
+curl -X POST http://localhost:3001/utility/deploy-command \
+  -H "Authorization: Bearer <BEARER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<DISCORD_TOKEN>","clientId":"<DISCORD_CLIENT_ID>","guildId":"<GUILD_ID>"}'
+```
+
+---
+
 ## 🐳 Docker Deployment
 
 The application includes Docker and Docker Compose configurations for containerized deployment:
