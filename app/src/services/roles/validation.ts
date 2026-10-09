@@ -47,13 +47,20 @@ export function validateRoleManageable(
     }
   }
 
-  // 3. Prohibit dangerous administrative permissions on self-service roles
+  // 3. Prohibit dangerous administrative and moderation permissions on self-service roles
   const dangerousPermissions = [
     PermissionFlagsBits.Administrator,
     PermissionFlagsBits.ManageGuild,
     PermissionFlagsBits.ManageRoles,
     PermissionFlagsBits.BanMembers,
     PermissionFlagsBits.KickMembers,
+    PermissionFlagsBits.ManageChannels,
+    PermissionFlagsBits.ManageMessages,
+    PermissionFlagsBits.ModerateMembers,
+    PermissionFlagsBits.MentionEveryone,
+    PermissionFlagsBits.ManageWebhooks,
+    PermissionFlagsBits.ManageThreads,
+    PermissionFlagsBits.ManageGuildExpressions,
   ];
   const hasDangerousPerm = dangerousPermissions.some((perm) =>
     role.permissions.has(perm),
@@ -61,7 +68,7 @@ export function validateRoleManageable(
   if (hasDangerousPerm) {
     return {
       valid: false,
-      error: `Role '${role.name}' possesses sensitive administrative permissions and cannot be added to self-service panels.`,
+      error: `Role '${role.name}' possesses sensitive administrative or moderation permissions and cannot be added to self-service panels.`,
     };
   }
 

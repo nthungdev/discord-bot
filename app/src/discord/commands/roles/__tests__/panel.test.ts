@@ -70,6 +70,34 @@ describe("/role-panel Slash Command", () => {
     );
   });
 
+  it("should reject panel creation with invalid id containing colons or invalid chars", async () => {
+    const mockInteraction = {
+      guild: { id: "guild-1" } as Guild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "create",
+        getString: (name: string) => {
+          if (name === "id") return "invalid:panel:id";
+          if (name === "title") return "Invalid Panel";
+          if (name === "type") return "button";
+          return null;
+        },
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockStore.savePanel).not.toHaveBeenCalled();
+    expect(mockInteraction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining(
+          "Panel ID must be 1-40 alphanumeric characters",
+        ),
+      }),
+    );
+  });
+
   it("should add a role to a panel", async () => {
     const existingPanel: RolePanel = {
       id: "notifications",

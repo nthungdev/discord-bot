@@ -402,6 +402,7 @@ describe("RoleService", () => {
       expect(mockStore.getPanel).not.toHaveBeenCalled();
       expect(mockChannelSend).toHaveBeenCalledWith({
         content: expect.stringContaining("<@user-new>"),
+        allowedMentions: { users: ["user-new"], parse: [] },
       });
     });
 
@@ -442,6 +443,7 @@ describe("RoleService", () => {
 
       expect(mockChannelSend).toHaveBeenCalledWith({
         content: expect.stringContaining("<@user-new>"),
+        allowedMentions: { users: ["user-new"], parse: [] },
       });
     });
   });

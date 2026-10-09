@@ -398,6 +398,7 @@ export class RoleService {
     try {
       await channel.send({
         content: greeting,
+        allowedMentions: { users: [member.id], parse: [] },
       });
     } catch (error) {
       console.error(

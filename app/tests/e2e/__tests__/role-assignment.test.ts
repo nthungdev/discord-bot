@@ -303,8 +303,11 @@ describe("E2E Simulation: Role Assignment & Onboarding Flow", () => {
     } as unknown as GuildMember;
 
     await roleCapability.handleGuildMemberAdd(newJoinedMember);
-    expect(mockChannel.send).toHaveBeenCalledWith({
-      content: expect.stringContaining("<@newbie-sam>"),
-    });
+    expect(mockChannel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("<@newbie-sam>"),
+        allowedMentions: { users: ["newbie-sam"], parse: [] },
+      }),
+    );
   });
 });
