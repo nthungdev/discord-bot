@@ -2,6 +2,7 @@ import {
   Client,
   Events,
   GatewayIntentBits,
+  type GuildMember,
   type Interaction,
   type Message,
   type VoiceState,
@@ -11,6 +12,7 @@ import { getMetricsService } from "../services/metrics";
 import type { BotLifecycleStatus, JoinedGuildDetail } from "../shared";
 import { ChatCapability } from "./chat-capability";
 import { ModerationCapability } from "./moderation-capability";
+import { RoleCapability } from "./role-capability";
 import type { IBotCapability } from "./types";
 
 /**
@@ -49,6 +51,7 @@ export class DiscordBotEngine {
       );
     }
 
+    this.registerCapability(new RoleCapability());
     this.registerCapability(new ChatCapability());
   }
 
@@ -244,6 +247,31 @@ export class DiscordBotEngine {
         });
       },
     );
+
+    this.client.on(Events.GuildMemberAdd, (member: GuildMember) => {
+      this.dispatchGuildMemberAddPipeline(member).catch((error) => {
+        console.error(
+          "[DiscordBotEngine] Uncaught error in GuildMemberAdd pipeline:",
+          error,
+        );
+      });
+    });
+  }
+
+  private async dispatchGuildMemberAddPipeline(
+    member: GuildMember,
+  ): Promise<void> {
+    for (const capability of this.capabilities) {
+      if (!capability.handleGuildMemberAdd) continue;
+      try {
+        await capability.handleGuildMemberAdd(member);
+      } catch (error) {
+        console.error(
+          `[DiscordBotEngine] Error in capability '${capability.name}' handleGuildMemberAdd:`,
+          error,
+        );
+      }
+    }
   }
 
   private async dispatchMessagePipeline(message: Message): Promise<void> {
