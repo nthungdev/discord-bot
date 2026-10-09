@@ -20,7 +20,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName("set")
-      .setDescription("Configure witty welcome greeting for new members.")
+      .setDescription(
+        "Configure AI-generated witty welcome greeting for new members.",
+      )
       .addChannelOption((opt) =>
         opt
           .setName("channel")
@@ -32,16 +34,20 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption((opt) =>
         opt
           .setName("enabled")
-          .setDescription("Enable onboarding greeting flow (defaults to true)")
+          .setDescription(
+            "Enable witty welcome greeting flow (defaults to true)",
+          )
           .setRequired(false),
       )
       .addStringOption((opt) =>
         opt
-          .setName("welcome_message")
-          .setDescription(
-            "Custom greeting supporting {user}, {server}, and {count}",
-          )
-          .setRequired(false),
+          .setName("locale")
+          .setDescription("Locale override for welcome message (vi or en-US)")
+          .setRequired(false)
+          .addChoices(
+            { name: "Tiếng Việt (vi)", value: "vi" },
+            { name: "English (en-US)", value: "en-US" },
+          ),
       ),
   )
   .addSubcommand((sub) =>
@@ -72,21 +78,28 @@ async function handleSet(
   }
 
   const enabled = interaction.options.getBoolean("enabled") ?? true;
-  const welcomeMessage =
-    interaction.options.getString("welcome_message")?.trim() || undefined;
+  const localeInput = interaction.options.getString?.("locale")?.trim();
+  const existingConfig = await store.getOnboardingConfig(guild.id);
+  const localeOverride = localeInput ?? existingConfig?.localeOverride;
 
   const config: OnboardingConfig = {
     guildId: guild.id,
     enabled,
     channelId: targetChannel.id,
-    welcomeMessage,
+    localeOverride,
     updatedAt: Date.now(),
   };
 
   await store.saveOnboardingConfig(config);
 
+  const localeDesc = localeOverride
+    ? localeOverride === "vi"
+      ? "Tiếng Việt (vi)"
+      : "English (en-US)"
+    : "Auto";
+
   await interaction.reply({
-    content: `✅ Onboarding settings updated!\n- **Status**: ${enabled ? "Enabled" : "Disabled"}\n- **Channel**: <#${targetChannel.id}>\n- **Greeting**: ${welcomeMessage || "Random witty greeting"}`,
+    content: `✅ Onboarding settings updated!\n- **Status**: ${enabled ? "Enabled" : "Disabled"}\n- **Channel**: <#${targetChannel.id}>\n- **Greeting**: 🤖 AI-generated witty welcome\n- **Locale**: ${localeDesc}`,
     ephemeral: true,
   });
 }
@@ -121,8 +134,17 @@ async function handleStatus(
         inline: true,
       },
       {
-        name: "Welcome Message Template",
-        value: config.welcomeMessage || "Random witty greeting (default)",
+        name: "Locale",
+        value: config.localeOverride
+          ? config.localeOverride === "vi"
+            ? "🇻🇳 Tiếng Việt (vi)"
+            : "🇺🇸 English (en-US)"
+          : "Auto",
+        inline: true,
+      },
+      {
+        name: "Greeting Mode",
+        value: "🤖 AI-generated witty welcome message",
         inline: false,
       },
     );
@@ -186,4 +208,3 @@ export async function execute(
       });
   }
 }
-
