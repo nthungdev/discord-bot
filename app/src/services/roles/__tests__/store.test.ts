@@ -123,6 +123,30 @@ describe("RoleStore", () => {
       await store.clear();
       expect(await store.getPanel("guild-2", "g2-panel")).toBeNull();
     });
+
+    it("should serialize concurrent writes without data loss", async () => {
+      const store = new LocalFileRoleStore(testFilePath);
+      const writes = Array.from({ length: 5 }, (_, i) =>
+        store.savePanel({
+          ...samplePanel,
+          id: `concurrent-panel-${i}`,
+          title: `Concurrent Panel ${i}`,
+        }),
+      );
+
+      await Promise.all(writes);
+
+      const panels = await store.getPanelsByGuild("guild-1");
+      expect(panels.length).toBe(5);
+    });
+
+    it("should throw when reading a corrupted file to avoid data erasure", async () => {
+      await fs.mkdir(testDir, { recursive: true });
+      await fs.writeFile(testFilePath, "{ invalid json content !!!", "utf-8");
+
+      const store = new LocalFileRoleStore(testFilePath);
+      await expect(store.getPanel("guild-1", "any")).rejects.toThrow();
+    });
   });
 
   describe("FirestoreRoleStore", () => {
@@ -220,6 +244,23 @@ describe("RoleStore", () => {
       const customStore = new LocalFileRoleStore(testFilePath);
       setRoleStore(customStore);
       expect(getRoleStore()).toBe(customStore);
+    });
+
+    it("should instantiate FirestoreRoleStore when MEMORY_STORE_TYPE is 'firestore'", () => {
+      const prev = process.env.MEMORY_STORE_TYPE;
+      try {
+        process.env.MEMORY_STORE_TYPE = "firestore";
+        setRoleStore(null);
+        const store = getRoleStore();
+        expect(store).toBeInstanceOf(FirestoreRoleStore);
+      } finally {
+        if (prev === undefined) {
+          delete process.env.MEMORY_STORE_TYPE;
+        } else {
+          process.env.MEMORY_STORE_TYPE = prev;
+        }
+        setRoleStore(null);
+      }
     });
   });
 });

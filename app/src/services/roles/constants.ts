@@ -5,6 +5,7 @@ export const MAX_BUTTONS_PER_ROW = 5;
 export const MAX_BUTTON_ROWS = 5;
 export const MAX_TOTAL_BUTTONS = 25;
 export const MAX_DROPDOWN_OPTIONS = 25;
+export const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 
 export const DEFAULT_WITTY_GREETINGS = [
   "Look what the cat dragged in! Welcome {user} to {server}. Try to behave, member #{count}!",
