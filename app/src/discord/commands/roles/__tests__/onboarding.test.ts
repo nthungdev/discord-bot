@@ -30,7 +30,7 @@ describe("/role-onboarding Slash Command", () => {
     expect(data.options.length).toBe(3); // set, status, disable
   });
 
-  it("should configure onboarding with set subcommand", async () => {
+  it("should configure onboarding with set subcommand and locale option", async () => {
     const mockChannel = {
       id: "chan-welcome",
       isTextBased: () => true,
@@ -40,12 +40,9 @@ describe("/role-onboarding Slash Command", () => {
       guild: { id: "guild-1" } as Guild,
       options: {
         getSubcommand: () => "set",
-        getString: (name: string) => {
-          if (name === "welcome_message") return "Hello {user}!";
-          return null;
-        },
         getChannel: () => mockChannel,
         getBoolean: () => true,
+        getString: (name: string) => (name === "locale" ? "en-US" : null),
       },
       reply: vi.fn().mockResolvedValue(undefined),
     } as unknown as ChatInputCommandInteraction;
@@ -57,12 +54,12 @@ describe("/role-onboarding Slash Command", () => {
         guildId: "guild-1",
         enabled: true,
         channelId: "chan-welcome",
-        welcomeMessage: "Hello {user}!",
+        localeOverride: "en-US",
       }),
     );
     expect(mockInteraction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining("Onboarding settings updated"),
+        content: expect.stringContaining("English (en-US)"),
       }),
     );
   });

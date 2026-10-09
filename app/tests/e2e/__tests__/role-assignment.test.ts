@@ -20,6 +20,20 @@ import {
   setRoleStore,
 } from "../../../src/services/roles";
 
+vi.mock("../../../src/utils/genAi", () => ({
+  getGenAi: vi.fn().mockReturnValue({
+    init: vi.fn(),
+    generate: vi.fn().mockResolvedValue({
+      content: "Welcome {user} to {server}! Try to behave, member #{count}!",
+      data: null,
+    }),
+  }),
+  generateChatMessageWithGenAi: vi.fn().mockResolvedValue({
+    content: "Welcome {user} to {server}! Try to behave, member #{count}!",
+    data: null,
+  }),
+}));
+
 describe("E2E Simulation: Role Assignment & Onboarding Flow", () => {
   let testStore: LocalFileRoleStore;
   let roleService: RoleService;
@@ -272,12 +286,9 @@ describe("E2E Simulation: Role Assignment & Onboarding Flow", () => {
       guild: mockGuild,
       options: {
         getSubcommand: () => "set",
-        getString: (name: string) => {
-          if (name === "welcome_message") return "Welcome {user} to {server}!";
-          return null;
-        },
         getChannel: () => mockChannel,
         getBoolean: () => true,
+        getString: () => null,
       },
       reply: vi.fn().mockResolvedValue(undefined),
     } as unknown as ChatInputCommandInteraction;
@@ -286,12 +297,14 @@ describe("E2E Simulation: Role Assignment & Onboarding Flow", () => {
 
     const newJoinedMember = {
       id: "newbie-sam",
+      displayName: "Sam",
+      user: { username: "newbie_sam" },
       guild: mockGuild,
     } as unknown as GuildMember;
 
     await roleCapability.handleGuildMemberAdd(newJoinedMember);
     expect(mockChannel.send).toHaveBeenCalledWith({
-      content: "Welcome <@newbie-sam> to Bluegon Land!",
+      content: expect.stringContaining("<@newbie-sam>"),
     });
   });
 });

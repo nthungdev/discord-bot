@@ -10,6 +10,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoleService } from "../role-service";
 import type { IRoleStore, OnboardingConfig, RolePanel } from "../types";
 
+vi.mock("../../../utils/genAi", () => ({
+  getGenAi: vi.fn().mockReturnValue({
+    init: vi.fn(),
+    generate: vi.fn().mockResolvedValue({
+      content: "Look what the cat dragged in! Welcome {user} to {server}.",
+      data: null,
+    }),
+  }),
+  generateChatMessageWithGenAi: vi.fn().mockResolvedValue({
+    content: "Look what the cat dragged in! Welcome {user} to {server}.",
+    data: null,
+  }),
+}));
+
 describe("RoleService", () => {
   let mockStore: IRoleStore;
   let roleService: RoleService;
@@ -356,7 +370,6 @@ describe("RoleService", () => {
         guildId: "guild-1",
         enabled: true,
         channelId: "chan-welcome",
-        welcomeMessage: "Welcome {user}!",
         updatedAt: 0,
       };
       vi.mocked(mockStore.getOnboardingConfig).mockResolvedValue(
@@ -371,6 +384,8 @@ describe("RoleService", () => {
 
       const mockMember = {
         id: "user-new",
+        displayName: "Newbie",
+        user: { username: "newbie_sam" },
         guild: {
           id: "guild-1",
           name: "Bluegon Land",
@@ -386,7 +401,47 @@ describe("RoleService", () => {
 
       expect(mockStore.getPanel).not.toHaveBeenCalled();
       expect(mockChannelSend).toHaveBeenCalledWith({
-        content: "Welcome <@user-new>!",
+        content: expect.stringContaining("<@user-new>"),
+      });
+    });
+
+    it("should pass localeOverride when onboarding is enabled", async () => {
+      const onboardingConfig: OnboardingConfig = {
+        guildId: "guild-1",
+        enabled: true,
+        channelId: "chan-welcome",
+        localeOverride: "en-US",
+        updatedAt: 0,
+      };
+      vi.mocked(mockStore.getOnboardingConfig).mockResolvedValue(
+        onboardingConfig,
+      );
+
+      const mockChannelSend = vi.fn().mockResolvedValue(undefined);
+      const mockChannel = {
+        isTextBased: () => true,
+        send: mockChannelSend,
+      };
+
+      const mockMember = {
+        id: "user-new",
+        displayName: "Newbie",
+        user: { username: "newbie_sam" },
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 50,
+          roles: { cache: new Map() },
+          channels: {
+            fetch: vi.fn().mockResolvedValue(mockChannel),
+          },
+        },
+      } as unknown as GuildMember;
+
+      await roleService.handleGuildMemberAdd(mockMember);
+
+      expect(mockChannelSend).toHaveBeenCalledWith({
+        content: expect.stringContaining("<@user-new>"),
       });
     });
   });

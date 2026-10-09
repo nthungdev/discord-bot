@@ -3,14 +3,34 @@ import {
   type GuildMember,
   StringSelectMenuBuilder,
 } from "discord.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  DEFAULT_WITTY_GREETINGS,
+  DEFAULT_WITTY_GREETINGS_VI,
+} from "../constants";
 import {
   buildButtonRows,
   buildPanelEmbed,
   buildSelectMenuRow,
   buildWelcomeGreeting,
+  generateWittyWelcomeGreeting,
+  resolveRoleLocale,
 } from "../panel-builder";
 import type { RolePanel } from "../types";
+
+vi.mock("../../../utils/genAi", () => ({
+  getGenAi: vi.fn().mockReturnValue({
+    init: vi.fn(),
+    generate: vi.fn().mockResolvedValue({
+      content: "Look what the cat dragged in! Welcome {user} to {server}.",
+      data: null,
+    }),
+  }),
+  generateChatMessageWithGenAi: vi.fn().mockResolvedValue({
+    content: "Look what the cat dragged in! Welcome {user} to {server}.",
+    data: null,
+  }),
+}));
 
 describe("PanelBuilder", () => {
   const mockRoles = Array.from({ length: 12 }, (_, i) => ({
@@ -127,11 +147,34 @@ describe("PanelBuilder", () => {
     });
   });
 
+  describe("resolveRoleLocale", () => {
+    it("should return explicit localeOverride when vi or en-US", () => {
+      expect(resolveRoleLocale("guild-1", "vi")).toBe("vi");
+      expect(resolveRoleLocale("guild-1", "en-US")).toBe("en-US");
+    });
+
+    it("should parse prefix from localeOverride", () => {
+      expect(resolveRoleLocale("guild-1", "vi_VN")).toBe("vi");
+      expect(resolveRoleLocale("guild-1", "en-GB")).toBe("en-US");
+    });
+
+    it("should resolve from guild preferredLocale when override is absent", () => {
+      expect(resolveRoleLocale(null, null, "en-US")).toBe("en-US");
+      expect(resolveRoleLocale(null, null, "vi")).toBe("vi");
+    });
+
+    it("should default to vi when no locale information is provided", () => {
+      expect(resolveRoleLocale(null, null, null)).toBe("vi");
+      expect(resolveRoleLocale(null, null, "fr")).toBe("vi");
+    });
+  });
+
   describe("buildWelcomeGreeting", () => {
     it("should interpolate user, server, and count tokens", () => {
       const mockMember = {
         id: "user-456",
         guild: {
+          id: "guild-1",
           name: "Bluegon Land",
           memberCount: 150,
         },
@@ -146,16 +189,129 @@ describe("PanelBuilder", () => {
       );
     });
 
-    it("should fallback to random witty greeting when template is undefined", () => {
+    it("should fallback to random witty greeting in English when localeOverride is en-US", () => {
       const mockMember = {
         id: "user-456",
         guild: {
+          id: "guild-1",
           name: "Bluegon Land",
           memberCount: 150,
         },
       } as unknown as GuildMember;
 
-      const result = buildWelcomeGreeting(undefined, mockMember);
+      const result = buildWelcomeGreeting(undefined, mockMember, "en-US");
+      const expectedGreetings = DEFAULT_WITTY_GREETINGS.map((g) =>
+        g
+          .replaceAll("{user}", "<@user-456>")
+          .replaceAll("{server}", "Bluegon Land")
+          .replaceAll("{count}", "150"),
+      );
+      expect(expectedGreetings).toContain(result);
+    });
+
+    it("should fallback to random witty greeting in Vietnamese when localeOverride is vi", () => {
+      const mockMember = {
+        id: "user-456",
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 150,
+        },
+      } as unknown as GuildMember;
+
+      const result = buildWelcomeGreeting(undefined, mockMember, "vi");
+      const expectedGreetings = DEFAULT_WITTY_GREETINGS_VI.map((g) =>
+        g
+          .replaceAll("{user}", "<@user-456>")
+          .replaceAll("{server}", "Bluegon Land")
+          .replaceAll("{count}", "150"),
+      );
+      expect(expectedGreetings).toContain(result);
+    });
+  });
+
+  describe("generateWittyWelcomeGreeting", () => {
+    it("should generate dynamic witty greeting using GenAI in English when en-US", async () => {
+      const mockMember = {
+        id: "user-456",
+        displayName: "Sam",
+        user: { username: "sam_dev" },
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 150,
+        },
+      } as unknown as GuildMember;
+
+      const result = await generateWittyWelcomeGreeting(mockMember, "en-US");
+      expect(result).toContain("<@user-456>");
+      expect(result).toContain("Bluegon Land");
+    });
+
+    it("should prepend Vietnamese greeting when user mention is missing in vi locale", async () => {
+      const genAiUtils = await import("../../../utils/genAi");
+      vi.mocked(genAiUtils.generateChatMessageWithGenAi).mockResolvedValueOnce({
+        content: "Chúc bạn một ngày vui vẻ tại server!",
+        data: null,
+      });
+
+      const mockMember = {
+        id: "user-456",
+        displayName: "Sam",
+        user: { username: "sam_dev" },
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 150,
+        },
+      } as unknown as GuildMember;
+
+      const result = await generateWittyWelcomeGreeting(mockMember, "vi");
+      expect(result).toContain("Chào mừng <@user-456>!");
+      expect(result).toContain("Chúc bạn một ngày vui vẻ");
+    });
+
+    it("should fallback to static witty greeting in English when GenAI fails with en-US", async () => {
+      const genAiUtils = await import("../../../utils/genAi");
+      vi.mocked(genAiUtils.generateChatMessageWithGenAi).mockRejectedValueOnce(
+        new Error("AI generation timeout"),
+      );
+
+      const mockMember = {
+        id: "user-456",
+        displayName: "Sam",
+        user: { username: "sam_dev" },
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 150,
+        },
+      } as unknown as GuildMember;
+
+      const result = await generateWittyWelcomeGreeting(mockMember, "en-US");
+      expect(result).toContain("<@user-456>");
+      expect(result).toContain("Bluegon Land");
+      expect(result).toContain("150");
+    });
+
+    it("should fallback to static witty greeting in Vietnamese when GenAI fails with vi", async () => {
+      const genAiUtils = await import("../../../utils/genAi");
+      vi.mocked(genAiUtils.generateChatMessageWithGenAi).mockRejectedValueOnce(
+        new Error("AI generation timeout"),
+      );
+
+      const mockMember = {
+        id: "user-456",
+        displayName: "Sam",
+        user: { username: "sam_dev" },
+        guild: {
+          id: "guild-1",
+          name: "Bluegon Land",
+          memberCount: 150,
+        },
+      } as unknown as GuildMember;
+
+      const result = await generateWittyWelcomeGreeting(mockMember, "vi");
       expect(result).toContain("<@user-456>");
       expect(result).toContain("Bluegon Land");
       expect(result).toContain("150");
