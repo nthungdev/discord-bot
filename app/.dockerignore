@@ -6,7 +6,11 @@
 
 **/.classpath
 **/.dockerignore
-**/.env
+**/.env*
+**/service-account.json
+**/config.json
+**/config.production.json
+**/config.test.json
 **/.git
 **/.gitignore
 **/.project

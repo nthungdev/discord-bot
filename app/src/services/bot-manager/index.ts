@@ -37,6 +37,72 @@ export class BotManager {
     }
 
     this.isInitialized = true;
+
+    // Auto-deploy slash commands in background if configured via environment
+    void this.autoDeployConfiguredGuildCommands();
+  }
+
+  /**
+   * Automatically deploys slash commands to guilds specified in AUTO_DEPLOY_COMMAND_GUILDS.
+   */
+  async autoDeployConfiguredGuildCommands(): Promise<void> {
+    const rawSetting = process.env.AUTO_DEPLOY_COMMAND_GUILDS;
+    if (!rawSetting) {
+      return;
+    }
+
+    const token = process.env.DISCORD_TOKEN;
+    const clientId = process.env.DISCORD_CLIENT_ID;
+    if (!(token && clientId)) {
+      console.warn(
+        "[BotManager] Cannot auto-deploy commands: DISCORD_TOKEN or DISCORD_CLIENT_ID is missing.",
+      );
+      return;
+    }
+
+    if (rawSetting.trim().toLowerCase() === "all") {
+      try {
+        const guilds = await this.getJoinedGuildDetails();
+        for (const guild of guilds) {
+          await this.deployGuildCommandsSilently(guild.id);
+        }
+      } catch (error) {
+        console.error(
+          "[BotManager] Error fetching joined guilds for auto-deployment:",
+          error,
+        );
+      }
+      return;
+    }
+
+    const guildIds = rawSetting
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    for (const guildId of guildIds) {
+      await this.deployGuildCommandsSilently(guildId);
+    }
+  }
+
+  /**
+   * Deploys slash commands to a single guild and logs any errors without throwing.
+   */
+  private async deployGuildCommandsSilently(guildId: string): Promise<void> {
+    try {
+      console.info(
+        `[BotManager] Auto-deploying commands to guild '${guildId}'...`,
+      );
+      await this.deployGuildCommands(guildId);
+      console.info(
+        `[BotManager] Successfully auto-deployed commands to guild '${guildId}'.`,
+      );
+    } catch (error) {
+      console.error(
+        `[BotManager] Failed to auto-deploy commands to guild '${guildId}':`,
+        error,
+      );
+    }
   }
 
   /**

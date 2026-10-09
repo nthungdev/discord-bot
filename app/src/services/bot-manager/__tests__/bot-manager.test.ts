@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DiscordBotEngine } from "../../../capabilities/bot-engine";
 import { BotManager } from "../index";
 import { LocalFileBotRegistryStore } from "../local-store";
@@ -75,5 +75,46 @@ describe("BotManager Unified Engine Architecture", () => {
     expect(bot).not.toBeNull();
     expect(bot?.id).toBe("bot");
     expect(bot?.botType).toBe("chatBot");
+  });
+
+  it("should auto-deploy commands to guilds configured in AUTO_DEPLOY_COMMAND_GUILDS", async () => {
+    const savedToken = process.env.DISCORD_TOKEN;
+    const savedClientId = process.env.DISCORD_CLIENT_ID;
+    const savedGuilds = process.env.AUTO_DEPLOY_COMMAND_GUILDS;
+
+    process.env.DISCORD_TOKEN = "mock-token";
+    process.env.DISCORD_CLIENT_ID = "mock-client-id";
+    process.env.AUTO_DEPLOY_COMMAND_GUILDS = "guild-1, guild-2";
+
+    const manager = new BotManager();
+    const deploySpy = vi
+      .spyOn(manager, "deployGuildCommands")
+      .mockResolvedValue(undefined);
+
+    await manager.autoDeployConfiguredGuildCommands();
+
+    expect(deploySpy).toHaveBeenCalledTimes(2);
+    expect(deploySpy).toHaveBeenCalledWith("guild-1");
+    expect(deploySpy).toHaveBeenCalledWith("guild-2");
+
+    process.env.DISCORD_TOKEN = savedToken;
+    process.env.DISCORD_CLIENT_ID = savedClientId;
+    process.env.AUTO_DEPLOY_COMMAND_GUILDS = savedGuilds;
+  });
+
+  it("should not auto-deploy commands when AUTO_DEPLOY_COMMAND_GUILDS is unset", async () => {
+    const savedGuilds = process.env.AUTO_DEPLOY_COMMAND_GUILDS;
+    delete process.env.AUTO_DEPLOY_COMMAND_GUILDS;
+
+    const manager = new BotManager();
+    const deploySpy = vi
+      .spyOn(manager, "deployGuildCommands")
+      .mockResolvedValue(undefined);
+
+    await manager.autoDeployConfiguredGuildCommands();
+
+    expect(deploySpy).not.toHaveBeenCalled();
+
+    process.env.AUTO_DEPLOY_COMMAND_GUILDS = savedGuilds;
   });
 });
