@@ -507,42 +507,42 @@ async function handleDelete(
   guild: Guild,
   store: IRoleStore,
 ): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
   const id = interaction.options.getString("id", true).trim().toLowerCase();
   const panel = await store.getPanel(guild.id, id);
   if (!panel) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `⚠️ Panel '**${id}**' was not found.`,
-      ephemeral: true,
     });
     return;
   }
 
+  // Delete store record first to ensure DB consistency
+  await store.deletePanel(guild.id, id);
+
+  // Best-effort cleanup of published Discord message
   if (panel.channelId && panel.messageId) {
     try {
-      const channel = await guild.channels
-        .fetch(panel.channelId)
-        .catch(() => null);
+      const channel = (await guild.channels.fetch(
+        panel.channelId,
+      )) as TextChannel | null;
       if (channel?.isTextBased()) {
-        const message = await channel.messages
-          .fetch(panel.messageId)
-          .catch(() => null);
+        const message = await channel.messages.fetch(panel.messageId);
         if (message) {
-          await message.delete().catch(() => null);
+          await message.delete();
         }
       }
     } catch (error) {
       console.warn(
-        `[RolePanelCommand] Best-effort cleanup of published message failed for panel '${id}':`,
+        `[RolePanelCommand] Best-effort cleanup of published message failed for panel '${id}' (messageId: '${panel.messageId}'):`,
         error,
       );
     }
   }
 
-  await store.deletePanel(guild.id, id);
-
-  await interaction.reply({
+  await interaction.editReply({
     content: `🗑️ Deleted role panel '**${id}**'.`,
-    ephemeral: true,
   });
 }
 

@@ -236,6 +236,58 @@ describe("RoleService", () => {
       });
     });
 
+    it("should force fetch fresh member state from Discord API when handling interactions", async () => {
+      const role1 = createMockRole("role-1", "Announcements");
+      const rolesMap = new Map([["role-1", role1]]);
+      const mockGuild = createMockGuild(rolesMap);
+
+      const freshMemberRoles = {
+        cache: new Map(),
+        add: vi.fn().mockResolvedValue(undefined),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+      const freshMember = {
+        id: "user-1",
+        roles: freshMemberRoles,
+      } as unknown as GuildMember;
+
+      vi.mocked(mockGuild.members.fetch).mockImplementation(
+        async () => freshMember as never,
+      );
+
+      const staleMember = {
+        id: "user-1",
+        roles: {
+          cache: new Map([["role-1", role1]]),
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
+      } as unknown as GuildMember;
+
+      const mockInteraction = {
+        guild: mockGuild,
+        user: { id: "user-1" },
+        member: staleMember,
+        deferred: true,
+        replied: false,
+        editReply: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ButtonInteraction;
+
+      vi.mocked(mockStore.getPanel).mockResolvedValue(samplePanel);
+
+      await roleService.handleButtonInteraction(
+        mockInteraction,
+        "notifications",
+        "role-1",
+      );
+
+      expect(mockGuild.members.fetch).toHaveBeenCalledWith({
+        user: "user-1",
+        force: true,
+      });
+      expect(freshMemberRoles.add).toHaveBeenCalledWith("role-1");
+    });
+
     it("should serialize concurrent button clicks in single mode", async () => {
       const roleRed = createMockRole("role-red", "Red");
       const roleBlue = createMockRole("role-blue", "Blue");
