@@ -16,11 +16,12 @@ This document specifies the technical architecture, component contracts, data sc
 The system is designed as a modular capability (`RoleCapability`) integrated directly into the unified `DiscordBotEngine`. It decouples Discord UI component rendering, role management business logic, and database persistence into clean, testable layers while strictly enforcing Discord API rate limits and role hierarchy security boundaries.
 
 ### 1.2 Core Architectural Principles
-1. **Pipeline Integration via `IBotCapability`**: Integrates into the bot's capability pipeline alongside `ChatCapability` and `ModerationCapability`.
+1. **Pipeline Integration via `IBotCapability`**: Integrates into the bot's capability pipeline alongside `ChatCapability` and `ModerationCapability`, processing both component interactions (`InteractionCreate`) and reaction events (`MessageReactionAdd`, `MessageReactionRemove`).
 2. **Dual-Tier Persistence Strategy**: Implements an abstract `IRoleStore` backed by `FirestoreRoleStore` in production and `LocalFileRoleStore` for offline development/testing, matching the platform's storage conventions (`IRoastOptOutStore` / `IBotRegistryStore`).
-3. **Pure Component Presentation (`PanelBuilder`)**: Separates Discord message presentation (`EmbedBuilder`, `ActionRowBuilder`) from business logic, ensuring deterministic rendering and isolated unit testing.
+3. **Pure Component & Reaction Presentation (`PanelBuilder`)**: Separates Discord message presentation (`EmbedBuilder`, `ActionRowBuilder`) from business logic, ensuring deterministic rendering and isolated unit testing. Returns empty action rows for `emoji` panels and handles automated emoji reaction seeding.
 4. **Strict Hierarchy & Privilege Guardrails**: Proactively checks role positions in Discord's hierarchy before invoking REST mutations, preventing privilege escalation and catching `DiscordAPIError[50013]` errors before dispatch.
 5. **Atomic Role Operations**: Batches role additions and removals to minimize Discord REST round-trips and prevent rate-limiting when toggling multiple roles.
+6. **Stateless Reaction Reconciliation**: Automatically recovers panel state and role mappings across bot restarts by leveraging Discord message IDs and partial Gateway events (`Partials.Message`, `Reaction`, `User`).
 
 ---
 
@@ -33,12 +34,16 @@ flowchart TD
     subgraph Discord Gateway
         GW1[Events.InteractionCreate]
         GW2[Events.GuildMemberAdd]
+        GW3[Events.MessageReactionAdd]
+        GW4[Events.MessageReactionRemove]
     end
 
     subgraph Bot Engine Layer
-        DBE[DiscordBotEngine]
+        DBE[DiscordBotEngine<br/>Intents: GuildMessageReactions<br/>Partials: Message, Reaction, User]
         GW1 --> DBE
         GW2 --> DBE
+        GW3 --> DBE
+        GW4 --> DBE
 
         subgraph Capabilities Pipeline
             RC[RoleCapability : IBotCapability]
@@ -89,15 +94,15 @@ flowchart TD
 ### 3.1 Domain Interfaces (`app/src/services/roles/types.ts`)
 
 ```typescript
-export type RoleComponentType = "button" | "dropdown";
+export type RoleComponentType = "button" | "dropdown" | "emoji";
 export type RoleSelectionMode = "multi" | "single";
 
 export interface RoleOption {
   /** Target Discord role snowflake ID */
   roleId: string;
-  /** Display label for button or dropdown item */
+  /** Display label for button, dropdown item, or embed listing */
   label: string;
-  /** Optional Unicode emoji or custom Discord emoji */
+  /** Unicode emoji or custom Discord emoji (required for emoji panels) */
   emoji?: string;
   /** Optional secondary description (for select menu options) */
   description?: string;
@@ -152,6 +157,7 @@ export interface OnboardingConfig {
 export interface IRoleStore {
   getPanel(guildId: string, panelId: string): Promise<RolePanel | null>;
   getPanelsByGuild(guildId: string): Promise<RolePanel[]>;
+  getPanelByMessageId(guildId: string, messageId: string): Promise<RolePanel | null>;
   savePanel(panel: RolePanel): Promise<void>;
   deletePanel(guildId: string, panelId: string): Promise<void>;
   getOnboardingConfig(guildId: string): Promise<OnboardingConfig | null>;
@@ -226,6 +232,14 @@ All interactive components encode their operational namespace and parameters dir
 * If `panel.mode === "multi"`, sets `.setMinValues(0)` and `.setMaxValues(panel.roles.length)`.
 * If `panel.mode === "single"`, sets `.setMinValues(1)` and `.setMaxValues(1)`.
 * Maps each `RoleOption` to a `StringSelectMenuOptionBuilder`.
+
+### 4.4 Emoji Reaction Panel Formulation & Seeding
+* For `panel.type === "emoji"`, `PanelBuilder.buildPanelComponents(panel)` returns an empty array `[]` (no action rows or button components).
+* `PanelBuilder.buildPanelEmbed(panel)` adds reaction instructions in the embed footer:
+  * Multi-select: *"React with an emoji below to claim a role. Remove reaction to remove the role."*
+  * Single-select: *"React with an emoji to claim a role (single choice). Remove reaction to remove the role."*
+* During `/role-panel post`: The bot publishes the embed message, then sequentially iterates over `panel.roles` and executes `await message.react(opt.emoji)` for each role option.
+* During `/role-panel update`: The bot edits the message embed, deletes reactions for any removed role emojis (`message.reactions.resolve(oldEmoji)?.remove()`), and adds reactions for any newly added emojis (`message.react(newEmoji)`).
 
 ---
 
@@ -385,11 +399,70 @@ sequenceDiagram
 
 ---
 
+### 5.4 Emoji Reaction Resolution Pipeline
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Member
+    participant Discord as Discord Gateway
+    participant Engine as DiscordBotEngine
+    participant RoleCap as RoleCapability
+    participant RoleService
+    participant Store as IRoleStore
+    participant DAPI as Discord REST
+
+    Member->>Discord: Reacts with emoji
+    Discord->>Engine: Events.MessageReactionAdd (reaction, user)
+    Engine->>RoleCap: handleReactionAdd(reaction, user)
+    RoleCap->>RoleService: handleReactionAdd(reaction, user)
+    alt user.bot
+        RoleService-->>RoleCap: Ignore bot reactions
+    else user is member
+        RoleService->>Store: getPanelByMessageId(guildId, messageId)
+        alt Panel not found or panel.type != "emoji"
+            RoleService-->>RoleCap: Return (no action)
+        else Panel found
+            alt Emoji matches roleOption
+                RoleService->>RoleService: validateRoleManageable(guild, role)
+                RoleService->>DAPI: member.roles.add(role.id) (silent)
+            else Unconfigured / Extraneous Emoji
+                RoleService->>DAPI: reaction.users.remove(user.id) (silent cleanup)
+            end
+        end
+    end
+```
+
+#### Emoji Matching Algorithm (`isEmojiMatching`)
+To reliably match incoming Discord Gateway reactions against stored role emojis:
+```typescript
+export function isEmojiMatching(
+  configuredEmoji: string,
+  reactionEmoji: { name: string | null; id: string | null },
+): boolean {
+  const trimmed = configuredEmoji.trim();
+  // Match custom Discord emoji format: <:name:id> or <a:name:id>
+  const customMatch = trimmed.match(/^<a?:([a-zA-Z0-9_]+):(\d+)>$/);
+  if (customMatch) {
+    const [, customName, customId] = customMatch;
+    return reactionEmoji.id === customId || reactionEmoji.name === customName;
+  }
+  // Match custom snowflake ID only
+  if (/^\d+$/.test(trimmed)) {
+    return reactionEmoji.id === trimmed;
+  }
+  // Match Unicode emoji or standard name
+  return reactionEmoji.name === trimmed;
+}
+```
+
+---
+
 ## 6. Bot Capability Pipeline Integration
 
 ### 6.1 Enhancing `IBotCapability` (`app/src/capabilities/types.ts`)
 
-Add the optional member join handler:
+Add reaction event hooks alongside member join handler:
 ```typescript
 export interface IBotCapability {
   readonly id: string;
@@ -400,36 +473,49 @@ export interface IBotCapability {
   handleVoiceStateUpdate?(oldState: VoiceState, newState: VoiceState, guildConfig?: BotGuildConfig): Promise<void>;
   /** Handles new member joins for onboarding flows */
   handleGuildMemberAdd?(member: GuildMember): Promise<void>;
+  /** Handles reaction addition for emoji role panels */
+  handleReactionAdd?(
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void>;
+  /** Handles reaction removal for emoji role panels */
+  handleReactionRemove?(
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void>;
   destroy?(): Promise<void> | void;
 }
 ```
 
 ### 6.2 Binding in `DiscordBotEngine` (`app/src/capabilities/bot-engine.ts`)
 1. In `DiscordBotEngine.constructor`:
+   Enable `GatewayIntentBits.GuildMessageReactions` and register partials:
    ```typescript
+   this.client = client ?? new Client({
+     intents: [
+       GatewayIntentBits.Guilds,
+       GatewayIntentBits.GuildMessages,
+       GatewayIntentBits.MessageContent,
+       GatewayIntentBits.GuildMembers,
+       GatewayIntentBits.GuildVoiceStates,
+       GatewayIntentBits.GuildMessageReactions,
+     ],
+     partials: [
+       Partials.Message,
+       Partials.Channel,
+       Partials.Reaction,
+       Partials.User,
+     ],
+   });
    this.registerCapability(new RoleCapability());
    ```
 2. In `DiscordBotEngine.bindEvents`:
    ```typescript
-   this.client.on(Events.GuildMemberAdd, (member: GuildMember) => {
-     this.dispatchGuildMemberAddPipeline(member).catch((error) => {
-       console.error("[DiscordBotEngine] Uncaught error in GuildMemberAdd pipeline:", error);
-     });
-   });
+   this.client.on(Events.MessageReactionAdd, this.handleMessageReactionAdd);
+   this.client.on(Events.MessageReactionRemove, this.handleMessageReactionRemove);
    ```
-3. In `DiscordBotEngine.dispatchGuildMemberAddPipeline`:
-   ```typescript
-   private async dispatchGuildMemberAddPipeline(member: GuildMember): Promise<void> {
-     for (const capability of this.capabilities) {
-       if (!capability.handleGuildMemberAdd) continue;
-       try {
-         await capability.handleGuildMemberAdd(member);
-       } catch (error) {
-         console.error(`[DiscordBotEngine] Error in capability '${capability.name}' handleGuildMemberAdd:`, error);
-       }
-     }
-   }
-   ```
+3. In `DiscordBotEngine.dispatchReactionAddPipeline` & `dispatchReactionRemovePipeline`:
+   Dispatches events safely across registered capabilities.
 
 ---
 
