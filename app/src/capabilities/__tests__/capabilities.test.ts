@@ -86,6 +86,7 @@ describe("Capability System", () => {
 
       expect(capabilityIds).not.toContain("moderation");
       expect(capabilityIds).toContain("chat");
+      expect(capabilityIds).toContain("roles");
 
       process.env.ENABLE_POLICE_CAPABILITY = prevEnv;
     });
@@ -104,6 +105,7 @@ describe("Capability System", () => {
 
       expect(capabilityIds).toContain("moderation");
       expect(capabilityIds).toContain("chat");
+      expect(capabilityIds).toContain("roles");
 
       if (prevEnv !== undefined) {
         process.env.ENABLE_POLICE_CAPABILITY = prevEnv;
