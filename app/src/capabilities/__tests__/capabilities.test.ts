@@ -175,5 +175,46 @@ describe("Capability System", () => {
         .mock.calls.filter(([event]) => event === Events.GuildMemberAdd).length;
       expect(memberAddAfter).toBe(1);
     });
+
+    it("should clean up and rebind client event listeners cleanly across start -> destroy -> start lifecycle", async () => {
+      type ListenerFn = (...args: unknown[]) => void;
+      const listeners: Record<string, ListenerFn[]> = {};
+      const mockClient = {
+        on: vi.fn((event: string, fn: ListenerFn) => {
+          listeners[event] = listeners[event] || [];
+          listeners[event].push(fn);
+          return mockClient;
+        }),
+        once: vi.fn((event: string, fn: ListenerFn) => {
+          listeners[event] = listeners[event] || [];
+          listeners[event].push(fn);
+          return mockClient;
+        }),
+        off: vi.fn((event: string, fn: ListenerFn) => {
+          if (listeners[event]) {
+            listeners[event] = listeners[event].filter((cb) => cb !== fn);
+          }
+          return mockClient;
+        }),
+        login: vi.fn().mockResolvedValue("token"),
+        destroy: vi.fn(),
+        isReady: () => true,
+        ws: { ping: 25 },
+        guilds: { cache: new Map() },
+        user: { tag: "TestBot#0001", displayAvatarURL: () => "http://avatar" },
+      } as unknown as Client;
+
+      const engine = new DiscordBotEngine(mockClient);
+
+      await engine.start("test-token");
+      expect(listeners[Events.GuildMemberAdd]?.length).toBe(1);
+
+      await engine.destroy();
+      expect(mockClient.off).toHaveBeenCalled();
+      expect(listeners[Events.GuildMemberAdd]?.length).toBe(0);
+
+      await engine.start("test-token");
+      expect(listeners[Events.GuildMemberAdd]?.length).toBe(1);
+    });
   });
 });
