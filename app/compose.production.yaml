@@ -18,7 +18,7 @@ services:
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/healthz"]
+      test: ["CMD-SHELL", "curl -f http://localhost:$${PORT:-3001}/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

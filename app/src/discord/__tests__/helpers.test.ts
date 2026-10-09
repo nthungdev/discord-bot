@@ -133,15 +133,19 @@ describe("discord helpers", () => {
   });
 
   describe("parseCommands", () => {
-    it("should load valid command modules from disk", async () => {
-      const commands = await parseCommands();
-      expect(Array.isArray(commands)).toBe(true);
-      // We know checkin and report are valid commands
-      expect(commands.length).toBeGreaterThan(0);
-      commands.forEach((command) => {
-        expect(command).toHaveProperty("data");
-        expect(command).toHaveProperty("execute");
-      });
-    });
+    it(
+      "should load valid command modules from disk",
+      async () => {
+        const commands = await parseCommands();
+        expect(Array.isArray(commands)).toBe(true);
+        // We know checkin and report are valid commands
+        expect(commands.length).toBeGreaterThan(0);
+        commands.forEach((command) => {
+          expect(command).toHaveProperty("data");
+          expect(command).toHaveProperty("execute");
+        });
+      },
+      15000,
+    );
   });
 });

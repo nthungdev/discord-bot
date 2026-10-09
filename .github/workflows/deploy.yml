@@ -20,8 +20,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Test & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --prefix app install --frozen-lockfile
+
+      - name: Provision mock credentials and config
+        run: |
+          if [ ! -f app/service-account.json ]; then
+            cp app/service-account.example.json app/service-account.json
+          fi
+          if [ ! -f app/config.json ]; then
+            cp app/config.example.json app/config.json
+          fi
+
+      - name: Run Biome Check
+        run: pnpm --prefix app lint
+
+      - name: Typecheck
+        run: pnpm --prefix app typecheck
+
+      - name: Run Tests
+        run: pnpm --prefix app test
+
   build-and-push:
     name: Build & Push Container Image
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -57,4 +98,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-

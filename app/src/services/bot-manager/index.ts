@@ -4,6 +4,7 @@ import {
 } from "../../capabilities/bot-engine";
 import { deployGuildCommands } from "../../discord/deployCommands";
 import type { BotRuntimeMetrics, JoinedGuildDetail } from "../../shared";
+import { getGuildLocaleStore } from "../locale/store";
 
 /**
  * Bot & Server Connection Manager
@@ -168,9 +169,12 @@ export class BotManager {
   }
 
   /**
-   * Deploys slash commands to a target server.
+   * Deploys slash commands to a target server with guild locale filtering.
    */
-  async deployGuildCommands(guildId: string): Promise<void> {
+  async deployGuildCommands(
+    guildId: string,
+    localeOverride?: string | null,
+  ): Promise<void> {
     const token = process.env.DISCORD_TOKEN || "";
     const clientId = process.env.DISCORD_CLIENT_ID || "";
     if (!(token && clientId)) {
@@ -178,7 +182,12 @@ export class BotManager {
         "Missing DISCORD_TOKEN or DISCORD_CLIENT_ID for command deployment.",
       );
     }
-    await deployGuildCommands(token, clientId, guildId);
+    const resolvedLocale =
+      localeOverride !== undefined
+        ? localeOverride
+        : getGuildLocaleStore().getLocale(guildId);
+    const effectiveLocale = resolvedLocale === "auto" ? null : resolvedLocale;
+    await deployGuildCommands(token, clientId, guildId, effectiveLocale);
   }
 }
 
