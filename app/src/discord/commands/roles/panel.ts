@@ -10,6 +10,7 @@ import {
 import {
   buildPanelComponents,
   buildPanelEmbed,
+  DISCORD_MAX_EMBED_FIELDS,
   getRoleStore,
   validatePanelRoleCapacity,
   validateRoleManageable,
@@ -17,6 +18,7 @@ import {
 import type {
   IRoleStore,
   RoleComponentType,
+  RoleOption,
   RolePanel,
   RoleSelectionMode,
 } from "../../../services/roles/types";
@@ -34,6 +36,7 @@ export const data = new SlashCommandBuilder()
         opt
           .setName("id")
           .setDescription("Unique panel slug (e.g. notifications, colors)")
+          .setMaxLength(40)
           .setRequired(true),
       )
       .addStringOption((opt) =>
@@ -170,6 +173,16 @@ async function handleCreate(
   store: IRoleStore,
 ): Promise<void> {
   const id = interaction.options.getString("id", true).trim().toLowerCase();
+  const PANEL_ID_REGEX = /^[a-z0-9_-]{1,40}$/;
+  if (!PANEL_ID_REGEX.test(id)) {
+    await interaction.reply({
+      content:
+        "⚠️ Panel ID must be 1-40 alphanumeric characters, hyphens, or underscores (no colons or special characters).",
+      ephemeral: true,
+    });
+    return;
+  }
+
   const title = interaction.options.getString("title", true).trim();
   const type = interaction.options.getString("type", true) as RoleComponentType;
   const mode = (interaction.options.getString("mode") ??
@@ -262,12 +275,13 @@ async function handleAddRole(
     return;
   }
 
-  panel.roles.push({
+  const roleOption: RoleOption = {
     roleId: role.id,
     label,
-    emoji: emoji || undefined,
-    description: description || undefined,
-  });
+    ...(emoji ? { emoji } : {}),
+    ...(description ? { description } : {}),
+  };
+  panel.roles.push(roleOption);
   panel.updatedAt = Date.now();
 
   await store.savePanel(panel);
@@ -462,7 +476,9 @@ async function handleList(
     .setTitle(`Configured Role Panels (${panels.length})`)
     .setColor(0x5865f2);
 
-  for (const p of panels) {
+  const displayedPanels = panels.slice(0, DISCORD_MAX_EMBED_FIELDS);
+
+  for (const p of displayedPanels) {
     const status =
       p.channelId && p.messageId
         ? `<#${p.channelId}> (Posted)`
@@ -471,6 +487,12 @@ async function handleList(
       name: `🏷️ ${p.title} (\`${p.id}\`)`,
       value: `**Style**: ${p.type} | **Mode**: ${p.mode}\n**Roles**: ${p.roles.length}\n**Status**: ${status}`,
       inline: false,
+    });
+  }
+
+  if (panels.length > DISCORD_MAX_EMBED_FIELDS) {
+    embed.setFooter({
+      text: `Showing first ${DISCORD_MAX_EMBED_FIELDS} of ${panels.length} panels.`,
     });
   }
 
@@ -485,21 +507,42 @@ async function handleDelete(
   guild: Guild,
   store: IRoleStore,
 ): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
   const id = interaction.options.getString("id", true).trim().toLowerCase();
   const panel = await store.getPanel(guild.id, id);
   if (!panel) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `⚠️ Panel '**${id}**' was not found.`,
-      ephemeral: true,
     });
     return;
   }
 
+  // Delete store record first to ensure DB consistency
   await store.deletePanel(guild.id, id);
 
-  await interaction.reply({
+  // Best-effort cleanup of published Discord message
+  if (panel.channelId && panel.messageId) {
+    try {
+      const channel = (await guild.channels.fetch(
+        panel.channelId,
+      )) as TextChannel | null;
+      if (channel?.isTextBased()) {
+        const message = await channel.messages.fetch(panel.messageId);
+        if (message) {
+          await message.delete();
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `[RolePanelCommand] Best-effort cleanup of published message failed for panel '${id}' (messageId: '${panel.messageId}'):`,
+        error,
+      );
+    }
+  }
+
+  await interaction.editReply({
     content: `🗑️ Deleted role panel '**${id}**'.`,
-    ephemeral: true,
   });
 }
 

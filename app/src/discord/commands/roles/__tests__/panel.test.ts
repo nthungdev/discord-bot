@@ -70,6 +70,34 @@ describe("/role-panel Slash Command", () => {
     );
   });
 
+  it("should reject panel creation with invalid id containing colons or invalid chars", async () => {
+    const mockInteraction = {
+      guild: { id: "guild-1" } as Guild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "create",
+        getString: (name: string) => {
+          if (name === "id") return "invalid:panel:id";
+          if (name === "title") return "Invalid Panel";
+          if (name === "type") return "button";
+          return null;
+        },
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockStore.savePanel).not.toHaveBeenCalled();
+    expect(mockInteraction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining(
+          "Panel ID must be 1-40 alphanumeric characters",
+        ),
+      }),
+    );
+  });
+
   it("should add a role to a panel", async () => {
     const existingPanel: RolePanel = {
       id: "notifications",
@@ -276,5 +304,182 @@ describe("/role-panel Slash Command", () => {
         content: expect.stringContaining("Successfully refreshed"),
       }),
     );
+  });
+
+  it("should cap listed panels at 25 embed fields and display footer note when exceeding limit", async () => {
+    const panels: RolePanel[] = Array.from({ length: 30 }, (_, i) => ({
+      id: `panel-${i + 1}`,
+      guildId: "guild-1",
+      title: `Panel ${i + 1}`,
+      description: "Desc",
+      type: "button",
+      mode: "multi",
+      roles: [],
+      createdAt: 0,
+      updatedAt: 0,
+    }));
+    vi.mocked(mockStore.getPanelsByGuild).mockResolvedValue(panels);
+
+    const mockInteraction = {
+      guild: { id: "guild-1" } as Guild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "list",
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockInteraction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            data: expect.objectContaining({
+              fields: expect.arrayContaining([
+                expect.objectContaining({
+                  name: expect.stringContaining("panel-1"),
+                }),
+              ]),
+              footer: expect.objectContaining({
+                text: "Showing first 25 of 30 panels.",
+              }),
+            }),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("should clean up published message on panel deletion with DB-first ordering", async () => {
+    const existingPanel: RolePanel = {
+      id: "notifications",
+      guildId: "guild-1",
+      channelId: "channel-1",
+      messageId: "msg-123",
+      title: "Title",
+      description: "Desc",
+      type: "button",
+      mode: "multi",
+      roles: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    vi.mocked(mockStore.getPanel).mockResolvedValue(existingPanel);
+
+    const callOrder: string[] = [];
+    vi.mocked(mockStore.deletePanel).mockImplementation(async () => {
+      callOrder.push("store.deletePanel");
+    });
+
+    const mockMessage = {
+      delete: vi.fn().mockImplementation(async () => {
+        callOrder.push("message.delete");
+      }),
+    };
+    const mockChannel = {
+      id: "channel-1",
+      isTextBased: () => true,
+      messages: {
+        fetch: vi.fn().mockResolvedValue(mockMessage),
+      },
+    } as unknown as TextChannel;
+
+    const mockGuild = {
+      id: "guild-1",
+      channels: {
+        fetch: vi.fn().mockResolvedValue(mockChannel),
+      },
+    } as unknown as Guild;
+
+    const mockInteraction = {
+      guild: mockGuild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "delete",
+        getString: (name: string) => (name === "id" ? "notifications" : null),
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockInteraction.deferReply).toHaveBeenCalledWith({
+      ephemeral: true,
+    });
+    expect(callOrder).toEqual(["store.deletePanel", "message.delete"]);
+    expect(mockStore.deletePanel).toHaveBeenCalledWith(
+      "guild-1",
+      "notifications",
+    );
+    expect(mockInteraction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("Deleted role panel"),
+      }),
+    );
+  });
+
+  it("should log warning and finish deletion when message cleanup fails", async () => {
+    const existingPanel: RolePanel = {
+      id: "notifications",
+      guildId: "guild-1",
+      channelId: "channel-1",
+      messageId: "msg-123",
+      title: "Title",
+      description: "Desc",
+      type: "button",
+      mode: "multi",
+      roles: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    vi.mocked(mockStore.getPanel).mockResolvedValue(existingPanel);
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const mockChannel = {
+      id: "channel-1",
+      isTextBased: () => true,
+      messages: {
+        fetch: vi.fn().mockRejectedValue(new Error("Unknown Message")),
+      },
+    } as unknown as TextChannel;
+
+    const mockGuild = {
+      id: "guild-1",
+      channels: {
+        fetch: vi.fn().mockResolvedValue(mockChannel),
+      },
+    } as unknown as Guild;
+
+    const mockInteraction = {
+      guild: mockGuild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "delete",
+        getString: (name: string) => (name === "id" ? "notifications" : null),
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockStore.deletePanel).toHaveBeenCalledWith(
+      "guild-1",
+      "notifications",
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("notifications"),
+      expect.any(Error),
+    );
+    expect(mockInteraction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("Deleted role panel"),
+      }),
+    );
+
+    warnSpy.mockRestore();
   });
 });

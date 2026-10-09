@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import * as admin from "firebase-admin";
@@ -9,6 +10,15 @@ interface RoleFileStorageData {
   onboarding: Record<string, OnboardingConfig>;
 }
 
+function isEnoentError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "ENOENT"
+  );
+}
+
 export class LocalFileRoleStore implements IRoleStore {
   private filePath: string;
   private data: RoleFileStorageData = {
@@ -16,6 +26,8 @@ export class LocalFileRoleStore implements IRoleStore {
     onboarding: {},
   };
   private isLoaded = false;
+  private loadPromise: Promise<void> | null = null;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(customPath?: string) {
     this.filePath =
@@ -29,33 +41,54 @@ export class LocalFileRoleStore implements IRoleStore {
 
   private async ensureLoaded(): Promise<void> {
     if (this.isLoaded) return;
+    if (this.loadPromise) return this.loadPromise;
 
-    try {
+    this.loadPromise = (async () => {
+      try {
+        const dir = path.dirname(this.filePath);
+        await fs.mkdir(dir, { recursive: true });
+
+        const content = await fs.readFile(this.filePath, "utf-8");
+        const parsed = JSON.parse(content);
+        this.data = {
+          panels: parsed.panels ?? {},
+          onboarding: parsed.onboarding ?? {},
+        };
+        this.isLoaded = true;
+      } catch (err: unknown) {
+        if (isEnoentError(err)) {
+          this.data = {
+            panels: {},
+            onboarding: {},
+          };
+          this.isLoaded = true;
+          return;
+        }
+        console.error(
+          `[LocalFileRoleStore] Failed to read or parse '${this.filePath}':`,
+          err,
+        );
+        throw err;
+      } finally {
+        this.loadPromise = null;
+      }
+    })();
+
+    return this.loadPromise;
+  }
+
+  private persist(): Promise<void> {
+    const nextWrite = async (): Promise<void> => {
       const dir = path.dirname(this.filePath);
       await fs.mkdir(dir, { recursive: true });
 
-      const content = await fs.readFile(this.filePath, "utf-8");
-      const parsed = JSON.parse(content);
-      this.data = {
-        panels: parsed.panels ?? {},
-        onboarding: parsed.onboarding ?? {},
-      };
-    } catch {
-      this.data = {
-        panels: {},
-        onboarding: {},
-      };
-    }
-    this.isLoaded = true;
-  }
+      const tempFile = `${this.filePath}.tmp.${Date.now()}.${crypto.randomUUID()}`;
+      await fs.writeFile(tempFile, JSON.stringify(this.data, null, 2), "utf-8");
+      await fs.rename(tempFile, this.filePath);
+    };
 
-  private async persist(): Promise<void> {
-    const dir = path.dirname(this.filePath);
-    await fs.mkdir(dir, { recursive: true });
-
-    const tempFile = `${this.filePath}.tmp.${Date.now()}`;
-    await fs.writeFile(tempFile, JSON.stringify(this.data, null, 2), "utf-8");
-    await fs.rename(tempFile, this.filePath);
+    this.writeQueue = this.writeQueue.catch(() => {}).then(nextWrite);
+    return this.writeQueue;
   }
 
   public async getPanel(
@@ -121,6 +154,25 @@ export class LocalFileRoleStore implements IRoleStore {
   }
 }
 
+/**
+ * Recursively removes undefined fields from an object to ensure safe Firestore serialization.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined || typeof data !== "object") {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result as T;
+}
+
 export class FirestoreRoleStore implements IRoleStore {
   private panelCollectionName = "role_panels";
   private onboardingCollectionName = "role_onboarding";
@@ -168,7 +220,7 @@ export class FirestoreRoleStore implements IRoleStore {
       await this.getDb()
         .collection(this.panelCollectionName)
         .doc(this.getPanelDocId(panel.guildId, panel.id))
-        .set(panel);
+        .set(sanitizeForFirestore(panel));
     } catch (error) {
       console.error("[FirestoreRoleStore] savePanel error:", error);
       throw error;
@@ -208,7 +260,7 @@ export class FirestoreRoleStore implements IRoleStore {
       await this.getDb()
         .collection(this.onboardingCollectionName)
         .doc(config.guildId)
-        .set(config);
+        .set(sanitizeForFirestore(config));
     } catch (error) {
       console.error("[FirestoreRoleStore] saveOnboardingConfig error:", error);
       throw error;
@@ -253,16 +305,20 @@ let roleStoreInstance: IRoleStore | null = null;
 
 export function getRoleStore(): IRoleStore {
   if (!roleStoreInstance) {
+    const envType = process.env.MEMORY_STORE_TYPE;
+    let configType: string | undefined;
     try {
-      const storeType = Config.getInstance().getConfigValue(
+      configType = Config.getInstance().getConfigValue(
         ConfigParameter.memoryStoreType,
       );
-      if (storeType === "firestore") {
-        roleStoreInstance = new FirestoreRoleStore();
-      } else {
-        roleStoreInstance = new LocalFileRoleStore();
-      }
     } catch {
+      // Config not initialized yet
+    }
+
+    const selectedType = envType || configType;
+    if (selectedType === "firestore") {
+      roleStoreInstance = new FirestoreRoleStore();
+    } else {
       roleStoreInstance = new LocalFileRoleStore();
     }
   }

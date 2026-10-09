@@ -235,10 +235,126 @@ describe("RoleService", () => {
         content: "✅ Set role to **@Blue**.",
       });
     });
+
+    it("should force fetch fresh member state from Discord API when handling interactions", async () => {
+      const role1 = createMockRole("role-1", "Announcements");
+      const rolesMap = new Map([["role-1", role1]]);
+      const mockGuild = createMockGuild(rolesMap);
+
+      const freshMemberRoles = {
+        cache: new Map(),
+        add: vi.fn().mockResolvedValue(undefined),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+      const freshMember = {
+        id: "user-1",
+        roles: freshMemberRoles,
+      } as unknown as GuildMember;
+
+      vi.mocked(mockGuild.members.fetch).mockImplementation(
+        async () => freshMember as never,
+      );
+
+      const staleMember = {
+        id: "user-1",
+        roles: {
+          cache: new Map([["role-1", role1]]),
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
+      } as unknown as GuildMember;
+
+      const mockInteraction = {
+        guild: mockGuild,
+        user: { id: "user-1" },
+        member: staleMember,
+        deferred: true,
+        replied: false,
+        editReply: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ButtonInteraction;
+
+      vi.mocked(mockStore.getPanel).mockResolvedValue(samplePanel);
+
+      await roleService.handleButtonInteraction(
+        mockInteraction,
+        "notifications",
+        "role-1",
+      );
+
+      expect(mockGuild.members.fetch).toHaveBeenCalledWith({
+        user: "user-1",
+        force: true,
+      });
+      expect(freshMemberRoles.add).toHaveBeenCalledWith("role-1");
+    });
+
+    it("should serialize concurrent button clicks in single mode", async () => {
+      const roleRed = createMockRole("role-red", "Red");
+      const roleBlue = createMockRole("role-blue", "Blue");
+      const rolesMap = new Map([
+        ["role-red", roleRed],
+        ["role-blue", roleBlue],
+      ]);
+
+      const memberRoleCache = new Map<string, Role>();
+      const mockMemberRoles = {
+        cache: memberRoleCache,
+        add: vi.fn().mockImplementation((id: string) => {
+          const r = rolesMap.get(id);
+          if (r) memberRoleCache.set(id, r);
+          return Promise.resolve();
+        }),
+        remove: vi.fn().mockImplementation((ids: string[]) => {
+          for (const id of ids) memberRoleCache.delete(id);
+          return Promise.resolve();
+        }),
+      };
+
+      const mockMember = {
+        id: "user-1",
+        roles: mockMemberRoles,
+      } as unknown as GuildMember;
+
+      const mockGuild = {
+        ...createMockGuild(rolesMap),
+        members: {
+          ...createMockGuild(rolesMap).members,
+          fetch: vi.fn().mockResolvedValue(mockMember),
+        },
+      } as unknown as Guild;
+
+      const createInteraction = () =>
+        ({
+          guild: mockGuild,
+          user: { id: "user-1" },
+          member: mockMember,
+          deferred: true,
+          replied: false,
+          editReply: vi.fn().mockResolvedValue(undefined),
+        }) as unknown as ButtonInteraction;
+
+      vi.mocked(mockStore.getPanel).mockResolvedValue(sampleRadioPanel);
+
+      await Promise.all([
+        roleService.handleButtonInteraction(
+          createInteraction(),
+          "colors",
+          "role-red",
+        ),
+        roleService.handleButtonInteraction(
+          createInteraction(),
+          "colors",
+          "role-blue",
+        ),
+      ]);
+
+      expect(memberRoleCache.has("role-blue")).toBe(true);
+      expect(memberRoleCache.has("role-red")).toBe(false);
+    });
   });
 
   describe("handleSelectInteraction", () => {
-    it("should batch add selected and remove unselected roles", async () => {
+    it("should toggle selected roles in multi mode without removing unselected roles", async () => {
       const role1 = createMockRole("role-1", "Announcements");
       const role2 = createMockRole("role-2", "Events");
       const rolesMap = new Map([
@@ -276,11 +392,88 @@ describe("RoleService", () => {
         "notifications",
       );
 
-      expect(mockMemberRoles.remove).toHaveBeenCalledWith(["role-1"]);
+      // In multi-mode: role-1 is unselected so it is NOT removed!
+      expect(mockMemberRoles.remove).not.toHaveBeenCalled();
+      // role-2 is selected and member did not have it, so it is added!
       expect(mockMemberRoles.add).toHaveBeenCalledWith(["role-2"]);
       expect(mockInteraction.editReply).toHaveBeenCalledWith({
         content: expect.stringContaining("✅ Updated roles:"),
       });
+    });
+
+    it("should toggle off an already-held role in multi mode", async () => {
+      const role1 = createMockRole("role-1", "Announcements");
+      const rolesMap = new Map([["role-1", role1]]);
+      const mockGuild = createMockGuild(rolesMap);
+
+      const mockMemberRoles = {
+        cache: new Map([["role-1", role1]]), // currently has role-1
+        add: vi.fn().mockResolvedValue(undefined),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockMember = {
+        id: "user-1",
+        roles: mockMemberRoles,
+      } as unknown as GuildMember;
+
+      const mockInteraction = {
+        guild: mockGuild,
+        user: { id: "user-1" },
+        member: mockMember,
+        deferred: true,
+        replied: false,
+        values: ["role-1"], // selected role-1 which they already have
+        editReply: vi.fn().mockResolvedValue(undefined),
+      } as unknown as StringSelectMenuInteraction;
+
+      vi.mocked(mockStore.getPanel).mockResolvedValue(samplePanel);
+
+      await roleService.handleSelectInteraction(
+        mockInteraction,
+        "notifications",
+      );
+
+      expect(mockMemberRoles.remove).toHaveBeenCalledWith(["role-1"]);
+      expect(mockMemberRoles.add).not.toHaveBeenCalled();
+    });
+
+    it("should replace previous panel role in single mode dropdown", async () => {
+      const roleRed = createMockRole("role-red", "Red");
+      const roleBlue = createMockRole("role-blue", "Blue");
+      const rolesMap = new Map([
+        ["role-red", roleRed],
+        ["role-blue", roleBlue],
+      ]);
+      const mockGuild = createMockGuild(rolesMap);
+
+      const mockMemberRoles = {
+        cache: new Map([["role-red", roleRed]]), // currently has Red
+        add: vi.fn().mockResolvedValue(undefined),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockMember = {
+        id: "user-1",
+        roles: mockMemberRoles,
+      } as unknown as GuildMember;
+
+      const mockInteraction = {
+        guild: mockGuild,
+        user: { id: "user-1" },
+        member: mockMember,
+        deferred: true,
+        replied: false,
+        values: ["role-blue"], // selects Blue
+        editReply: vi.fn().mockResolvedValue(undefined),
+      } as unknown as StringSelectMenuInteraction;
+
+      vi.mocked(mockStore.getPanel).mockResolvedValue(sampleRadioPanel);
+
+      await roleService.handleSelectInteraction(mockInteraction, "colors");
+
+      expect(mockMemberRoles.remove).toHaveBeenCalledWith(["role-red"]);
+      expect(mockMemberRoles.add).toHaveBeenCalledWith(["role-blue"]);
     });
   });
 
@@ -350,6 +543,44 @@ describe("RoleService", () => {
       expect(mockTargetRoles.remove).toHaveBeenCalledWith("role-1");
       expect(result.message).toContain("Revoked **@VIP**");
     });
+
+    it("should revoke an already-assigned role even if it has sensitive moderation permissions", async () => {
+      const role = {
+        ...createMockRole("role-mod", "Moderator", 5),
+        permissions: {
+          has: (perm: bigint) => perm === PermissionFlagsBits.ManageChannels,
+        },
+      } as unknown as Role;
+      const rolesMap = new Map([["role-mod", role]]);
+      const mockGuild = createMockGuild(rolesMap);
+
+      const mockCaller = {
+        id: "mod-1",
+        roles: { highest: { position: 20 } },
+      } as unknown as GuildMember;
+
+      const mockTargetRoles = {
+        cache: new Map([["role-mod", role]]),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockTarget = {
+        id: "target-1",
+        user: { tag: "TargetUser#1234" },
+        roles: mockTargetRoles,
+      } as unknown as GuildMember;
+
+      const result = await roleService.removeRole(
+        mockGuild,
+        mockCaller,
+        mockTarget,
+        role,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockTargetRoles.remove).toHaveBeenCalledWith("role-mod");
+      expect(result.message).toContain("Revoked **@Moderator**");
+    });
   });
 
   describe("handleGuildMemberAdd", () => {
@@ -402,6 +633,7 @@ describe("RoleService", () => {
       expect(mockStore.getPanel).not.toHaveBeenCalled();
       expect(mockChannelSend).toHaveBeenCalledWith({
         content: expect.stringContaining("<@user-new>"),
+        allowedMentions: { users: ["user-new"], parse: [] },
       });
     });
 
@@ -442,6 +674,7 @@ describe("RoleService", () => {
 
       expect(mockChannelSend).toHaveBeenCalledWith({
         content: expect.stringContaining("<@user-new>"),
+        allowedMentions: { users: ["user-new"], parse: [] },
       });
     });
   });

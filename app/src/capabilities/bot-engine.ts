@@ -25,6 +25,7 @@ export class DiscordBotEngine {
   private status: BotLifecycleStatus = "STOPPED";
   private startTime = 0;
   private token = "";
+  private eventsBound = false;
 
   constructor(client?: Client) {
     this.client =
@@ -142,6 +143,7 @@ export class DiscordBotEngine {
         await capability.destroy();
       }
     }
+    this.unbindEvents();
     this.client.destroy();
     this.status = "STOPPED";
   }
@@ -210,52 +212,83 @@ export class DiscordBotEngine {
     });
   }
 
-  private bindEvents(): void {
-    this.client.once(Events.ClientReady, (readyClient) => {
-      console.info(`[DiscordBotEngine] Client ready: @${readyClient.user.tag}`);
-    });
+  private handleClientReady = (readyClient: Client<true>): void => {
+    console.info(`[DiscordBotEngine] Client ready: @${readyClient.user.tag}`);
+  };
 
-    this.client.on(Events.MessageCreate, (message: Message) => {
-      this.dispatchMessagePipeline(message).catch((error) => {
-        console.error(
-          "[DiscordBotEngine] Uncaught error in message pipeline:",
-          error,
-        );
-      });
-    });
-
-    this.client.on(Events.InteractionCreate, (interaction: Interaction) => {
-      console.info(
-        `[DiscordBotEngine] Interaction received: id=${interaction.id}, type=${interaction.type}, isCommand=${interaction.isCommand()}, isButton=${interaction.isButton()}`,
+  private handleMessageCreate = (message: Message): void => {
+    this.dispatchMessagePipeline(message).catch((error) => {
+      console.error(
+        "[DiscordBotEngine] Uncaught error in message pipeline:",
+        error,
       );
-      this.dispatchInteractionPipeline(interaction).catch((error) => {
-        console.error(
-          "[DiscordBotEngine] Uncaught error in interaction pipeline:",
-          error,
-        );
-      });
     });
+  };
 
-    this.client.on(
-      Events.VoiceStateUpdate,
-      (oldState: VoiceState, newState: VoiceState) => {
-        this.dispatchVoiceStatePipeline(oldState, newState).catch((error) => {
-          console.error(
-            "[DiscordBotEngine] Uncaught error in voice state pipeline:",
-            error,
-          );
-        });
-      },
+  private handleInteractionCreate = (interaction: Interaction): void => {
+    console.info(
+      `[DiscordBotEngine] Interaction received: id=${interaction.id}, type=${interaction.type}, isCommand=${interaction.isCommand()}, isButton=${interaction.isButton()}`,
     );
-
-    this.client.on(Events.GuildMemberAdd, (member: GuildMember) => {
-      this.dispatchGuildMemberAddPipeline(member).catch((error) => {
-        console.error(
-          "[DiscordBotEngine] Uncaught error in GuildMemberAdd pipeline:",
-          error,
-        );
-      });
+    this.dispatchInteractionPipeline(interaction).catch((error) => {
+      console.error(
+        "[DiscordBotEngine] Uncaught error in interaction pipeline:",
+        error,
+      );
     });
+  };
+
+  private handleVoiceStateUpdate = (
+    oldState: VoiceState,
+    newState: VoiceState,
+  ): void => {
+    this.dispatchVoiceStatePipeline(oldState, newState).catch((error) => {
+      console.error(
+        "[DiscordBotEngine] Uncaught error in voice state pipeline:",
+        error,
+      );
+    });
+  };
+
+  private handleGuildMemberAdd = (member: GuildMember): void => {
+    this.dispatchGuildMemberAddPipeline(member).catch((error) => {
+      console.error(
+        "[DiscordBotEngine] Uncaught error in GuildMemberAdd pipeline:",
+        error,
+      );
+    });
+  };
+
+  private bindEvents(): void {
+    if (this.eventsBound) return;
+    this.eventsBound = true;
+
+    this.client.once(Events.ClientReady, this.handleClientReady);
+    this.client.on(Events.MessageCreate, this.handleMessageCreate);
+    this.client.on(Events.InteractionCreate, this.handleInteractionCreate);
+    this.client.on(Events.VoiceStateUpdate, this.handleVoiceStateUpdate);
+    this.client.on(Events.GuildMemberAdd, this.handleGuildMemberAdd);
+  }
+
+  private unbindEvents(): void {
+    if (!this.eventsBound) return;
+    this.eventsBound = false;
+
+    const off = this.client.off ?? this.client.removeListener;
+    if (typeof off === "function") {
+      off.call(this.client, Events.ClientReady, this.handleClientReady);
+      off.call(this.client, Events.MessageCreate, this.handleMessageCreate);
+      off.call(
+        this.client,
+        Events.InteractionCreate,
+        this.handleInteractionCreate,
+      );
+      off.call(
+        this.client,
+        Events.VoiceStateUpdate,
+        this.handleVoiceStateUpdate,
+      );
+      off.call(this.client, Events.GuildMemberAdd, this.handleGuildMemberAdd);
+    }
   }
 
   private async dispatchGuildMemberAddPipeline(

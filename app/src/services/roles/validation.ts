@@ -20,6 +20,7 @@ export function validateRoleManageable(
   guild: Guild,
   role: Role,
   callerMember?: GuildMember,
+  options?: { isRevocation?: boolean },
 ): ValidationResult {
   const botMember = guild.members.me;
   if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
@@ -47,22 +48,31 @@ export function validateRoleManageable(
     }
   }
 
-  // 3. Prohibit dangerous administrative permissions on self-service roles
-  const dangerousPermissions = [
-    PermissionFlagsBits.Administrator,
-    PermissionFlagsBits.ManageGuild,
-    PermissionFlagsBits.ManageRoles,
-    PermissionFlagsBits.BanMembers,
-    PermissionFlagsBits.KickMembers,
-  ];
-  const hasDangerousPerm = dangerousPermissions.some((perm) =>
-    role.permissions.has(perm),
-  );
-  if (hasDangerousPerm) {
-    return {
-      valid: false,
-      error: `Role '${role.name}' possesses sensitive administrative permissions and cannot be added to self-service panels.`,
-    };
+  // 3. Prohibit dangerous administrative and moderation permissions on self-service roles (only on grant/addition)
+  if (!options?.isRevocation) {
+    const dangerousPermissions = [
+      PermissionFlagsBits.Administrator,
+      PermissionFlagsBits.ManageGuild,
+      PermissionFlagsBits.ManageRoles,
+      PermissionFlagsBits.BanMembers,
+      PermissionFlagsBits.KickMembers,
+      PermissionFlagsBits.ManageChannels,
+      PermissionFlagsBits.ManageMessages,
+      PermissionFlagsBits.ModerateMembers,
+      PermissionFlagsBits.MentionEveryone,
+      PermissionFlagsBits.ManageWebhooks,
+      PermissionFlagsBits.ManageThreads,
+      PermissionFlagsBits.ManageGuildExpressions,
+    ];
+    const hasDangerousPerm = dangerousPermissions.some((perm) =>
+      role.permissions.has(perm),
+    );
+    if (hasDangerousPerm) {
+      return {
+        valid: false,
+        error: `Role '${role.name}' possesses sensitive administrative or moderation permissions and cannot be added to self-service panels.`,
+      };
+    }
   }
 
   // 4. Managed / Integration roles check
@@ -74,6 +84,20 @@ export function validateRoleManageable(
   }
 
   return { valid: true };
+}
+
+/**
+ * Validates whether a Discord role can be revoked or removed from a member.
+ * Enforces bot permissions and hierarchy, without blocking sensitive permissions.
+ */
+export function validateRoleRevocable(
+  guild: Guild,
+  role: Role,
+  callerMember?: GuildMember,
+): ValidationResult {
+  return validateRoleManageable(guild, role, callerMember, {
+    isRevocation: true,
+  });
 }
 
 /**
