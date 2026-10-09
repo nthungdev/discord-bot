@@ -7,4 +7,7 @@ export enum DiscordCommand {
   RoastUser = "Roast User",
   RoastShield = "roast-shield",
   Locale = "locale",
+  RolePanel = "role-panel",
+  Role = "role",
+  RoleOnboarding = "role-onboarding",
 }
