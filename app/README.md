@@ -152,13 +152,13 @@ pnpm lint
 
 ### 1. Command Structure & Architecture
 
-All slash commands are located under [`src/discord/commands/<category>/`](file:///Users/hung/Dev/discord-bot/app/src/discord/commands).
+All slash commands are located under [`src/discord/commands/<category>/`](src/discord/commands).
 
 Each command file exports:
 - `data`: An instance of `SlashCommandBuilder` describing the command name, description, options, subcommands, and permissions.
 - `execute`: An async function handling the command invocation `(interaction: ChatInputCommandInteraction) => Promise<void>`.
 
-Commands are dynamically registered at runtime and during deployment via `parseCommands()` in [`src/discord/helpers.ts`](file:///Users/hung/Dev/discord-bot/app/src/discord/helpers.ts).
+Commands are dynamically registered at runtime and during deployment via `parseCommands()` in [`src/discord/helpers.ts`](src/discord/helpers.ts).
 
 #### Example Command Template
 ```typescript
@@ -187,7 +187,7 @@ export async function execute(
 ```
 
 > [!TIP]
-> Always add your command identifier to the `DiscordCommand` enum in [`src/discord/constants.ts`](file:///Users/hung/Dev/discord-bot/app/src/discord/constants.ts) to avoid magic strings.
+> Always add your command identifier to the `DiscordCommand` enum in [`src/discord/constants.ts`](src/discord/constants.ts) to avoid magic strings.
 
 ---
 
@@ -239,6 +239,7 @@ Unit tests should live in a nested `__tests__` directory next to the command fil
 
 Mock the `ChatInputCommandInteraction` to verify validation, error handling, and business logic:
 ```typescript
+import type { ChatInputCommandInteraction } from "discord.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { execute } from "../panel";
 
