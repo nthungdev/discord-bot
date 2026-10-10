@@ -7,6 +7,8 @@ import {
 import { describe, expect, it } from "vitest";
 import type { RolePanel } from "../types";
 import {
+  normalizeEmojiKey,
+  validateEmojiFormat,
   validatePanelRoleCapacity,
   validateRoleManageable,
   validateRoleRevocable,
@@ -231,6 +233,94 @@ describe("Role Validation Guardrails", () => {
       const panel = { ...samplePanel, roles: samplePanel.roles.slice(0, 20) };
       const result = validatePanelRoleCapacity(panel, 1);
       expect(result.valid).toBe(true);
+    });
+
+    it("should reject adding a 21st role to an emoji panel", () => {
+      const emojiPanel: RolePanel = {
+        ...samplePanel,
+        type: "emoji",
+        roles: Array.from({ length: 20 }, (_, i) => ({
+          roleId: `r-${i}`,
+          label: `Role ${i}`,
+          emoji: "😀",
+        })),
+      };
+      const result = validatePanelRoleCapacity(emojiPanel, 1);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("maximum capacity of 20");
+    });
+
+    it("should approve adding roles to emoji panel when within 20 limit", () => {
+      const emojiPanel: RolePanel = {
+        ...samplePanel,
+        type: "emoji",
+        roles: Array.from({ length: 19 }, (_, i) => ({
+          roleId: `r-${i}`,
+          label: `Role ${i}`,
+          emoji: "😀",
+        })),
+      };
+      const result = validatePanelRoleCapacity(emojiPanel, 1);
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("normalizeEmojiKey", () => {
+    it("should normalize custom emoji format to snowflake id", () => {
+      expect(normalizeEmojiKey("<:cool_cat:123456789012345678>")).toBe(
+        "123456789012345678",
+      );
+      expect(normalizeEmojiKey("<a:party_parrot:987654321098765432>")).toBe(
+        "987654321098765432",
+      );
+    });
+
+    it("should normalize raw snowflake id", () => {
+      expect(normalizeEmojiKey("123456789012345678")).toBe(
+        "123456789012345678",
+      );
+      expect(normalizeEmojiKey("  123456789012345678  ")).toBe(
+        "123456789012345678",
+      );
+    });
+
+    it("should trim unicode emojis", () => {
+      expect(normalizeEmojiKey("🎮")).toBe("🎮");
+      expect(normalizeEmojiKey("  🎉  ")).toBe("🎉");
+    });
+  });
+
+  describe("validateEmojiFormat", () => {
+    it("should accept valid unicode emojis", () => {
+      expect(validateEmojiFormat("🎮").valid).toBe(true);
+      expect(validateEmojiFormat("🎉").valid).toBe(true);
+      expect(validateEmojiFormat("❤️").valid).toBe(true);
+      expect(validateEmojiFormat("👍🏽").valid).toBe(true);
+      expect(validateEmojiFormat("🏳️‍🌈").valid).toBe(true);
+    });
+
+    it("should accept valid custom emojis", () => {
+      expect(validateEmojiFormat("<:cool_cat:123456789012345678>").valid).toBe(
+        true,
+      );
+      expect(
+        validateEmojiFormat("<a:party_parrot:123456789012345678>").valid,
+      ).toBe(true);
+    });
+
+    it("should accept valid snowflake emoji IDs", () => {
+      expect(validateEmojiFormat("123456789012345678").valid).toBe(true);
+    });
+
+    it("should reject empty strings or whitespace", () => {
+      expect(validateEmojiFormat("").valid).toBe(false);
+      expect(validateEmojiFormat("   ").valid).toBe(false);
+    });
+
+    it("should reject arbitrary text", () => {
+      expect(validateEmojiFormat("not_an_emoji").valid).toBe(false);
+      expect(validateEmojiFormat("hello world").valid).toBe(false);
+      expect(validateEmojiFormat("123").valid).toBe(false);
     });
   });
 });

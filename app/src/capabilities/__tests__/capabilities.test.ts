@@ -216,5 +216,77 @@ describe("Capability System", () => {
       await engine.start("test-token");
       expect(listeners[Events.GuildMemberAdd]?.length).toBe(1);
     });
+
+    it("should dispatch reaction add and remove events to capabilities", async () => {
+      type ListenerFn = (...args: unknown[]) => void;
+      const listeners: Record<string, ListenerFn[]> = {};
+      const mockClient = {
+        on: vi.fn((event: string, fn: ListenerFn) => {
+          listeners[event] = listeners[event] || [];
+          listeners[event].push(fn);
+          return mockClient;
+        }),
+        once: vi.fn((event: string, fn: ListenerFn) => {
+          listeners[event] = listeners[event] || [];
+          listeners[event].push(fn);
+          return mockClient;
+        }),
+        off: vi.fn(),
+        login: vi.fn().mockResolvedValue("token"),
+        destroy: vi.fn(),
+        isReady: () => true,
+        ws: { ping: 25 },
+        guilds: { cache: new Map() },
+        user: { tag: "TestBot#0001", displayAvatarURL: () => "http://avatar" },
+      } as unknown as Client;
+
+      const engine = new DiscordBotEngine(mockClient);
+
+      const reactionCap: IBotCapability = {
+        id: "reaction-cap",
+        name: "Reaction Capability",
+        init: vi.fn(),
+        handleReactionAdd: vi.fn().mockResolvedValue(undefined),
+        handleReactionRemove: vi.fn().mockResolvedValue(undefined),
+      };
+
+      engine.registerCapability(reactionCap);
+      await engine.start("test-token");
+
+      expect(
+        listeners[Events.MessageReactionAdd]?.length,
+      ).toBeGreaterThanOrEqual(1);
+      expect(listeners[Events.MessageReactionRemove]?.length).toBe(1);
+
+      const mockReaction = {
+        emoji: { name: "🔴" },
+        message: { partial: false, guildId: "guild-1", id: "msg-1" },
+      };
+      const mockUser = { id: "user-1", bot: false };
+
+      // Dispatch reaction add using engine's bound listener
+      const reactionAddListeners = listeners[Events.MessageReactionAdd];
+      const engineReactionAdd =
+        reactionAddListeners?.[reactionAddListeners.length - 1];
+      expect(engineReactionAdd).toBeDefined();
+      if (engineReactionAdd) {
+        await engineReactionAdd(mockReaction, mockUser);
+      }
+      expect(reactionCap.handleReactionAdd).toHaveBeenCalledWith(
+        mockReaction,
+        mockUser,
+      );
+
+      // Dispatch reaction remove using engine's bound listener
+      const engineReactionRemove = listeners[Events.MessageReactionRemove]?.[0];
+      expect(engineReactionRemove).toBeDefined();
+      if (engineReactionRemove) {
+        await engineReactionRemove(mockReaction, mockUser);
+      }
+      expect(reactionCap.handleReactionRemove).toHaveBeenCalledWith(
+        mockReaction,
+        mockUser,
+      );
+    });
   });
 });

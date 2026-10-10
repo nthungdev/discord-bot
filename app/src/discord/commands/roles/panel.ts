@@ -3,6 +3,7 @@ import {
   EmbedBuilder,
   type Guild,
   type GuildMember,
+  type Message,
   PermissionFlagsBits,
   SlashCommandBuilder,
   type TextChannel,
@@ -11,12 +12,17 @@ import {
   buildPanelComponents,
   buildPanelEmbed,
   DISCORD_MAX_EMBED_FIELDS,
+  getRoleService,
   getRoleStore,
+  isEmojiMatching,
+  normalizeEmojiKey,
+  validateEmojiFormat,
   validatePanelRoleCapacity,
   validateRoleManageable,
 } from "../../../services/roles";
 import type {
   IRoleStore,
+  RoleComponentType,
   RoleOption,
   RolePanel,
 } from "../../../services/roles/types";
@@ -42,6 +48,17 @@ export const data = new SlashCommandBuilder()
           .setName("title")
           .setDescription("Title shown on the panel embed")
           .setRequired(true),
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("type")
+          .setDescription("Display style: button (default), emoji, or dropdown")
+          .setRequired(false)
+          .addChoices(
+            { name: "Button (Action rows)", value: "button" },
+            { name: "Emoji (Reactions)", value: "emoji" },
+            { name: "Dropdown (Select menu)", value: "dropdown" },
+          ),
       )
       .addStringOption((opt) =>
         opt
@@ -154,6 +171,9 @@ async function handleCreate(
   }
 
   const title = interaction.options.getString("title", true).trim();
+  const type =
+    (interaction.options.getString("type") as RoleComponentType | null) ??
+    "button";
   const description =
     interaction.options.getString("description") ?? "Select your roles below:";
 
@@ -171,7 +191,7 @@ async function handleCreate(
     guildId: guild.id,
     title,
     description,
-    type: "button",
+    type,
     mode: "multi",
     roles: [],
     createdAt: Date.now(),
@@ -181,7 +201,7 @@ async function handleCreate(
   await store.savePanel(panel);
 
   await interaction.reply({
-    content: `✅ Created role panel **${id}**.\nUse \`/role-panel add-role id:${id} role:@Role\` to add options, then \`/role-panel post id:${id}\` to deploy it.`,
+    content: `✅ Created role panel **${id}** (${type}).\nUse \`/role-panel add-role id:${id} role:@Role\` to add options, then \`/role-panel post id:${id}\` to deploy it.`,
     ephemeral: true,
   });
 }
@@ -204,6 +224,35 @@ async function handleAddRole(
       ephemeral: true,
     });
     return;
+  }
+
+  if (panel.type === "emoji") {
+    if (!emoji) {
+      await interaction.reply({
+        content: "⚠️ Emoji is required for emoji-type role panels.",
+        ephemeral: true,
+      });
+      return;
+    }
+    const emojiValidation = validateEmojiFormat(emoji);
+    if (!emojiValidation.valid) {
+      await interaction.reply({
+        content: `⚠️ ${emojiValidation.error}`,
+        ephemeral: true,
+      });
+      return;
+    }
+    const normalizedNewEmoji = normalizeEmojiKey(emoji);
+    const isDuplicateEmoji = panel.roles.some(
+      (r) => r.emoji && normalizeEmojiKey(r.emoji) === normalizedNewEmoji,
+    );
+    if (isDuplicateEmoji) {
+      await interaction.reply({
+        content: `⚠️ Emoji '${emoji}' is already used for another role in this panel.`,
+        ephemeral: true,
+      });
+      return;
+    }
   }
 
   if (panel.roles.some((r) => r.roleId === role.id)) {
@@ -294,6 +343,114 @@ async function handleRemoveRole(
   });
 }
 
+/**
+ * Seeds configured emojis as bot reactions on an emoji role panel message.
+ */
+async function seedPanelReactions(
+  message: Message,
+  panel: RolePanel,
+): Promise<{ failedEmojis: string[] }> {
+  const failedEmojis: string[] = [];
+  for (const opt of panel.roles) {
+    if (!opt.emoji) continue;
+    try {
+      await message.react(opt.emoji);
+    } catch (e) {
+      console.error(
+        `[RolePanelCommand] Failed to seed reaction ${opt.emoji}:`,
+        e,
+      );
+      failedEmojis.push(opt.emoji);
+    }
+  }
+  return { failedEmojis };
+}
+
+/**
+ * Removes decommissioned reactions from an emoji role panel message.
+ */
+async function removeDecommissionedReactions(
+  message: Message,
+  currentEmojis: readonly string[],
+): Promise<void> {
+  if (!message.reactions?.cache) return;
+  for (const [, reaction] of message.reactions.cache) {
+    const isStillConfigured = currentEmojis.some((configured) =>
+      isEmojiMatching(configured, reaction.emoji),
+    );
+    if (!isStillConfigured) {
+      try {
+        await reaction.remove();
+      } catch (e) {
+        console.warn(
+          `[RolePanelCommand] Failed to remove decommissioned reaction '${reaction.emoji.name}':`,
+          e,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Reconciles reactions on an updated emoji role panel message.
+ */
+async function reconcilePanelReactions(
+  message: Message,
+  panel: RolePanel,
+): Promise<{ failedEmojis: string[] }> {
+  const currentRoleEmojis = panel.roles
+    .map((r) => r.emoji)
+    .filter((e): e is string => Boolean(e));
+
+  await removeDecommissionedReactions(message, currentRoleEmojis);
+
+  const failedEmojis: string[] = [];
+  for (const opt of panel.roles) {
+    if (!opt.emoji) continue;
+    const existingReaction = Array.from(
+      message.reactions?.cache?.values() ?? [],
+    ).find((r) => isEmojiMatching(opt.emoji as string, r.emoji));
+
+    if (existingReaction?.me) continue;
+
+    try {
+      await message.react(opt.emoji);
+    } catch (e) {
+      console.error(
+        `[RolePanelCommand] Failed to seed reaction ${opt.emoji}:`,
+        e,
+      );
+      failedEmojis.push(opt.emoji);
+    }
+  }
+  return { failedEmojis };
+}
+
+/**
+ * Best-effort cleanup of an existing panel message when re-posting.
+ */
+async function cleanupExistingPanelMessage(
+  guild: Guild,
+  panel: RolePanel,
+): Promise<void> {
+  if (!(panel.channelId && panel.messageId)) return;
+  try {
+    const oldChannel = (await guild.channels
+      .fetch(panel.channelId)
+      .catch(() => null)) as TextChannel | null;
+    if (!oldChannel?.isTextBased()) return;
+
+    const oldMessage = await oldChannel.messages
+      .fetch(panel.messageId)
+      .catch(() => null);
+    if (oldMessage) {
+      await oldMessage.delete().catch(() => null);
+    }
+  } catch (err) {
+    console.warn("[RolePanelCommand] Could not delete old panel message:", err);
+  }
+}
+
 async function handlePost(
   interaction: ChatInputCommandInteraction,
   guild: Guild,
@@ -335,6 +492,8 @@ async function handlePost(
   const components = buildPanelComponents(panel, guild);
 
   try {
+    await cleanupExistingPanelMessage(guild, panel);
+
     const message = await targetChannel.send({
       embeds: [embed],
       components,
@@ -344,9 +503,19 @@ async function handlePost(
     panel.messageId = message.id;
     panel.updatedAt = Date.now();
     await store.savePanel(panel);
+    getRoleService().invalidateGuildPanelCache(guild.id);
+    getRoleService().registerEmojiPanelMessage(message.id);
+
+    let seedWarning = "";
+    if (panel.type === "emoji") {
+      const { failedEmojis } = await seedPanelReactions(message, panel);
+      if (failedEmojis.length > 0) {
+        seedWarning = `\n⚠️ Warning: Failed to seed reactions for: ${failedEmojis.join(", ")}. Please verify bot reaction permissions.`;
+      }
+    }
 
     await interaction.editReply({
-      content: `✅ Successfully published role panel '**${id}**' to <#${targetChannel.id}>!`,
+      content: `✅ Successfully published role panel '**${id}**' to <#${targetChannel.id}>!${seedWarning}`,
     });
   } catch (error) {
     console.error("[RolePanelCommand] Error posting panel:", error);
@@ -411,8 +580,16 @@ async function handleUpdate(
       components,
     });
 
+    let seedWarning = "";
+    if (panel.type === "emoji") {
+      const { failedEmojis } = await reconcilePanelReactions(message, panel);
+      if (failedEmojis.length > 0) {
+        seedWarning = `\n⚠️ Warning: Failed to seed reactions for: ${failedEmojis.join(", ")}.`;
+      }
+    }
+
     await interaction.editReply({
-      content: `✅ Successfully refreshed role panel '**${id}**' in <#${panel.channelId}>!`,
+      content: `✅ Successfully refreshed role panel '**${id}**' in <#${panel.channelId}>!${seedWarning}`,
     });
   } catch (error) {
     console.error("[RolePanelCommand] Error updating panel message:", error);
@@ -485,6 +662,7 @@ async function handleDelete(
 
   // Delete store record first to ensure DB consistency
   await store.deletePanel(guild.id, id);
+  getRoleService().invalidateGuildPanelCache(guild.id);
 
   // Best-effort cleanup of published Discord message
   if (panel.channelId && panel.messageId) {

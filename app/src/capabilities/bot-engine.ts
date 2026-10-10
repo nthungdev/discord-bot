@@ -5,6 +5,11 @@ import {
   type GuildMember,
   type Interaction,
   type Message,
+  type MessageReaction,
+  type PartialMessageReaction,
+  Partials,
+  type PartialUser,
+  type User,
   type VoiceState,
 } from "discord.js";
 import { Config } from "../config";
@@ -37,6 +42,13 @@ export class DiscordBotEngine {
           GatewayIntentBits.MessageContent,
           GatewayIntentBits.GuildMembers,
           GatewayIntentBits.GuildVoiceStates,
+          GatewayIntentBits.GuildMessageReactions,
+        ],
+        partials: [
+          Partials.Message,
+          Partials.Channel,
+          Partials.Reaction,
+          Partials.User,
         ],
       });
 
@@ -258,6 +270,34 @@ export class DiscordBotEngine {
     });
   };
 
+  private handleMessageReactionAdd = async (
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void> => {
+    try {
+      await this.dispatchReactionAddPipeline(reaction, user);
+    } catch (error) {
+      console.error(
+        "[DiscordBotEngine] Uncaught error in MessageReactionAdd pipeline:",
+        error,
+      );
+    }
+  };
+
+  private handleMessageReactionRemove = async (
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void> => {
+    try {
+      await this.dispatchReactionRemovePipeline(reaction, user);
+    } catch (error) {
+      console.error(
+        "[DiscordBotEngine] Uncaught error in MessageReactionRemove pipeline:",
+        error,
+      );
+    }
+  };
+
   private bindEvents(): void {
     if (this.eventsBound) return;
     this.eventsBound = true;
@@ -267,6 +307,11 @@ export class DiscordBotEngine {
     this.client.on(Events.InteractionCreate, this.handleInteractionCreate);
     this.client.on(Events.VoiceStateUpdate, this.handleVoiceStateUpdate);
     this.client.on(Events.GuildMemberAdd, this.handleGuildMemberAdd);
+    this.client.on(Events.MessageReactionAdd, this.handleMessageReactionAdd);
+    this.client.on(
+      Events.MessageReactionRemove,
+      this.handleMessageReactionRemove,
+    );
   }
 
   private unbindEvents(): void {
@@ -288,6 +333,16 @@ export class DiscordBotEngine {
         this.handleVoiceStateUpdate,
       );
       off.call(this.client, Events.GuildMemberAdd, this.handleGuildMemberAdd);
+      off.call(
+        this.client,
+        Events.MessageReactionAdd,
+        this.handleMessageReactionAdd,
+      );
+      off.call(
+        this.client,
+        Events.MessageReactionRemove,
+        this.handleMessageReactionRemove,
+      );
     }
   }
 
@@ -301,6 +356,40 @@ export class DiscordBotEngine {
       } catch (error) {
         console.error(
           `[DiscordBotEngine] Error in capability '${capability.name}' handleGuildMemberAdd:`,
+          error,
+        );
+      }
+    }
+  }
+
+  private async dispatchReactionAddPipeline(
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void> {
+    for (const capability of this.capabilities) {
+      if (!capability.handleReactionAdd) continue;
+      try {
+        await capability.handleReactionAdd(reaction, user);
+      } catch (error) {
+        console.error(
+          `[DiscordBotEngine] Error in capability '${capability.name}' handleReactionAdd:`,
+          error,
+        );
+      }
+    }
+  }
+
+  private async dispatchReactionRemovePipeline(
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void> {
+    for (const capability of this.capabilities) {
+      if (!capability.handleReactionRemove) continue;
+      try {
+        await capability.handleReactionRemove(reaction, user);
+      } catch (error) {
+        console.error(
+          `[DiscordBotEngine] Error in capability '${capability.name}' handleReactionRemove:`,
           error,
         );
       }

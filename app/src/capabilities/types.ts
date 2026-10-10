@@ -3,6 +3,10 @@ import type {
   GuildMember,
   Interaction,
   Message,
+  MessageReaction,
+  PartialMessageReaction,
+  PartialUser,
+  User,
   VoiceState,
 } from "discord.js";
 import type { Config } from "../config";
@@ -54,6 +58,22 @@ export interface IBotCapability {
    * Handles new member joins for onboarding flows.
    */
   handleGuildMemberAdd?(member: GuildMember): Promise<void>;
+
+  /**
+   * Handles reaction addition for emoji role panels.
+   */
+  handleReactionAdd?(
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void>;
+
+  /**
+   * Handles reaction removal for emoji role panels.
+   */
+  handleReactionRemove?(
+    reaction: MessageReaction | PartialMessageReaction,
+    user: User | PartialUser,
+  ): Promise<void>;
 
   /**
    * Cleanup resources upon shutdown or capability reload.

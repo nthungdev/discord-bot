@@ -61,11 +61,21 @@ export function buildPanelEmbed(panel: RolePanel): EmbedBuilder {
     }
   }
 
-  embed.setFooter({
-    text:
+  let footerText: string;
+  if (panel.type === "emoji") {
+    footerText =
+      panel.mode === "single"
+        ? "React with an emoji to claim a role (single choice). Remove reaction to remove the role."
+        : "React with an emoji below to claim a role. Remove reaction to remove the role.";
+  } else {
+    footerText =
       panel.mode === "single"
         ? "Single choice mode (selecting a new role replaces previous)"
-        : "Multi-select mode (click to toggle roles)",
+        : "Multi-select mode (click to toggle roles)";
+  }
+
+  embed.setFooter({
+    text: footerText,
   });
 
   return embed;
@@ -169,6 +179,9 @@ export function buildPanelComponents(
   | ActionRowBuilder<ButtonBuilder>
   | ActionRowBuilder<StringSelectMenuBuilder>
 )[] {
+  if (panel.type === "emoji") {
+    return [];
+  }
   if (panel.type === "dropdown") {
     return buildSelectMenuRow(panel, guild);
   }

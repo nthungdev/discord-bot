@@ -1,7 +1,9 @@
 import type {
   ButtonInteraction,
   GuildMember,
+  MessageReaction,
   StringSelectMenuInteraction,
+  User,
 } from "discord.js";
 import { describe, expect, it, vi } from "vitest";
 import type { RoleService } from "../../services/roles";
@@ -13,6 +15,8 @@ describe("RoleCapability", () => {
       handleButtonInteraction: vi.fn().mockResolvedValue(undefined),
       handleSelectInteraction: vi.fn(),
       handleGuildMemberAdd: vi.fn(),
+      handleReactionAdd: vi.fn(),
+      handleReactionRemove: vi.fn(),
     } as unknown as RoleService;
 
     const capability = new RoleCapability(mockRoleService);
@@ -37,6 +41,8 @@ describe("RoleCapability", () => {
       handleButtonInteraction: vi.fn(),
       handleSelectInteraction: vi.fn(),
       handleGuildMemberAdd: vi.fn(),
+      handleReactionAdd: vi.fn(),
+      handleReactionRemove: vi.fn(),
     } as unknown as RoleService;
 
     const capability = new RoleCapability(mockRoleService);
@@ -57,6 +63,8 @@ describe("RoleCapability", () => {
       handleButtonInteraction: vi.fn(),
       handleSelectInteraction: vi.fn().mockResolvedValue(undefined),
       handleGuildMemberAdd: vi.fn(),
+      handleReactionAdd: vi.fn(),
+      handleReactionRemove: vi.fn(),
     } as unknown as RoleService;
 
     const capability = new RoleCapability(mockRoleService);
@@ -80,6 +88,8 @@ describe("RoleCapability", () => {
       handleButtonInteraction: vi.fn(),
       handleSelectInteraction: vi.fn(),
       handleGuildMemberAdd: vi.fn().mockResolvedValue(undefined),
+      handleReactionAdd: vi.fn(),
+      handleReactionRemove: vi.fn(),
     } as unknown as RoleService;
 
     const capability = new RoleCapability(mockRoleService);
@@ -89,6 +99,44 @@ describe("RoleCapability", () => {
 
     expect(mockRoleService.handleGuildMemberAdd).toHaveBeenCalledWith(
       mockMember,
+    );
+  });
+
+  it("should forward reaction add events to roleService", async () => {
+    const mockRoleService = {
+      handleReactionAdd: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RoleService;
+
+    const capability = new RoleCapability(mockRoleService);
+    const mockReaction = {
+      emoji: { name: "🎮" },
+    } as unknown as MessageReaction;
+    const mockUser = { id: "user-1", bot: false } as unknown as User;
+
+    await capability.handleReactionAdd(mockReaction, mockUser);
+
+    expect(mockRoleService.handleReactionAdd).toHaveBeenCalledWith(
+      mockReaction,
+      mockUser,
+    );
+  });
+
+  it("should forward reaction remove events to roleService", async () => {
+    const mockRoleService = {
+      handleReactionRemove: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RoleService;
+
+    const capability = new RoleCapability(mockRoleService);
+    const mockReaction = {
+      emoji: { name: "🎮" },
+    } as unknown as MessageReaction;
+    const mockUser = { id: "user-1", bot: false } as unknown as User;
+
+    await capability.handleReactionRemove(mockReaction, mockUser);
+
+    expect(mockRoleService.handleReactionRemove).toHaveBeenCalledWith(
+      mockReaction,
+      mockUser,
     );
   });
 });

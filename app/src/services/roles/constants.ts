@@ -5,8 +5,14 @@ export const MAX_BUTTONS_PER_ROW = 5;
 export const MAX_BUTTON_ROWS = 5;
 export const MAX_TOTAL_BUTTONS = 25;
 export const MAX_DROPDOWN_OPTIONS = 25;
+export const MAX_EMOJI_REACTIONS = 20;
 export const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 export const DISCORD_MAX_EMBED_FIELDS = 25;
+
+export const CUSTOM_EMOJI_REGEX = /^<a?:([a-zA-Z0-9_]+):(\d{17,20})>$/;
+export const SNOWFLAKE_REGEX = /^\d{17,20}$/;
+export const UNICODE_EMOJI_REGEX =
+  /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\uFE0F|\u200D)+$/u;
 
 export const DEFAULT_WITTY_GREETINGS = [
   "Look what the cat dragged in! Welcome {user} to {server}. Try to behave, member #{count}!",
