@@ -12,8 +12,11 @@ import {
   buildPanelComponents,
   buildPanelEmbed,
   DISCORD_MAX_EMBED_FIELDS,
+  getRoleService,
   getRoleStore,
   isEmojiMatching,
+  normalizeEmojiKey,
+  validateEmojiFormat,
   validatePanelRoleCapacity,
   validateRoleManageable,
 } from "../../../services/roles";
@@ -231,7 +234,18 @@ async function handleAddRole(
       });
       return;
     }
-    const isDuplicateEmoji = panel.roles.some((r) => r.emoji === emoji);
+    const emojiValidation = validateEmojiFormat(emoji);
+    if (!emojiValidation.valid) {
+      await interaction.reply({
+        content: `⚠️ ${emojiValidation.error}`,
+        ephemeral: true,
+      });
+      return;
+    }
+    const normalizedNewEmoji = normalizeEmojiKey(emoji);
+    const isDuplicateEmoji = panel.roles.some(
+      (r) => r.emoji && normalizeEmojiKey(r.emoji) === normalizedNewEmoji,
+    );
     if (isDuplicateEmoji) {
       await interaction.reply({
         content: `⚠️ Emoji '${emoji}' is already used for another role in this panel.`,
@@ -335,7 +349,8 @@ async function handleRemoveRole(
 async function seedPanelReactions(
   message: Message,
   panel: RolePanel,
-): Promise<void> {
+): Promise<{ failedEmojis: string[] }> {
+  const failedEmojis: string[] = [];
   for (const opt of panel.roles) {
     if (!opt.emoji) continue;
     try {
@@ -345,8 +360,10 @@ async function seedPanelReactions(
         `[RolePanelCommand] Failed to seed reaction ${opt.emoji}:`,
         e,
       );
+      failedEmojis.push(opt.emoji);
     }
   }
+  return { failedEmojis };
 }
 
 /**
@@ -380,19 +397,21 @@ async function removeDecommissionedReactions(
 async function reconcilePanelReactions(
   message: Message,
   panel: RolePanel,
-): Promise<void> {
+): Promise<{ failedEmojis: string[] }> {
   const currentRoleEmojis = panel.roles
     .map((r) => r.emoji)
     .filter((e): e is string => Boolean(e));
 
   await removeDecommissionedReactions(message, currentRoleEmojis);
 
+  const failedEmojis: string[] = [];
   for (const opt of panel.roles) {
     if (!opt.emoji) continue;
-    const alreadyReacted = Array.from(
+    const existingReaction = Array.from(
       message.reactions?.cache?.values() ?? [],
-    ).some((r) => isEmojiMatching(opt.emoji as string, r.emoji));
-    if (alreadyReacted) continue;
+    ).find((r) => isEmojiMatching(opt.emoji as string, r.emoji));
+
+    if (existingReaction?.me) continue;
 
     try {
       await message.react(opt.emoji);
@@ -401,7 +420,34 @@ async function reconcilePanelReactions(
         `[RolePanelCommand] Failed to seed reaction ${opt.emoji}:`,
         e,
       );
+      failedEmojis.push(opt.emoji);
     }
+  }
+  return { failedEmojis };
+}
+
+/**
+ * Best-effort cleanup of an existing panel message when re-posting.
+ */
+async function cleanupExistingPanelMessage(
+  guild: Guild,
+  panel: RolePanel,
+): Promise<void> {
+  if (!(panel.channelId && panel.messageId)) return;
+  try {
+    const oldChannel = (await guild.channels
+      .fetch(panel.channelId)
+      .catch(() => null)) as TextChannel | null;
+    if (!oldChannel?.isTextBased()) return;
+
+    const oldMessage = await oldChannel.messages
+      .fetch(panel.messageId)
+      .catch(() => null);
+    if (oldMessage) {
+      await oldMessage.delete().catch(() => null);
+    }
+  } catch (err) {
+    console.warn("[RolePanelCommand] Could not delete old panel message:", err);
   }
 }
 
@@ -446,22 +492,30 @@ async function handlePost(
   const components = buildPanelComponents(panel, guild);
 
   try {
+    await cleanupExistingPanelMessage(guild, panel);
+
     const message = await targetChannel.send({
       embeds: [embed],
       components,
     });
 
-    if (panel.type === "emoji") {
-      await seedPanelReactions(message, panel);
-    }
-
     panel.channelId = targetChannel.id;
     panel.messageId = message.id;
     panel.updatedAt = Date.now();
     await store.savePanel(panel);
+    getRoleService().invalidateGuildPanelCache(guild.id);
+    getRoleService().registerEmojiPanelMessage(message.id);
+
+    let seedWarning = "";
+    if (panel.type === "emoji") {
+      const { failedEmojis } = await seedPanelReactions(message, panel);
+      if (failedEmojis.length > 0) {
+        seedWarning = `\n⚠️ Warning: Failed to seed reactions for: ${failedEmojis.join(", ")}. Please verify bot reaction permissions.`;
+      }
+    }
 
     await interaction.editReply({
-      content: `✅ Successfully published role panel '**${id}**' to <#${targetChannel.id}>!`,
+      content: `✅ Successfully published role panel '**${id}**' to <#${targetChannel.id}>!${seedWarning}`,
     });
   } catch (error) {
     console.error("[RolePanelCommand] Error posting panel:", error);
@@ -526,12 +580,16 @@ async function handleUpdate(
       components,
     });
 
+    let seedWarning = "";
     if (panel.type === "emoji") {
-      await reconcilePanelReactions(message, panel);
+      const { failedEmojis } = await reconcilePanelReactions(message, panel);
+      if (failedEmojis.length > 0) {
+        seedWarning = `\n⚠️ Warning: Failed to seed reactions for: ${failedEmojis.join(", ")}.`;
+      }
     }
 
     await interaction.editReply({
-      content: `✅ Successfully refreshed role panel '**${id}**' in <#${panel.channelId}>!`,
+      content: `✅ Successfully refreshed role panel '**${id}**' in <#${panel.channelId}>!${seedWarning}`,
     });
   } catch (error) {
     console.error("[RolePanelCommand] Error updating panel message:", error);
@@ -604,6 +662,7 @@ async function handleDelete(
 
   // Delete store record first to ensure DB consistency
   await store.deletePanel(guild.id, id);
+  getRoleService().invalidateGuildPanelCache(guild.id);
 
   // Best-effort cleanup of published Discord message
   if (panel.channelId && panel.messageId) {

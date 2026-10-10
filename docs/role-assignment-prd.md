@@ -137,6 +137,7 @@ Panels support two selection modes:
 - **Interactive Components (Buttons & Dropdowns)**: Defer with an ephemeral reply within 3 seconds, followed by a formatted result (`✅ Added the **@Role** role.`, etc.).
 - **Emoji Reactions**: Role additions and removals are executed **silently** in the background (no DM spam, zero channel noise).
 - **Extraneous Reactions**: If a user reacts with an emoji not configured on the panel, the bot silently removes the reaction (`reaction.users.remove(user.id)`).
+- **Option Decommissioning**: When an option is removed from a panel or updated, the bot clears the decommissioned reaction from the panel message. Existing members who previously claimed the role retain it to prevent unintended mass-revocation across the server.
 - **Channel Permission Recommendation**: Server administrators can set the `#roles` channel permission for `@everyone` to **deny `Add Reactions`** (`PermissionFlagsBits.AddReactions: false`). This physically prevents regular members from adding new or arbitrary emojis, while still allowing them to react to the emojis already pre-seeded by the bot.
 
 ---

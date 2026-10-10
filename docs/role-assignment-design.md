@@ -241,6 +241,12 @@ All interactive components encode their operational namespace and parameters dir
 * During `/role-panel post`: The bot publishes the embed message, then sequentially iterates over `panel.roles` and executes `await message.react(opt.emoji)` for each role option.
 * During `/role-panel update`: The bot edits the message embed, deletes reactions for any removed role emojis (`message.reactions.resolve(oldEmoji)?.remove()`), and adds reactions for any newly added emojis (`message.react(newEmoji)`).
 
+### 4.5 Option Decommissioning Policy
+When an option is removed from a panel or updated with a new emoji:
+* **Message Reaction Reconciliation**: The bot clears decommissioned emoji reactions from the panel message (`message.reactions.resolve(oldEmoji)?.remove()`).
+* **Self-Service State**: Self-service claiming and revoking for the decommissioned option is disabled on that panel.
+* **Member Role Retention**: Members who already acquired the role retain it on their Discord profile to prevent accidental mass revocation across the server. Admins wishing to strip the role guild-wide can manage member roles via server settings or `/role remove`.
+
 ---
 
 ## 5. Business Logic & Security Validation (`RoleService`)

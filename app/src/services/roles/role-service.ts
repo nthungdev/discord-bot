@@ -2,7 +2,9 @@ import type {
   ButtonInteraction,
   Guild,
   GuildMember,
+  Message,
   MessageReaction,
+  PartialMessage,
   PartialMessageReaction,
   PartialUser,
   Role,
@@ -33,8 +35,8 @@ export function isEmojiMatching(
   const trimmed = configuredEmoji.trim();
   const customMatch = trimmed.match(/^<a?:([a-zA-Z0-9_]+):(\d+)>$/);
   if (customMatch) {
-    const [, customName, customId] = customMatch;
-    return reactionEmoji.id === customId || reactionEmoji.name === customName;
+    const [, , customId] = customMatch;
+    return reactionEmoji.id === customId;
   }
   if (/^\d+$/.test(trimmed)) {
     return reactionEmoji.id === trimmed;
@@ -295,9 +297,70 @@ async function mutateMemberRolesOnReactionAdd(
 export class RoleService {
   private store: IRoleStore;
   private memberMutationQueues = new Map<string, Promise<void>>();
+  private knownPanelMessageIds = new Set<string>();
+  private loadedGuilds = new Set<string>();
 
   constructor(store?: IRoleStore) {
     this.store = store ?? getRoleStore();
+  }
+
+  /**
+   * Invalidates cached emoji panel message IDs for a specific guild or all guilds.
+   */
+  public invalidateGuildPanelCache(guildId?: string): void {
+    if (guildId) {
+      this.loadedGuilds.delete(guildId);
+    } else {
+      this.loadedGuilds.clear();
+      this.knownPanelMessageIds.clear();
+    }
+  }
+
+  /**
+   * Registers a newly published emoji panel message ID in the local cache.
+   */
+  public registerEmojiPanelMessage(messageId: string): void {
+    this.knownPanelMessageIds.add(messageId);
+  }
+
+  /**
+   * Loads and caches active emoji panel message IDs for a guild if not loaded yet.
+   */
+  private async loadGuildEmojiPanels(guildId: string): Promise<void> {
+    if (this.loadedGuilds.has(guildId)) return;
+    const panels = await this.store.getPanelsByGuild(guildId);
+    if (!panels || panels.length === 0) return;
+
+    for (const p of panels) {
+      if (p.type === "emoji" && p.messageId) {
+        this.knownPanelMessageIds.add(p.messageId);
+      }
+    }
+    this.loadedGuilds.add(guildId);
+  }
+
+  /**
+   * Resolves a panel by message ID with guard against unnecessary database calls.
+   */
+  public async getPanelForReaction(
+    guildId: string,
+    messageId: string,
+  ): Promise<RolePanel | null> {
+    await this.loadGuildEmojiPanels(guildId);
+
+    if (
+      this.loadedGuilds.has(guildId) &&
+      !this.knownPanelMessageIds.has(messageId)
+    ) {
+      return null;
+    }
+
+    const panel = await this.store.getPanelByMessageId(guildId, messageId);
+    if (panel && panel.type === "emoji" && panel.messageId) {
+      this.knownPanelMessageIds.add(panel.messageId);
+      this.loadedGuilds.add(guildId);
+    }
+    return panel;
   }
 
   private async serializeMemberMutation<T>(
@@ -624,6 +687,34 @@ export class RoleService {
   }
 
   /**
+   * For single-choice emoji panels, removes the member's reactions from other panel options.
+   */
+  private async clearOtherReactionsForSingleMode(
+    message: Message | PartialMessage,
+    panel: RolePanel,
+    activeRoleId: string,
+    userId: string,
+  ): Promise<void> {
+    const otherEmojis = panel.roles
+      .filter((r) => r.roleId !== activeRoleId && r.emoji)
+      .map((r) => r.emoji as string);
+
+    for (const otherEmoji of otherEmojis) {
+      const matchingReaction = Array.from(
+        message.reactions?.cache?.values() ?? [],
+      ).find((r) => isEmojiMatching(otherEmoji, r.emoji));
+      if (matchingReaction) {
+        await matchingReaction.users.remove(userId).catch((err) => {
+          console.warn(
+            `[RoleService] Failed to remove stale reaction '${matchingReaction.emoji.name}' for user ${userId}:`,
+            err,
+          );
+        });
+      }
+    }
+  }
+
+  /**
    * Handles user reacting to an emoji on an emoji role panel message.
    */
   public async handleReactionAdd(
@@ -632,16 +723,18 @@ export class RoleService {
   ): Promise<void> {
     if (user.bot) return;
 
+    const guildId =
+      rawReaction.message.guildId ?? rawReaction.message.guild?.id;
+    const messageId = rawReaction.message.id;
+    if (!(guildId && messageId)) return;
+
+    const panel = await this.getPanelForReaction(guildId, messageId);
+    if (!panel || panel.type !== "emoji") return;
+
     const reaction = await resolveCompleteReaction(rawReaction);
     if (!(reaction?.message.guild && reaction.message.guildId)) return;
 
     const guild = reaction.message.guild;
-    const panel = await this.store.getPanelByMessageId(
-      reaction.message.guildId,
-      reaction.message.id,
-    );
-    if (!panel || panel.type !== "emoji") return;
-
     const roleOption = panel.roles.find(
       (r) => r.emoji && isEmojiMatching(r.emoji, reaction.emoji),
     );
@@ -688,6 +781,15 @@ export class RoleService {
         async () => {
           const freshMember = await resolveFreshMember(guild, member);
           await mutateMemberRolesOnReactionAdd(freshMember, panel, role.id);
+
+          if (panel.mode === "single") {
+            await this.clearOtherReactionsForSingleMode(
+              reaction.message,
+              panel,
+              roleOption.roleId,
+              user.id,
+            );
+          }
         },
       );
     } catch (err) {
@@ -707,16 +809,18 @@ export class RoleService {
   ): Promise<void> {
     if (user.bot) return;
 
+    const guildId =
+      rawReaction.message.guildId ?? rawReaction.message.guild?.id;
+    const messageId = rawReaction.message.id;
+    if (!(guildId && messageId)) return;
+
+    const panel = await this.getPanelForReaction(guildId, messageId);
+    if (!panel || panel.type !== "emoji") return;
+
     const reaction = await resolveCompleteReaction(rawReaction);
     if (!(reaction?.message.guild && reaction.message.guildId)) return;
 
     const guild = reaction.message.guild;
-    const panel = await this.store.getPanelByMessageId(
-      reaction.message.guildId,
-      reaction.message.id,
-    );
-    if (!panel || panel.type !== "emoji") return;
-
     const roleOption = panel.roles.find(
       (r) => r.emoji && isEmojiMatching(r.emoji, reaction.emoji),
     );

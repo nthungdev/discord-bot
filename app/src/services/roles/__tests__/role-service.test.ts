@@ -688,7 +688,7 @@ describe("RoleService", () => {
       expect(isEmojiMatching("🎮", { name: "🎉", id: null })).toBe(false);
     });
 
-    it("should match custom emoji format <:name:id> by ID or name", () => {
+    it("should match custom emoji format <:name:id> strictly by custom ID", () => {
       expect(
         isEmojiMatching("<:blob_cool:123456789>", {
           name: "blob_cool",
@@ -706,7 +706,7 @@ describe("RoleService", () => {
           name: "blob_cool",
           id: "999999999",
         }),
-      ).toBe(true);
+      ).toBe(false);
       expect(
         isEmojiMatching("<:blob_cool:123456789>", {
           name: "unrelated",
@@ -901,7 +901,7 @@ describe("RoleService", () => {
       expect(mockMemberRoles.add).toHaveBeenCalledWith("role-red");
     });
 
-    it("should remove other panel roles and assign new role in single mode", async () => {
+    it("should remove other panel roles, clear stale reactions, and assign new role in single mode", async () => {
       const roleRed = createMockRole("role-red", "Red");
       const roleBlue = createMockRole("role-blue", "Blue");
       const rolesMap = new Map([
@@ -923,12 +923,21 @@ describe("RoleService", () => {
 
       mockGuild.members.fetch = vi.fn().mockResolvedValue(mockMember);
 
+      const mockBlueReactionUserRemove = vi.fn().mockResolvedValue(undefined);
+      const mockBlueReaction = {
+        emoji: { name: "🔵", id: null },
+        users: { remove: mockBlueReactionUserRemove },
+      };
+
       const mockReaction = {
         emoji: { name: "🔴", id: null },
         message: {
           id: "msg-panel-1",
           guildId: "guild-1",
           guild: mockGuild,
+          reactions: {
+            cache: new Map([["🔵", mockBlueReaction]]),
+          },
         },
         users: {
           remove: vi.fn(),
@@ -944,6 +953,26 @@ describe("RoleService", () => {
       await roleService.handleReactionAdd(mockReaction, mockUser);
       expect(mockMemberRoles.remove).toHaveBeenCalledWith(["role-blue"]);
       expect(mockMemberRoles.add).toHaveBeenCalledWith("role-red");
+      expect(mockBlueReactionUserRemove).toHaveBeenCalledWith("user-1");
+    });
+
+    it("should return early for unknown message without fetching partial reaction", async () => {
+      const mockReactionFetch = vi.fn();
+      const mockReaction = {
+        partial: true,
+        fetch: mockReactionFetch,
+        emoji: { name: "🔴", id: null },
+        message: {
+          id: "msg-unknown",
+          guildId: "guild-1",
+        },
+      } as unknown as MessageReaction;
+      const mockUser = { id: "user-1", bot: false } as unknown as User;
+
+      vi.mocked(mockStore.getPanelByMessageId).mockResolvedValue(null);
+
+      await roleService.handleReactionAdd(mockReaction, mockUser);
+      expect(mockReactionFetch).not.toHaveBeenCalled();
     });
 
     it("should not re-add role if member already has it", async () => {

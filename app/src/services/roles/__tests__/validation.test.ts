@@ -7,6 +7,8 @@ import {
 import { describe, expect, it } from "vitest";
 import type { RolePanel } from "../types";
 import {
+  normalizeEmojiKey,
+  validateEmojiFormat,
   validatePanelRoleCapacity,
   validateRoleManageable,
   validateRoleRevocable,
@@ -260,6 +262,65 @@ describe("Role Validation Guardrails", () => {
       };
       const result = validatePanelRoleCapacity(emojiPanel, 1);
       expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("normalizeEmojiKey", () => {
+    it("should normalize custom emoji format to snowflake id", () => {
+      expect(normalizeEmojiKey("<:cool_cat:123456789012345678>")).toBe(
+        "123456789012345678",
+      );
+      expect(normalizeEmojiKey("<a:party_parrot:987654321098765432>")).toBe(
+        "987654321098765432",
+      );
+    });
+
+    it("should normalize raw snowflake id", () => {
+      expect(normalizeEmojiKey("123456789012345678")).toBe(
+        "123456789012345678",
+      );
+      expect(normalizeEmojiKey("  123456789012345678  ")).toBe(
+        "123456789012345678",
+      );
+    });
+
+    it("should trim unicode emojis", () => {
+      expect(normalizeEmojiKey("🎮")).toBe("🎮");
+      expect(normalizeEmojiKey("  🎉  ")).toBe("🎉");
+    });
+  });
+
+  describe("validateEmojiFormat", () => {
+    it("should accept valid unicode emojis", () => {
+      expect(validateEmojiFormat("🎮").valid).toBe(true);
+      expect(validateEmojiFormat("🎉").valid).toBe(true);
+      expect(validateEmojiFormat("❤️").valid).toBe(true);
+      expect(validateEmojiFormat("👍🏽").valid).toBe(true);
+      expect(validateEmojiFormat("🏳️‍🌈").valid).toBe(true);
+    });
+
+    it("should accept valid custom emojis", () => {
+      expect(validateEmojiFormat("<:cool_cat:123456789012345678>").valid).toBe(
+        true,
+      );
+      expect(
+        validateEmojiFormat("<a:party_parrot:123456789012345678>").valid,
+      ).toBe(true);
+    });
+
+    it("should accept valid snowflake emoji IDs", () => {
+      expect(validateEmojiFormat("123456789012345678").valid).toBe(true);
+    });
+
+    it("should reject empty strings or whitespace", () => {
+      expect(validateEmojiFormat("").valid).toBe(false);
+      expect(validateEmojiFormat("   ").valid).toBe(false);
+    });
+
+    it("should reject arbitrary text", () => {
+      expect(validateEmojiFormat("not_an_emoji").valid).toBe(false);
+      expect(validateEmojiFormat("hello world").valid).toBe(false);
+      expect(validateEmojiFormat("123").valid).toBe(false);
     });
   });
 });

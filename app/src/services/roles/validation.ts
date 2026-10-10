@@ -5,9 +5,12 @@ import {
   type Role,
 } from "discord.js";
 import {
+  CUSTOM_EMOJI_REGEX,
   MAX_DROPDOWN_OPTIONS,
   MAX_EMOJI_REACTIONS,
   MAX_TOTAL_BUTTONS,
+  SNOWFLAKE_REGEX,
+  UNICODE_EMOJI_REGEX,
 } from "./constants";
 import type { RolePanel } from "./types";
 
@@ -124,5 +127,47 @@ export function validatePanelRoleCapacity(
       error: `This panel already contains ${panel.roles.length} roles, reaching the maximum capacity of ${limit} options.`,
     };
   }
+  return { valid: true };
+}
+
+/**
+ * Normalizes an emoji string into a canonical comparison key.
+ * - Custom format (<:name:id> or <a:name:id>) -> id
+ * - Raw snowflake ID (\d{17,20}) -> id
+ * - Unicode emoji -> trimmed Unicode string
+ */
+export function normalizeEmojiKey(emoji: string): string {
+  const trimmed = emoji.trim();
+  const customMatch = trimmed.match(CUSTOM_EMOJI_REGEX);
+  if (customMatch) {
+    return customMatch[2];
+  }
+  return trimmed;
+}
+
+/**
+ * Validates whether an emoji string is a valid Unicode emoji, Discord custom emoji, or snowflake ID.
+ */
+export function validateEmojiFormat(emoji: string): ValidationResult {
+  const trimmed = emoji.trim();
+  if (!trimmed) {
+    return {
+      valid: false,
+      error: "Emoji cannot be empty.",
+    };
+  }
+
+  const isCustom = CUSTOM_EMOJI_REGEX.test(trimmed);
+  const isSnowflake = SNOWFLAKE_REGEX.test(trimmed);
+  const isUnicode = UNICODE_EMOJI_REGEX.test(trimmed);
+
+  if (!(isCustom || isSnowflake || isUnicode)) {
+    return {
+      valid: false,
+      error:
+        "Invalid emoji format. Please provide a standard Unicode emoji (e.g. 🎮), a custom Discord emoji (<:name:id>), or a valid emoji ID.",
+    };
+  }
+
   return { valid: true };
 }

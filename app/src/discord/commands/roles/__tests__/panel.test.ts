@@ -613,6 +613,110 @@ describe("/role-panel Slash Command", () => {
     );
   });
 
+  it("should reject invalid emoji format when adding role to an emoji panel", async () => {
+    const existingEmojiPanel: RolePanel = {
+      id: "color-roles",
+      guildId: "guild-1",
+      title: "Pick your colors",
+      description: "Desc",
+      type: "emoji",
+      mode: "multi",
+      roles: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    vi.mocked(mockStore.getPanel).mockResolvedValue(existingEmojiPanel);
+
+    const mockRole = {
+      id: "role-red",
+      name: "Red",
+      position: 5,
+      managed: false,
+      permissions: { has: () => false },
+    } as unknown as Role;
+
+    const mockInteraction = {
+      guild: { id: "guild-1" } as Guild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "add-role",
+        getString: (name: string) => {
+          if (name === "id") return "color-roles";
+          if (name === "label") return "Red";
+          if (name === "emoji") return "invalid_string";
+          return null;
+        },
+        getRole: () => mockRole,
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockStore.savePanel).not.toHaveBeenCalled();
+    expect(mockInteraction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("Invalid emoji format"),
+      }),
+    );
+  });
+
+  it("should reject duplicate emoji when custom emoji format and raw ID match", async () => {
+    const existingEmojiPanel: RolePanel = {
+      id: "color-roles",
+      guildId: "guild-1",
+      title: "Pick your colors",
+      description: "Desc",
+      type: "emoji",
+      mode: "multi",
+      roles: [
+        {
+          roleId: "role-cat",
+          label: "Cat",
+          emoji: "<:cool_cat:123456789012345678>",
+        },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    vi.mocked(mockStore.getPanel).mockResolvedValue(existingEmojiPanel);
+
+    const mockRole = {
+      id: "role-kitten",
+      name: "Kitten",
+      position: 5,
+      managed: false,
+      permissions: { has: () => false },
+    } as unknown as Role;
+
+    const mockInteraction = {
+      guild: { id: "guild-1" } as Guild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "add-role",
+        getString: (name: string) => {
+          if (name === "id") return "color-roles";
+          if (name === "label") return "Kitten";
+          if (name === "emoji") return "123456789012345678";
+          return null;
+        },
+        getRole: () => mockRole,
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockStore.savePanel).not.toHaveBeenCalled();
+    expect(mockInteraction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining(
+          "is already used for another role in this panel",
+        ),
+      }),
+    );
+  });
+
   it("should post an emoji panel and seed reactions", async () => {
     const emojiPanel: RolePanel = {
       id: "emoji-panel",
@@ -698,6 +802,7 @@ describe("/role-panel Slash Command", () => {
     };
     const activeReaction = {
       emoji: { name: "🔴", id: null },
+      me: true,
       remove: vi.fn(),
     };
 
@@ -755,5 +860,68 @@ describe("/role-panel Slash Command", () => {
     expect(mockMessageReact).toHaveBeenCalledWith("🔵");
     // Already present reaction 🔴 should not be re-added
     expect(mockMessageReact).not.toHaveBeenCalledWith("🔴");
+  });
+
+  it("should delete previous message when reposting an already posted panel", async () => {
+    const emojiPanel: RolePanel = {
+      id: "emoji-panel",
+      guildId: "guild-1",
+      channelId: "old-channel",
+      messageId: "old-msg-1",
+      title: "Reactions",
+      description: "Desc",
+      type: "emoji",
+      mode: "multi",
+      roles: [{ roleId: "role-red", label: "Red", emoji: "🔴" }],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    vi.mocked(mockStore.getPanel).mockResolvedValue(emojiPanel);
+
+    const mockOldMessageDelete = vi.fn().mockResolvedValue(undefined);
+    const mockOldChannel = {
+      id: "old-channel",
+      isTextBased: () => true,
+      messages: {
+        fetch: vi.fn().mockResolvedValue({
+          delete: mockOldMessageDelete,
+        }),
+      },
+    };
+
+    const mockNewChannel = {
+      id: "channel-2",
+      isTextBased: () => true,
+      send: vi.fn().mockResolvedValue({
+        id: "new-msg-2",
+        react: vi.fn().mockResolvedValue(undefined),
+      }),
+    } as unknown as TextChannel;
+
+    const mockGuild = {
+      id: "guild-1",
+      roles: { cache: new Map([["role-red", {}]]) },
+      channels: {
+        fetch: vi.fn().mockResolvedValue(mockOldChannel),
+      },
+    } as unknown as Guild;
+
+    const mockInteraction = {
+      guild: mockGuild,
+      member: { id: "caller-1" } as GuildMember,
+      options: {
+        getSubcommand: () => "post",
+        getString: (name: string) => (name === "id" ? "emoji-panel" : null),
+        getChannel: () => mockNewChannel,
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockOldMessageDelete).toHaveBeenCalled();
+    expect(emojiPanel.messageId).toBe("new-msg-2");
+    expect(emojiPanel.channelId).toBe("channel-2");
   });
 });
