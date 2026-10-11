@@ -1,0 +1,80 @@
+name: discord-bot-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: discord-bot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in environment or .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in environment or .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-directus}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-directus} -d $${POSTGRES_DB:-directus}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  directus:
+    image: directus/directus:12.5.0
+    container_name: discord-bot-directus
+    restart: unless-stopped
+    ports:
+      - "${DIRECTUS_PORT:-8055}:8055"
+    environment:
+      KEY: ${DIRECTUS_KEY:?DIRECTUS_KEY must be set in environment or .env.production}
+      SECRET: ${DIRECTUS_SECRET:?DIRECTUS_SECRET must be set in environment or .env.production}
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB:-directus}
+      DB_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in environment or .env.production}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in environment or .env.production}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:?DIRECTUS_ADMIN_EMAIL must be set in environment or .env.production}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD:?DIRECTUS_ADMIN_PASSWORD must be set in environment or .env.production}
+      PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-http://localhost:8055}
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data/directus:/directus/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8055/server/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  server:
+    image: ${IMAGE_NAME:-ghcr.io/nthungdev/discord-bot:latest}
+    container_name: server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    env_file:
+      - ./.env.production
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3001}
+      MEMORY_STORE_TYPE: ${MEMORY_STORE_TYPE:-directus}
+      DIRECTUS_URL: ${DIRECTUS_URL:-http://directus:8055}
+      DIRECTUS_BOT_TOKEN: ${DIRECTUS_BOT_TOKEN:?DIRECTUS_BOT_TOKEN must be set in environment or .env.production}
+      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:?INTERNAL_WEBHOOK_SECRET must be set in environment or .env.production}
+      AUTO_DEPLOY_COMMAND_GUILDS: ${AUTO_DEPLOY_COMMAND_GUILDS:-}
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - ./service-account.json:/app/service-account.json:ro
+      - ./service-account.json:/app/build/service-account.json:ro
+    depends_on:
+      directus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:$${PORT:-3001}/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
