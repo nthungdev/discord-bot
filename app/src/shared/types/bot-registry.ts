@@ -1,6 +1,13 @@
 import type { BotGuildConfig } from "../../config/types";
 
-export type BotType = "chatBot" | "policeBot" | "bouncergonBot" | "custom";
+export type BotType = "chatBot" | "policeBot" | "custom";
+
+export interface BotCapabilitySummary {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description?: string;
+}
 
 export type BotLifecycleStatus =
   | "STOPPED"
@@ -52,6 +59,7 @@ export interface BotRuntimeMetrics {
   lastStartedAt?: number;
   assignedGuildIds: string[];
   tokenMasked: string;
+  capabilities?: BotCapabilitySummary[];
 }
 
 export interface GuildChannelSummary {

@@ -64,6 +64,30 @@ export interface ModerationCapabilityConfig {
   enabled?: boolean;
 }
 
+export interface VoiceBouncerCapabilityConfig {
+  enabled?: boolean;
+  tagPattern?: string;
+  tagOnlyVoiceChannelIds?: string[];
+  tagOnlyCategoryIds?: string[];
+  exemptRoleIds?: string[];
+  fallbackChannelId?: string;
+  action?: "disconnect" | "move";
+  warningMessage?: string;
+}
+
+export interface MatchmakingCapabilityConfig {
+  enabled?: boolean;
+  lobbyVoiceChannelId?: string;
+  team1VoiceChannelId?: string;
+  team2VoiceChannelId?: string;
+  matchCategoryId?: string;
+  mapPool?: string[];
+  defaultKFactor?: number;
+  initialElo?: number;
+  scoreReportingTimeoutMinutes?: number;
+  autoMovePlayers?: boolean;
+}
+
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
@@ -79,6 +103,8 @@ export interface BotGuildConfig {
   smartReply?: SmartReplyConfig;
   roast?: RoastFeatureConfig;
   moderation?: ModerationCapabilityConfig;
+  voiceBouncer?: VoiceBouncerCapabilityConfig;
+  matchmaking?: MatchmakingCapabilityConfig;
 }
 
 export interface BotGuildsConfig {
