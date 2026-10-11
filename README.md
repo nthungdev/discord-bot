@@ -185,7 +185,7 @@ pnpm --prefix app docker-prod
 - [System Management Web App Design](docs/web-app-management-design.md)
 - [Smart Reply & Addressee Intent Design](docs/smart-reply-design.md)
 - [Persistent Conversation Memory Design](docs/persistent-memory-design.md)
-- [Bouncergon Voice Bouncer & Matchmaking Design](docs/bouncergon-design.md)
+- [Voice Bouncer & Matchmaking Capabilities Design](docs/voice-and-matchmaking-design.md)
 - [AI Roast Feature PRD](docs/roast-feature-prd.md)
 - [AI Agent Guidelines](AGENTS.md)
 

@@ -1,8 +1,9 @@
-# Design Document: Bouncergon — Voice Channel Bouncer & Valorant 10-Man Matchmaking Platform
+# Design Document: Voice Channel Bouncer & Valorant 10-Man Matchmaking Capabilities
 
-**Author**: Hung Nguyen
-**Status**: Proposed / Design Specification
-**Date**: 2026-09-11
+**Author**: Hung Nguyen  
+**Status**: Architecture & Capability Specification  
+**Date**: 2026-09-11 (Updated 2026-10-10)  
+**Target Architecture**: Single Unified `DiscordBotEngine` with Extensible Capability Pipeline (`IBotCapability`)
 
 ---
 
@@ -15,29 +16,23 @@ Within gaming and esports communities on Discord, managing community voice chann
 3. **Voice Isolation During Matches**: Once teams are drafted, players must be manually split into separate Team 1 and Team 2 Voice Channels (VCs). Spectators or unauthorized members can drop into team voice channels mid-round, causing disruptions or ghosting/tactical interference.
 4. **Lack of Match Analytics & Rating Tracking**: Casual custom games lack persistence; player match histories, win/loss records, round margins, and competitive MMR/Elo ratings are lost once the lobby closes.
 
-### 1.2 Objectives
-**Bouncergon** is a specialized Discord bot subsystem built within the `discord-bot` platform to solve these challenges with full automation:
-1. **Automated Voice Bouncer (`VoiceBouncerService`)**:
-   - Continuously monitor Discord voice states (`Events.VoiceStateUpdate`).
-   - Automatically disconnect or redirect users who join designated tag-only voice channels without matching the configured server tag / clan moniker or server role criteria.
-   - Provide non-intrusive ephemeral explanations to bounced users.
-2. **Valorant 10-Man Match Organizer (`TenManMatchService`)**:
-   - Provide seamless queue management via interactive Discord components (Buttons, Select Menus, Modals).
-   - Automated captain selection, draft phase (Snake Draft / MMR Auto-Balancing), and map veto (Pick & Ban) system tailored to the active Valorant competitive map pool.
-3. **Dynamic Voice Access Control & Team Routing (`VoiceRoutingService`)**:
-   - Automatically restrict Team 1 and Team 2 Voice Channels using Discord Permission Overwrites so only active roster members and authorized casters can connect.
-   - Automatically move all 10 players into their designated team VCs upon match start, and pull them back to the General Lobby VC when the match concludes.
-   - Eject or auto-mute unauthorized drop-ins instantly.
-4. **Competitive MMR/Elo Engine & Persistence (`TenManStatsService`)**:
-   - Dual storage architecture (Cloud Firestore in production, Local JSON Store in development) aligned with the platform's `IMemoryStore` paradigm.
-   - Multi-player 5v5 Elo rating engine with dynamic K-factors based on win/loss margins and calibration matches.
-   - Leaderboards, player profile cards, match history inspection, and mutual captain result confirmation.
+### 1.2 Architectural Rebrand: Moving Away from Multiple Bot Instances
+Historically, these features were envisioned as an isolated standalone bot process (`BouncergonBot`). However, the `discord-bot` platform has transitioned to a **single unified Discord bot engine (`DiscordBotEngine`)** running on a single bot token. Maintaining separate bot processes incurs redundant Gateway WebSocket overhead, multi-token complexity, and fragmented deployment lifecycles.
+
+Instead of running separate bot instances, these features are now packaged as two modular, functional pipeline capabilities running within the single bot:
+1. **`VoiceBouncerCapability`** (`VoiceBouncerService`):
+   - Integrates directly into the `DiscordBotEngine` event pipeline via `handleVoiceStateUpdate`.
+   - Automatically disconnects or redirects users who join designated tag-only voice channels without matching the configured server tag / clan moniker or server role criteria.
+   - Provides non-intrusive ephemeral explanations and anti-bounce loop mitigation.
+2. **`MatchmakingCapability`** (`TenManMatchService`, `VoiceRoutingService`, `TenManStatsService`):
+   - Integrates via `handleInteraction` (Buttons, Select Menus, Slash Commands) and `handleVoiceStateUpdate` (Voice isolation watchdog).
+   - Manages queue lifecycle, snake draft / auto-balancing, map veto, dynamic VC access control, and 5v5 Elo rating settlements.
 
 ---
 
 ## 2. High-Level Architecture & System Flow
 
-### 2.1 Component Architecture Diagram
+### 2.1 Unified Capability Architecture Diagram
 
 ```mermaid
 flowchart TD
@@ -46,10 +41,19 @@ flowchart TD
         E2[Events.InteractionCreate]
     end
 
-    subgraph Bouncergon Core Engine
-        BB[BouncergonBot : BaseBot]
+    subgraph BotEngineCore [DiscordBotEngine (Single Unified Bot)]
+        Client[Discord.js Client]
+        EventBus[Sequential Capability Pipeline]
         
-        subgraph Subservices
+        subgraph Pipeline [Registered Capabilities]
+            CapMod[1. ModerationCapability]
+            CapRole[2. RoleCapability]
+            CapChat[3. ChatCapability]
+            CapVoice[4. VoiceBouncerCapability]
+            CapMatch[5. MatchmakingCapability]
+        end
+        
+        subgraph Subservices [Domain Services]
             VBS[VoiceBouncerService<br/>Tag & Clan Enforcement]
             TMS[TenManMatchService<br/>Queue, Draft & Map Veto]
             VRS[VoiceRoutingService<br/>Permissions & Player Moving]
@@ -62,11 +66,15 @@ flowchart TD
         end
     end
 
-    E1 -->|Voice State Change| BB
-    E2 -->|Slash Commands & Buttons| BB
+    E1 -->|Voice State Change| Client
+    E2 -->|Interactions| Client
+    Client --> EventBus
+    EventBus --> CapVoice
+    EventBus --> CapMatch
     
-    BB -->|Inspect Channel & Tag| VBS
-    BB -->|Handle Match Interactions| TMS
+    CapVoice -->|Inspect Channel & Tag| VBS
+    CapMatch -->|Handle Match Interactions| TMS
+    CapMatch -->|VC Watchdog| VRS
     
     TMS -->|Sync Match State| RTK
     TMS -->|Isolate / Move Teams| VRS
@@ -85,17 +93,20 @@ sequenceDiagram
     actor Host as Match Host
     actor Players as 10 Players
     participant Discord as Discord Gateway / UI
+    participant CapMatch as MatchmakingCapability
     participant TMS as TenManMatchService
     participant VRS as VoiceRoutingService
     participant TSS as TenManStatsService
     participant DB as Firestore / Local Store
 
     Host->>Discord: /10man queue create
-    Discord->>TMS: Initialize Queue Lobby Embed
+    Discord->>CapMatch: InteractionCreate
+    CapMatch->>TMS: Initialize Queue Lobby Embed
     TMS->>Discord: Render Queue Embed with [Join] [Leave] [Captains]
     
     Players->>Discord: Click [Join Queue] (x10)
-    Discord->>TMS: Queue Filled (10/10 Players)
+    Discord->>CapMatch: Button Interaction
+    CapMatch->>TMS: Queue Filled (10/10 Players)
     TMS->>Discord: Announce Full Lobby & Select Captains (Random / Highest Elo)
     
     rect rgb(30, 45, 65)
@@ -136,10 +147,10 @@ sequenceDiagram
 
 ## 3. Detailed Component Specifications
 
-### 3.1 Voice Bouncer Service (`VoiceBouncerService`)
+### 3.1 Voice Bouncer Capability (`VoiceBouncerCapability`)
 
 #### Purpose
-Enforce server identity and tag requirements on designated "Tag-Only" voice channels.
+Enforce server identity and tag requirements on designated "Tag-Only" voice channels without requiring a separate bot.
 
 #### Functional Requirements
 1. **Channel Matching**: Supports explicit channel IDs (`tagOnlyVoiceChannelIds`) or entire voice channel categories (`tagOnlyCategoryIds`).
@@ -151,14 +162,14 @@ Enforce server identity and tag requirements on designated "Tag-Only" voice chan
    - If non-compliant user joins/moves into target channel:
      - Disconnect user (`member.voice.disconnect("Missing required server tag")`) OR move user to fallback guest channel.
      - Send an ephemeral warning or short-lived text message in the voice channel text chat:
-       > ⚠️ **[Bouncergon]** Hey <@userId>, this channel is reserved for members sporting the server tag `[TAG]`. Please update your server nickname or profile to join.
+       > ⚠️ **[Voice Bouncer]** Hey <@userId>, this channel is reserved for members sporting the server tag `[TAG]`. Please update your server nickname or profile to join.
 4. **Anti-Spam & Bounce Loop Mitigation**:
-   - Memory cache tracking bounce timestamps (`Map<userId, number>`).
+   - Memory cache tracking bounce timestamps (`Map<userId, number[]>`).
    - If a user triggers $>3$ bounces within 30 seconds, suppress duplicate DM/chat notifications to avoid webhook spam.
 
 ---
 
-### 3.2 10-Man Match & Queue Orchestrator (`TenManMatchService`)
+### 3.2 10-Man Matchmaking Capability (`MatchmakingCapability`)
 
 #### Match State Machine
 A 10-man match progresses through strictly defined discrete states:
@@ -236,7 +247,7 @@ To ensure competitive integrity and prevent cross-team communication or spectato
    - If player is currently in any voice channel within the guild, move them via `member.voice.setChannel(targetVCId)`.
    - If player is not connected to voice, tag them in the match thread: *"Please join your team voice channel."*
 4. **Intruder Protection Watchdog**:
-   - If an unauthorized member joins, `VoiceStateUpdate` event verifies their presence against active match rosters.
+   - If an unauthorized member joins, `handleVoiceStateUpdate` in `MatchmakingCapability` verifies their presence against active match rosters.
    - Unauthorized user is immediately moved back to the Lobby VC or disconnected.
 5. **Post-Match Teardown**:
    - Reset permissions on static channels or delete ephemeral channels.
@@ -345,39 +356,44 @@ tenManGuildSettings/
 
 ## 6. Remote Config & Configuration Schema Updates
 
-We extend `app/src/config/types.ts` with dedicated configuration blocks:
+Rather than configuring a separate bot instance, voice bouncer and matchmaking settings are configured directly within `BotGuildConfig` in `app/src/config/types.ts`:
 
 ```typescript
-export interface TenManVoiceConfig {
+export interface VoiceBouncerCapabilityConfig {
+  enabled?: boolean;
   tagPattern?: string;
   tagOnlyVoiceChannelIds?: string[];
   tagOnlyCategoryIds?: string[];
   exemptRoleIds?: string[];
+  fallbackChannelId?: string;
+  action?: "disconnect" | "move";
+  warningMessage?: string;
+}
+
+export interface MatchmakingCapabilityConfig {
+  enabled?: boolean;
   lobbyVoiceChannelId?: string;
   team1VoiceChannelId?: string;
   team2VoiceChannelId?: string;
+  matchCategoryId?: string;
+  mapPool?: string[];
+  defaultKFactor?: number;
+  initialElo?: number;
+  scoreReportingTimeoutMinutes?: number;
   autoMovePlayers?: boolean;
 }
 
-export interface TenManMatchConfig {
-  enabled?: boolean;
-  mapPool?: string[];
-  defaultKFactor?: number;
-  calibrationMatchesCount?: number;
-  initialElo?: number;
-  scoreReportingTimeoutMinutes?: number;
-}
-
-export interface BouncergonGuildConfig extends BotGuildConfig {
-  voiceBouncer?: TenManVoiceConfig;
-  tenMan?: TenManMatchConfig;
-}
-
-export interface BotsConfig {
-  chatBot: BotConfig;
-  policeBot: BotConfig;
-  bouncergonBot: BotConfig;
-  [botId: string]: BotConfig;
+export interface BotGuildConfig {
+  // Existing bot configs
+  botName?: string;
+  replyChannelIds: string[];
+  ignoredChannelIds: string[];
+  // Capability modules
+  moderation?: ModerationCapabilityConfig;
+  smartReply?: SmartReplyConfig;
+  roast?: RoastFeatureConfig;
+  voiceBouncer?: VoiceBouncerCapabilityConfig;
+  matchmaking?: MatchmakingCapabilityConfig;
 }
 ```
 
@@ -386,28 +402,26 @@ export interface BotsConfig {
 ## 7. Verification & Testing Strategy
 
 ### 7.1 Automated Unit & Integration Tests
-- **Voice Bouncer Tests** (`src/bots/bouncergon/__tests__/bouncer.test.ts`):
+- **Voice Bouncer Capability Tests** (`src/capabilities/__tests__/voice-bouncer-capability.test.ts`):
   - Verify member with matching `[TAG]` is permitted in tag-only channel.
-  - Verify member without tag is disconnected and notification is sent.
+  - Verify member without tag is disconnected or moved and notification is sent.
   - Verify exempt roles bypass tag enforcement.
-- **Draft & Map Veto Tests** (`src/services/tenMan/__tests__/draft.test.ts`):
+  - Verify anti-bounce loop mitigation rate-limits repeated warnings.
+- **Matchmaking Capability Tests** (`src/capabilities/__tests__/matchmaking-capability.test.ts`):
+  - Verify button interaction routing for queue, draft, and veto phases.
+  - Verify voice state watchdog evicts unauthorized members from locked team channels.
+- **Draft & Map Veto Unit Tests** (`src/services/tenMan/__tests__/draft.test.ts`):
   - Validate 1-2-2-2-1 snake draft turn sequence and boundary conditions.
   - Verify map ban sequence leaves exactly 1 decider map.
 - **Elo Math Engine Tests** (`src/services/tenMan/__tests__/elo.test.ts`):
   - Verify zero-sum rating distribution across both 5-player teams.
   - Verify margin-of-victory multiplier increases Elo delta for blowouts.
-  - Verify placement K-factor acceleration for new players.
-- **Voice Channel Routing Tests** (`src/services/tenMan/__tests__/voice-routing.test.ts`):
-  - Test permission overwrite calculation logic for Team 1 and Team 2 VCs.
-
-### 7.2 End-to-End Simulation
-- Simulate complete 10-man flow using synthetic Discord interactions and mock voice states in `tests/e2e/__tests__/ten-man-flow.test.ts`.
 
 ---
 
 ## 8. Security & Privacy Considerations
 1. **Discord Privilege Escalation**:
-   - The bot requires `Manage Channels`, `Move Members`, and `Mute Members` Discord permissions.
+   - The single bot requires `Manage Channels`, `Move Members`, and `Mute Members` Discord permissions.
    - Enforce explicit role verification before executing `/10man cancel` or `/10man config`.
 2. **Anti-Griefing & Fake Score Protection**:
    - Matches require two-party confirmation: Captain A reports score, Captain B must click `[Confirm]`.
