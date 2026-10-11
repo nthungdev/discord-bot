@@ -169,6 +169,7 @@ export async function executeRoast(
       skipCooldown: ephemeral,
     };
 
+    const roastStartTime = Date.now();
     const result = await roastService.generateRoast(
       request,
       botUserId,
@@ -203,6 +204,24 @@ export async function executeRoast(
     );
 
     await interaction.editReply(payload);
+
+    // Asynchronously buffer telemetry log for Directus batch insertion
+    try {
+      const {
+        roastLogRepository,
+      } = require("../../infrastructure/repositories");
+      roastLogRepository.record({
+        guildId,
+        channelId,
+        callerId: interaction.user.id,
+        targetId: targetUser.id,
+        topic: topic ?? undefined,
+        generatedText: result.content,
+        latencyMs: Date.now() - roastStartTime,
+      });
+    } catch (logErr) {
+      console.warn("[RoastHandler] Failed to buffer telemetry log:", logErr);
+    }
   } catch (error) {
     console.error("[RoastHandler] Command execution failed:", error);
     await interaction.editReply({

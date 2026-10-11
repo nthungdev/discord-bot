@@ -1,0 +1,48 @@
+name: discord-bot-directus-dev
+
+services:
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: discord-bot-postgres-dev
+    environment:
+      POSTGRES_USER: directus
+      POSTGRES_PASSWORD: directus_dev_password
+      POSTGRES_DB: directus
+    ports:
+      - "5433:5432"
+    volumes:
+      - directus_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U directus -d directus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  directus-dev:
+    image: directus/directus:latest
+    container_name: discord-bot-directus-dev
+    ports:
+      - "8055:8055"
+    environment:
+      KEY: "local-dev-directus-secret-key-32chars"
+      SECRET: "local-dev-directus-secret-token-32"
+      DB_CLIENT: pg
+      DB_HOST: postgres-dev
+      DB_PORT: 5432
+      DB_DATABASE: directus
+      DB_USER: directus
+      DB_PASSWORD: directus_dev_password
+      ADMIN_EMAIL: admin@local.dev
+      ADMIN_PASSWORD: adminpassword
+      PUBLIC_URL: "http://localhost:8055"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    volumes:
+      - directus_dev_uploads:/directus/uploads
+
+volumes:
+  directus_dev_data:
+  directus_dev_uploads:

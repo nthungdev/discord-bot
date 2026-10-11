@@ -158,6 +158,28 @@ export class FirestoreRoastOptOutStore implements IRoastOptOutStore {
   }
 }
 
+export class DirectusRoastOptOutStore implements IRoastOptOutStore {
+  constructor(
+    private userProfileRepo: import("../../domain/repositories/user-profile.repository").IUserProfileRepository = require("../../infrastructure/repositories").userProfileRepository,
+  ) {}
+
+  public async isOptedOut(_guildId: string, userId: string): Promise<boolean> {
+    return this.userProfileRepo.isOptedOut(userId);
+  }
+
+  public async optOut(_guildId: string, userId: string): Promise<void> {
+    return this.userProfileRepo.setOptOut(userId, true);
+  }
+
+  public async optIn(_guildId: string, userId: string): Promise<void> {
+    return this.userProfileRepo.setOptOut(userId, false);
+  }
+
+  public async clear(_guildId?: string): Promise<void> {
+    // Directus stores user profiles centrally, no bulk clear by guild
+  }
+}
+
 let optOutStoreInstance: IRoastOptOutStore | null = null;
 
 export function getRoastOptOutStore(): IRoastOptOutStore {
@@ -173,7 +195,12 @@ export function getRoastOptOutStore(): IRoastOptOutStore {
     }
 
     const selectedType = envType || configType;
-    if (selectedType === "firestore") {
+    if (
+      selectedType === "directus" ||
+      (!selectedType && process.env.DIRECTUS_URL)
+    ) {
+      optOutStoreInstance = new DirectusRoastOptOutStore();
+    } else if (selectedType === "firestore") {
       optOutStoreInstance = new FirestoreRoastOptOutStore();
     } else {
       optOutStoreInstance = new LocalFileRoastOptOutStore();
