@@ -237,6 +237,7 @@ For detailed schema documentation, webhook security, and troubleshooting, see th
 - [System Architecture & Multi-Server Connection](docs/system-architecture-design.md)
 - [Bot Engine Architecture & Extension Guide](docs/bot-architecture-design.md)
 - [Directus Control Plane Architecture & Setup Guide](docs/directus-control-plane.md)
+- [NAS Deployment & Directus Guide](docs/nas-deployment-guide.md)
 - [System Management Web App Design](docs/web-app-management-design.md)
 - [Smart Reply & Addressee Intent Design](docs/smart-reply-design.md)
 - [Persistent Conversation Memory Design](docs/persistent-memory-design.md)
