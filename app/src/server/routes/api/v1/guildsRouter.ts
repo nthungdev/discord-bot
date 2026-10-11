@@ -92,13 +92,8 @@ guildsRouter.put(
         ...updates,
       };
 
-      if (!botsConfig.chatBot) {
-        botsConfig.chatBot = { guilds: {} };
-      }
-      botsConfig.chatBot.guilds[guildId] = updatedGuildConfig;
-
-      // Update in config service and trigger reload
-      await configService.loadConfig();
+      // Update in config service and preserve across template evaluations
+      configService.updateBotGuildConfig(guildId, updatedGuildConfig);
 
       res.json({
         ok: true,

@@ -23,9 +23,11 @@ flowchart TD
         
         subgraph Pipeline [Sequential Capability Pipeline]
             CapMod[1. ModerationCapability - Police]
-            CapChat[2. ChatCapability - Gemini AI]
-            CapVoice[3. VoiceCapability - Bouncer]
-            CapCustom[4. Custom Capabilities]
+            CapRole[2. RoleCapability - Role Assignment]
+            CapChat[3. ChatCapability - Gemini AI]
+            CapVoice[4. VoiceBouncerCapability - Tag Enforcement]
+            CapMatch[5. MatchmakingCapability - 10-Man Matchmaking]
+            CapCustom[6. Custom Capabilities]
         end
 
         subgraph Extensions [Extension Subsystems]
@@ -134,13 +136,21 @@ export interface IBotCapability {
    - **Responsibilities**: Censors prohibited wordlists, matches forbidden regex patterns, deletes offending messages, issues user warnings, logs moderation audit trails.
    - **Interception**: If a message violates server policies, it deletes the message, logs the incident, and returns `true`, completely halting further processing so `ChatCapability` never generates AI responses to toxic inputs.
 
-2. **`ChatCapability` (Conversational AI)**:
+2. **`RoleCapability` (Self-Service Role Assignment)**:
    - **Priority**: 2.
+   - **Responsibilities**: Handles button clicks, select menus, and emoji reactions for self-service guild role assignment panels, and dispatches onboarding welcome greetings.
+
+3. **`ChatCapability` (Conversational AI)**:
+   - **Priority**: 3.
    - **Responsibilities**: Evaluates channel whitelists (`replyChannelIds`), runs Smart Reply addressee intent classification, manages per-user message debouncing, triggers typing indicators, loads multi-user conversation history from `MemoryService`, invokes Gemini with tool calling, and sends generated replies.
 
-3. **`VoiceCapability` (Bouncergon)**:
-   - **Priority**: 3.
-   - **Responsibilities**: Monitors voice channel activity, enforces voice matchmaking, creates temporary voice rooms, and manages channel permissions.
+4. **`VoiceBouncerCapability` (Voice Channel Tag Enforcement)**:
+   - **Priority**: 4.
+   - **Responsibilities**: Continuously monitors voice channel updates (`handleVoiceStateUpdate`), enforces guild tag / clan prefix rules on designated channels, and automatically disconnects or redirects non-compliant users.
+
+5. **`MatchmakingCapability` (10-Man Scrims & Elo Engine)**:
+   - **Priority**: 5.
+   - **Responsibilities**: Manages 5v5 queue lobbies, captain snake drafts, map vetos, dynamic team voice channel isolation, and multi-player Elo MMR settlements.
 
 ---
 

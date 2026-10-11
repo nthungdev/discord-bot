@@ -136,6 +136,10 @@ export class Config {
   private refreshIntervalTimer: NodeJS.Timeout | null = null;
   private ttlMs: number = DEFAULT_CONFIG_REFRESH_INTERVAL_MS;
   private localOnly: boolean = false;
+  private inMemoryGuildOverrides: Map<
+    string,
+    import("./types").BotGuildConfig
+  > = new Map();
 
   private constructor() {}
 
@@ -260,6 +264,41 @@ export class Config {
     return this.localConfig;
   }
 
+  private parseJsonConfig<T>(strVal: string | null, fallback: T): T {
+    if (!strVal) return fallback;
+    try {
+      return JSON.parse(strVal) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private applyGuildOverrides(bots: BotsConfig): BotsConfig {
+    if (this.inMemoryGuildOverrides.size === 0 || !bots?.chatBot?.guilds) {
+      return bots;
+    }
+    for (const [gId, gConfig] of this.inMemoryGuildOverrides.entries()) {
+      bots.chatBot.guilds[gId] = {
+        ...bots.chatBot.guilds[gId],
+        ...gConfig,
+      };
+    }
+    return bots;
+  }
+
+  private getBotsConfig(): BotsConfig {
+    const fallback = this.getLocalConfig()[
+      ConfigParameter.bots
+    ] as unknown as BotsConfig;
+    const config = this.getConfig();
+    if (!config) {
+      return this.applyGuildOverrides(fallback);
+    }
+    const strVal = config.getString(ConfigParameter.bots);
+    const parsedBots = this.parseJsonConfig(strVal, fallback);
+    return this.applyGuildOverrides(parsedBots);
+  }
+
   getConfigValue<T extends ConfigParameter>(
     key: T,
   ): T extends ConfigParameter.guildEmojis
@@ -287,6 +326,10 @@ export class Config {
                         : T extends ConfigParameter.memoryStoreType
                           ? MemoryStoreTypeConfig
                           : AiProjectIdConfig {
+    if (key === ConfigParameter.bots) {
+      return this.getBotsConfig() as never;
+    }
+
     const config = this.getConfig();
     if (!config) {
       return this.getLocalConfig()[key] as never;
@@ -295,15 +338,12 @@ export class Config {
     switch (key) {
       case ConfigParameter.guildEmojis:
       case ConfigParameter.guildMembers:
-      case ConfigParameter.bots:
       case ConfigParameter.aiSafetySettings: {
         const strVal = config.getString(key);
-        if (!strVal) return this.getLocalConfig()[key] as never;
-        try {
-          return JSON.parse(strVal);
-        } catch {
-          return this.getLocalConfig()[key] as never;
-        }
+        return this.parseJsonConfig(
+          strVal,
+          this.getLocalConfig()[key],
+        ) as never;
       }
       case ConfigParameter.checkInLeaderboard:
       case ConfigParameter.aiApiEndpoint:
@@ -325,10 +365,40 @@ export class Config {
     }
   }
 
+  /**
+   * Updates or sets an authoritative in-memory override for a guild configuration.
+   * Survives evaluate() cycles under Server Remote Config and updates localConfig.
+   */
+  public updateBotGuildConfig(
+    guildId: string,
+    updatedConfig: import("./types").BotGuildConfig,
+  ): void {
+    this.inMemoryGuildOverrides.set(guildId, updatedConfig);
+    if (!this.localConfig) {
+      this.localConfig = loadLocalConfig();
+    }
+    if (!this.localConfig.bots) {
+      this.localConfig.bots = {
+        chatBot: { guilds: {} },
+        policeBot: { guilds: {} },
+      };
+    }
+    if (!this.localConfig.bots.chatBot) {
+      this.localConfig.bots.chatBot = { guilds: {} };
+    }
+    if (!this.localConfig.bots.chatBot.guilds) {
+      this.localConfig.bots.chatBot.guilds = {};
+    }
+    this.localConfig.bots.chatBot.guilds[guildId] = updatedConfig;
+  }
+
   getBotGuildConfig(
     botId: string,
     guildId: string,
   ): import("./types").BotGuildConfig | undefined {
+    if (botId === "chatBot" && this.inMemoryGuildOverrides.has(guildId)) {
+      return this.inMemoryGuildOverrides.get(guildId);
+    }
     const bots = this.getConfigValue(ConfigParameter.bots);
     const bot = bots?.[botId as keyof BotsConfig];
     return bot?.guilds?.[guildId];

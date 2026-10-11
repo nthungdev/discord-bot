@@ -24,8 +24,15 @@ export interface UserSession {
   expiresAt: number;
 }
 
-export type BotType = "chatBot" | "policeBot" | "bouncergonBot" | "custom";
+export type BotType = "chatBot" | "policeBot" | "custom";
 export type BotLifecycleStatus = "STOPPED" | "INITIALIZING" | "ONLINE" | "RECONNECTING" | "ERROR";
+
+export interface BotCapabilitySummary {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description?: string;
+}
 
 export interface BotRuntimeMetrics {
   id: string;
@@ -46,6 +53,7 @@ export interface BotRuntimeMetrics {
   lastStartedAt?: number;
   assignedGuildIds: string[];
   tokenMasked: string;
+  capabilities?: BotCapabilitySummary[];
 }
 
 export interface ProcessTelemetry {
