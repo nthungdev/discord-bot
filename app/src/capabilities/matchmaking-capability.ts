@@ -7,6 +7,8 @@ import type {
 import type { IBotCapability } from "./types";
 
 export const MATCHMAKING_INTERACTION_PREFIX = "10man_";
+export const DEFAULT_TEAM_EVICT_REASON =
+  "Unauthorized member joined restricted match team channel";
 
 /**
  * Checks whether an interaction customId belongs to the matchmaking workflow.
@@ -65,15 +67,15 @@ export class MatchmakingCapability implements IBotCapability {
       return;
     }
 
-    // Interaction belongs to 10-man matchmaking; dispatch to subservice
+    // Interaction belongs to 10-man matchmaking; inform user of preview status
     console.info(
       `[MatchmakingCapability] Handling interaction '${interaction.customId}' for user '${interaction.user.id}'`,
     );
 
-    // Ephemeral acknowledge for interactive actions
     if (!(interaction.replied || interaction.deferred)) {
       await interaction.reply({
-        content: "Processing matchmaking action...",
+        content:
+          "⚠️ **[Matchmaking]** The 10-man matchmaking engine is currently in preview mode. Interactive lobbies are coming soon!",
         ephemeral: true,
       });
     }
@@ -106,7 +108,22 @@ export class MatchmakingCapability implements IBotCapability {
       return;
     }
 
-    // Team channel intruder check watchdog
-    // In future iterations, active rosters are verified against Redux / Firestore
+    // In preview mode without active match rosters, team channels are restricted to avoid unauthorized intrusion.
+    // Evict the intruder back to the main lobby, or disconnect if no lobby is configured.
+    try {
+      if (matchmakingConfig.lobbyVoiceChannelId) {
+        await newState.setChannel(
+          matchmakingConfig.lobbyVoiceChannelId,
+          DEFAULT_TEAM_EVICT_REASON,
+        );
+      } else {
+        await newState.disconnect(DEFAULT_TEAM_EVICT_REASON);
+      }
+    } catch (error) {
+      console.error(
+        `[MatchmakingCapability] Failed to evict intruder '${member.id}' from team channel:`,
+        error,
+      );
+    }
   }
 }

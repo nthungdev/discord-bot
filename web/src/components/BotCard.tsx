@@ -128,17 +128,19 @@ export const BotCard: React.FC<BotCardProps> = ({
         {bot.capabilities && bot.capabilities.length > 0 && (
           <div className="mb-4">
             <div className="text-[11px] font-semibold text-discord-muted uppercase tracking-wider mb-1.5">
-              Capabilities ({bot.capabilities.length})
+              Active Capabilities ({bot.capabilities.filter((c) => c.enabled).length}/{bot.capabilities.length})
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {bot.capabilities.map((cap) => (
-                <span
-                  key={cap.id}
-                  className="px-2 py-0.5 rounded-lg bg-discord-blurple/10 border border-discord-blurple/20 text-[11px] text-discord-blurple font-medium"
-                >
-                  {cap.name}
-                </span>
-              ))}
+              {bot.capabilities
+                .filter((cap) => cap.enabled)
+                .map((cap) => (
+                  <span
+                    key={cap.id}
+                    className="px-2 py-0.5 rounded-lg bg-discord-blurple/10 border border-discord-blurple/20 text-[11px] text-discord-blurple font-medium"
+                  >
+                    {cap.name}
+                  </span>
+                ))}
             </div>
           </div>
         )}

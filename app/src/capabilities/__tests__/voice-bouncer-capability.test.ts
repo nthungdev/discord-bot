@@ -1,5 +1,5 @@
 import type { Client, VoiceBasedChannel, VoiceState } from "discord.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Config } from "../../config";
 import type { BotGuildConfig } from "../../config/types";
 import {
@@ -8,20 +8,27 @@ import {
   isMemberExemptByRole,
   isMemberTagCompliant,
   VoiceBouncerCapability,
+  WARNING_AUTO_DELETE_DELAY_MS,
 } from "../voice-bouncer-capability";
 
 describe("VoiceBouncerCapability", () => {
   let capability: VoiceBouncerCapability;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     capability = new VoiceBouncerCapability();
     capability.init({} as Client, {} as Config);
   });
 
+  afterEach(() => {
+    capability.destroy();
+    vi.useRealTimers();
+  });
+
   describe("Helper Functions", () => {
     describe("isMemberTagCompliant", () => {
-      it("should return true when pattern is empty", () => {
-        expect(isMemberTagCompliant("Player", "player_user", "")).toBe(true);
+      it("should return false when pattern is empty (fails closed)", () => {
+        expect(isMemberTagCompliant("Player", "player_user", "")).toBe(false);
       });
 
       it("should return true when display name matches pattern", () => {
@@ -42,10 +49,10 @@ describe("VoiceBouncerCapability", () => {
         ).toBe(false);
       });
 
-      it("should gracefully handle invalid regex patterns without throwing", () => {
+      it("should return false and not throw when regex pattern is invalid (fail-closed)", () => {
         expect(
           isMemberTagCompliant("Player", "player_user", "[invalid(regex"),
-        ).toBe(true);
+        ).toBe(false);
       });
     });
 
@@ -92,25 +99,67 @@ describe("VoiceBouncerCapability", () => {
   });
 
   describe("Bounce Rate Limiting", () => {
-    it("should allow bursts up to threshold and rate limit thereafter", () => {
+    it("should allow bursts up to threshold and rate limit thereafter within the same guild", () => {
       const now = 100_000;
-      expect(capability.isBounceRateLimited("user-1", now)).toBe(false);
-      expect(capability.isBounceRateLimited("user-1", now + 1000)).toBe(false);
-      expect(capability.isBounceRateLimited("user-1", now + 2000)).toBe(false);
-      // 4th attempt in window triggers rate limit
-      expect(capability.isBounceRateLimited("user-1", now + 3000)).toBe(true);
-
-      // After 30s window expires, counter resets
-      expect(capability.isBounceRateLimited("user-1", now + 35_000)).toBe(
+      expect(capability.isBounceRateLimited("guild-1", "user-1", now)).toBe(
         false,
       );
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 1000),
+      ).toBe(false);
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 2000),
+      ).toBe(false);
+      // 4th attempt in window triggers rate limit
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 3000),
+      ).toBe(true);
+
+      // After 30s window expires, counter resets
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 35_000),
+      ).toBe(false);
     });
 
-    it("should clear history on destroy()", () => {
+    it("should isolate rate limits across different guilds for the same user", () => {
       const now = 100_000;
-      capability.isBounceRateLimited("user-1", now);
+      expect(capability.isBounceRateLimited("guild-1", "user-1", now)).toBe(
+        false,
+      );
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 1000),
+      ).toBe(false);
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 2000),
+      ).toBe(false);
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-1", now + 3000),
+      ).toBe(true);
+
+      // Different guild is not affected
+      expect(
+        capability.isBounceRateLimited("guild-2", "user-1", now + 3000),
+      ).toBe(false);
+    });
+
+    it("should sweep expired history entries to avoid memory growth", () => {
+      const now = 100_000;
+      capability.isBounceRateLimited("guild-1", "user-stale", now);
+      // Advance past window
+      capability.isBounceRateLimited("guild-1", "user-fresh", now + 35_000);
+      // user-stale should be swept out
+      expect(
+        capability.isBounceRateLimited("guild-1", "user-stale", now + 36_000),
+      ).toBe(false);
+    });
+
+    it("should clear history and pending timers on destroy()", () => {
+      const now = 100_000;
+      capability.isBounceRateLimited("guild-1", "user-1", now);
       capability.destroy();
-      expect(capability.isBounceRateLimited("user-1", now)).toBe(false);
+      expect(capability.isBounceRateLimited("guild-1", "user-1", now)).toBe(
+        false,
+      );
     });
   });
 
@@ -259,9 +308,10 @@ describe("VoiceBouncerCapability", () => {
       expect(mockDisconnect).not.toHaveBeenCalled();
     });
 
-    it("should disconnect non-compliant member and send a warning message", async () => {
+    it("should disconnect non-compliant member, send warning, and auto-delete warning message after delay", async () => {
       const mockDisconnect = vi.fn().mockResolvedValue(undefined);
-      const mockSend = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockSend = vi.fn().mockResolvedValue({ delete: mockDelete });
 
       const mockChannel = {
         parentId: null,
@@ -272,11 +322,13 @@ describe("VoiceBouncerCapability", () => {
       const newState = {
         channelId: "vc-protected",
         channel: mockChannel,
+        guild: { id: "guild-1" },
         member: {
           id: "user-intruder",
           displayName: "No Tag Here",
           user: { bot: false, username: "no_tag" },
           roles: { cache: new Map() },
+          guild: { id: "guild-1" },
         },
         disconnect: mockDisconnect,
       } as unknown as VoiceState;
@@ -295,6 +347,13 @@ describe("VoiceBouncerCapability", () => {
           content: expect.stringContaining("⚠️ **[Voice Bouncer]**"),
         }),
       );
+
+      // Warning message should not be deleted before delay
+      expect(mockDelete).not.toHaveBeenCalled();
+
+      // Advance timers to trigger auto-delete
+      vi.advanceTimersByTime(WARNING_AUTO_DELETE_DELAY_MS);
+      expect(mockDelete).toHaveBeenCalled();
     });
 
     it("should relocate non-compliant member to fallbackChannelId when action is 'move'", async () => {
@@ -312,11 +371,13 @@ describe("VoiceBouncerCapability", () => {
       const newState = {
         channelId: "vc-protected",
         channel: { parentId: null, isSendable: () => false },
+        guild: { id: "guild-1" },
         member: {
           id: "user-intruder",
           displayName: "No Tag",
           user: { bot: false, username: "no_tag" },
           roles: { cache: new Map() },
+          guild: { id: "guild-1" },
         },
         setChannel: mockSetChannel,
         disconnect: mockDisconnect,
@@ -333,6 +394,50 @@ describe("VoiceBouncerCapability", () => {
         expect.any(String),
       );
       expect(mockDisconnect).not.toHaveBeenCalled();
+    });
+
+    it("should fallback to disconnect when relocation to fallbackChannelId throws", async () => {
+      const mockSetChannel = vi
+        .fn()
+        .mockRejectedValue(new Error("Permission denied"));
+      const mockDisconnect = vi.fn().mockResolvedValue(undefined);
+      const moveConfig: BotGuildConfig = {
+        ...guildConfig,
+        voiceBouncer: {
+          ...guildConfig.voiceBouncer,
+          action: "move",
+          fallbackChannelId: "vc-lounge",
+        },
+      };
+
+      const newState = {
+        channelId: "vc-protected",
+        channel: { parentId: null, isSendable: () => false },
+        guild: { id: "guild-1" },
+        member: {
+          id: "user-intruder",
+          displayName: "No Tag",
+          user: { bot: false, username: "no_tag" },
+          roles: { cache: new Map() },
+          guild: { id: "guild-1" },
+        },
+        setChannel: mockSetChannel,
+        disconnect: mockDisconnect,
+      } as unknown as VoiceState;
+
+      await capability.handleVoiceStateUpdate(
+        {} as VoiceState,
+        newState,
+        moveConfig,
+      );
+
+      expect(mockSetChannel).toHaveBeenCalledWith(
+        "vc-lounge",
+        expect.any(String),
+      );
+      expect(mockDisconnect).toHaveBeenCalledWith(
+        DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON,
+      );
     });
   });
 });

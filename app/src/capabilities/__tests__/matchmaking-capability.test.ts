@@ -130,7 +130,10 @@ describe("MatchmakingCapability", () => {
 
       await capability.handleInteraction(interaction, guildConfig);
       expect(mockReply).toHaveBeenCalledWith(
-        expect.objectContaining({ ephemeral: true }),
+        expect.objectContaining({
+          ephemeral: true,
+          content: expect.stringContaining("preview mode"),
+        }),
       );
     });
   });
@@ -186,6 +189,75 @@ describe("MatchmakingCapability", () => {
         newState,
         guildConfig,
       );
+    });
+
+    it("should evict unauthorized member to lobby when lobbyVoiceChannelId is configured", async () => {
+      const mockSetChannel = vi.fn().mockResolvedValue(undefined);
+      const mockDisconnect = vi.fn();
+      const lobbyConfig: BotGuildConfig = {
+        ...guildConfig,
+        matchmaking: {
+          ...guildConfig.matchmaking,
+          lobbyVoiceChannelId: "vc-lobby",
+        },
+      };
+
+      const newState = {
+        channelId: "vc-team1",
+        member: { id: "user-intruder", user: { bot: false } },
+        setChannel: mockSetChannel,
+        disconnect: mockDisconnect,
+      } as unknown as VoiceState;
+
+      await capability.handleVoiceStateUpdate(
+        {} as VoiceState,
+        newState,
+        lobbyConfig,
+      );
+
+      expect(mockSetChannel).toHaveBeenCalledWith(
+        "vc-lobby",
+        expect.stringContaining("restricted"),
+      );
+      expect(mockDisconnect).not.toHaveBeenCalled();
+    });
+
+    it("should disconnect unauthorized member when no lobbyVoiceChannelId is configured", async () => {
+      const mockDisconnect = vi.fn().mockResolvedValue(undefined);
+      const newState = {
+        channelId: "vc-team2",
+        member: { id: "user-intruder", user: { bot: false } },
+        disconnect: mockDisconnect,
+      } as unknown as VoiceState;
+
+      await capability.handleVoiceStateUpdate(
+        {} as VoiceState,
+        newState,
+        guildConfig,
+      );
+
+      expect(mockDisconnect).toHaveBeenCalledWith(
+        expect.stringContaining("restricted"),
+      );
+    });
+
+    it("should catch and log error if eviction fails without throwing", async () => {
+      const mockDisconnect = vi
+        .fn()
+        .mockRejectedValue(new Error("Discord API error"));
+      const newState = {
+        channelId: "vc-team1",
+        member: { id: "user-intruder", user: { bot: false } },
+        disconnect: mockDisconnect,
+      } as unknown as VoiceState;
+
+      await expect(
+        capability.handleVoiceStateUpdate(
+          {} as VoiceState,
+          newState,
+          guildConfig,
+        ),
+      ).resolves.not.toThrow();
     });
   });
 });

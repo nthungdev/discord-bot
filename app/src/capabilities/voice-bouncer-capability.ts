@@ -11,22 +11,24 @@ import type {
 } from "../config/types";
 import type { IBotCapability } from "./types";
 
-export const DEFAULT_TAG_PATTERN =
-  "^(?:\\[[A-Za-z0-9_-]+\\]|\\([A-Za-z0-9_-]+\\))";
 export const MAX_BOUNCE_BURST_ATTEMPTS = 3;
 export const BOUNCE_WINDOW_MS = 30_000;
+export const WARNING_AUTO_DELETE_DELAY_MS = 15_000;
 export const DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON =
   "Missing required server tag";
 
 /**
  * Determines whether a guild member's display name or username satisfies the tag regex pattern.
+ * Fails closed (returns false) if the pattern is empty or malformed.
  */
 export function isMemberTagCompliant(
   displayName: string,
   username: string,
   pattern: string,
 ): boolean {
-  if (!pattern) return true;
+  if (!pattern || pattern.trim() === "") {
+    return false;
+  }
   try {
     const regex = new RegExp(pattern, "i");
     return regex.test(displayName) || regex.test(username);
@@ -35,7 +37,8 @@ export function isMemberTagCompliant(
       `[VoiceBouncerCapability] Invalid regex pattern '${pattern}':`,
       error,
     );
-    return true;
+    // Fail-closed on malformed pattern to prevent unauthorized bypass
+    return false;
   }
 }
 
@@ -78,6 +81,7 @@ export class VoiceBouncerCapability implements IBotCapability {
   readonly name = "Voice Channel Bouncer";
 
   private bounceHistory: Map<string, number[]> = new Map();
+  private pendingDeletionTimers: Set<NodeJS.Timeout> = new Set();
 
   init(_client: Client, _config: Config): void {
     console.info("[VoiceBouncerCapability] Initialized.");
@@ -85,21 +89,39 @@ export class VoiceBouncerCapability implements IBotCapability {
 
   destroy(): void {
     this.bounceHistory.clear();
+    for (const timer of this.pendingDeletionTimers) {
+      clearTimeout(timer);
+    }
+    this.pendingDeletionTimers.clear();
   }
 
   /**
-   * Tracks and evaluates bounce rate-limiting to mitigate notification loops.
+   * Tracks and evaluates bounce rate-limiting scoped per guild and user.
+   * Periodically purges stale entries to prevent memory growth.
    */
   public isBounceRateLimited(
+    guildId: string,
     userId: string,
     now: number = Date.now(),
   ): boolean {
+    const key = `${guildId}:${userId}`;
     const windowStart = now - BOUNCE_WINDOW_MS;
-    const pastTimestamps = this.bounceHistory.get(userId) || [];
+
+    // Sweep expired entries across the map to prevent memory leak
+    for (const [entryKey, timestamps] of this.bounceHistory.entries()) {
+      const activeTimestamps = timestamps.filter((ts) => ts > windowStart);
+      if (activeTimestamps.length === 0) {
+        this.bounceHistory.delete(entryKey);
+      } else {
+        this.bounceHistory.set(entryKey, activeTimestamps);
+      }
+    }
+
+    const pastTimestamps = this.bounceHistory.get(key) || [];
     const validTimestamps = pastTimestamps.filter((ts) => ts > windowStart);
 
     validTimestamps.push(now);
-    this.bounceHistory.set(userId, validTimestamps);
+    this.bounceHistory.set(key, validTimestamps);
 
     return validTimestamps.length > MAX_BOUNCE_BURST_ATTEMPTS;
   }
@@ -152,8 +174,9 @@ export class VoiceBouncerCapability implements IBotCapability {
       return;
     }
 
-    const pattern = bouncerConfig.tagPattern ?? DEFAULT_TAG_PATTERN;
+    const pattern = bouncerConfig.tagPattern;
     if (
+      pattern &&
       isMemberTagCompliant(member.displayName, member.user.username, pattern)
     ) {
       return;
@@ -172,14 +195,23 @@ export class VoiceBouncerCapability implements IBotCapability {
     channel: VoiceBasedChannel | null,
     config: VoiceBouncerCapabilityConfig,
   ): Promise<void> {
-    const isRateLimited = this.isBounceRateLimited(member.id);
+    const guildId = member.guild?.id ?? voiceState.guild?.id ?? "unknown-guild";
+    const isRateLimited = this.isBounceRateLimited(guildId, member.id);
 
     try {
       if (config.action === "move" && config.fallbackChannelId) {
-        await voiceState.setChannel(
-          config.fallbackChannelId,
-          "Redirected by Voice Bouncer: Missing server tag",
-        );
+        try {
+          await voiceState.setChannel(
+            config.fallbackChannelId,
+            "Redirected by Voice Bouncer: Missing server tag",
+          );
+        } catch (moveError) {
+          console.warn(
+            `[VoiceBouncerCapability] Failed to move member '${member.id}' to fallback channel '${config.fallbackChannelId}', falling back to disconnect:`,
+            moveError,
+          );
+          await voiceState.disconnect(DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON);
+        }
       } else {
         await voiceState.disconnect(DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON);
       }
@@ -189,7 +221,16 @@ export class VoiceBouncerCapability implements IBotCapability {
           config.warningMessage ||
           `⚠️ **[Voice Bouncer]** Hey <@${member.id}>, this voice channel is reserved for tagged server members. Please update your nickname or profile with the server tag to join.`;
 
-        await channel.send({ content: warning });
+        const sentMessage = await channel.send({ content: warning });
+        const timer = setTimeout(() => {
+          this.pendingDeletionTimers.delete(timer);
+          sentMessage.delete().catch(() => {});
+        }, WARNING_AUTO_DELETE_DELAY_MS);
+
+        if (timer.unref) {
+          timer.unref();
+        }
+        this.pendingDeletionTimers.add(timer);
       }
     } catch (error) {
       console.error(

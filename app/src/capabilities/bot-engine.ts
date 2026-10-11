@@ -12,7 +12,7 @@ import {
   type User,
   type VoiceState,
 } from "discord.js";
-import { Config } from "../config";
+import { Config, ConfigParameter } from "../config";
 import { getMetricsService } from "../services/metrics";
 import type { BotLifecycleStatus, JoinedGuildDetail } from "../shared";
 import { ChatCapability } from "./chat-capability";
@@ -197,11 +197,41 @@ export class DiscordBotEngine {
       errorCount24h: 0,
       assignedGuildIds: Array.from(this.client.guilds.cache.keys()),
       tokenMasked,
-      capabilities: this.capabilities.map((cap) => ({
-        id: cap.id,
-        name: cap.name,
-        enabled: true,
-      })),
+      capabilities: (() => {
+        let isVoiceBouncerEnabled = false;
+        let isMatchmakingEnabled = false;
+        try {
+          const botsConfig = Config.getInstance().getConfigValue(
+            ConfigParameter.bots,
+          );
+          const guilds = botsConfig?.chatBot?.guilds || {};
+          const guildList = Object.values(guilds);
+          isVoiceBouncerEnabled = guildList.some(
+            (g) => g.voiceBouncer?.enabled === true,
+          );
+          isMatchmakingEnabled = guildList.some(
+            (g) => g.matchmaking?.enabled === true,
+          );
+        } catch {
+          // Ignore uninitialized config in unit tests
+        }
+
+        return this.capabilities.map((cap) => {
+          let isEnabled = true;
+          if (cap.id === "voice-bouncer") {
+            isEnabled = isVoiceBouncerEnabled;
+          } else if (cap.id === "matchmaking") {
+            isEnabled = isMatchmakingEnabled;
+          } else if (cap.id === "moderation") {
+            isEnabled = process.env.ENABLE_POLICE_CAPABILITY === "true";
+          }
+          return {
+            id: cap.id,
+            name: cap.name,
+            enabled: isEnabled,
+          };
+        });
+      })(),
     };
   }
 
