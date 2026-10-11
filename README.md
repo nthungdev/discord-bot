@@ -179,30 +179,68 @@ pnpm --prefix app docker-prod
 
 ### Directus Control Plane (Local Development)
 
-To run the Directus headless CMS control plane locally for guild configurations, roast presets, and audit logs:
+The application supports [Directus](https://directus.io/) as a headless CMS control plane for dynamic guild runtime settings, AI Roast system presets, user privacy opt-outs, and audit telemetry logs.
 
-1. **Start Directus & PostgreSQL containers:**
-   ```bash
-   docker compose -f compose.directus-dev.yaml up -d
-   ```
-2. **Initialize Schema & Bot Service User:**
-   ```bash
-   pnpm --prefix app directus:setup
-   ```
-   *This provisions the required collections (`bot_guild_configs`, `bot_roast_presets`, `bot_user_profiles`, `bot_roast_logs`), RBAC policies, service user, and cache invalidation webhook.*
+#### 1. Configure Environment Variables
+- **Container Stack**: Copy `.env.directus.example` to `.env` in the repository root (or customize ports and credentials if needed):
+  ```bash
+  cp .env.directus.example .env
+  ```
+- **Bot Application**: In `app/.env.development`, define a secure `DIRECTUS_BOT_TOKEN` (required) and optional `INTERNAL_WEBHOOK_SECRET`:
+  ```bash
+  DIRECTUS_BOT_TOKEN=my-secure-directus-bot-token
+  INTERNAL_WEBHOOK_SECRET=my-webhook-cache-secret
+  ```
 
-3. Access the Directus Admin UI at `http://localhost:8055` (default: `admin@local.dev` / `adminpassword`, configurable via `DIRECTUS_ADMIN_EMAIL` and `DIRECTUS_ADMIN_PASSWORD`).
+#### 2. Start PostgreSQL & Directus Containers
+```bash
+docker compose -f compose.directus-dev.yaml up -d
+```
+*Verify containers are running and healthy:*
+```bash
+docker compose -f compose.directus-dev.yaml ps
+```
 
+#### 3. Bootstrap Schema, Roles & Service User
+Once the containers are healthy, provision the collections (`bot_guild_configs`, `bot_roast_presets`, `bot_user_profiles`, `bot_roast_logs`, `bot_match_logs`), RBAC policies, service user token, and cache invalidation webhook:
+```bash
+pnpm --prefix app directus:setup
+```
+
+#### 4. Access Admin Console
+Open `http://localhost:8055` in your browser.
+- **Email**: `admin@local.dev` (or value of `DIRECTUS_ADMIN_EMAIL`)
+- **Password**: `adminpassword` (or value of `DIRECTUS_ADMIN_PASSWORD`)
+
+#### 5. Enable Directus in the Bot Runtime
+To use Directus for user profiles and roast opt-out persistence, set `MEMORY_STORE_TYPE` in `app/.env.development`:
+```bash
+MEMORY_STORE_TYPE=directus
+```
+
+#### Teardown & Reset
+- Stop containers:
+  ```bash
+  docker compose -f compose.directus-dev.yaml down
+  ```
+- Reset local database and upload volumes:
+  ```bash
+  docker compose -f compose.directus-dev.yaml down -v
+  ```
+
+For detailed schema documentation, webhook security, and troubleshooting, see the [Directus Control Plane Guide](docs/directus-control-plane.md).
 
 ---
 
 ## 📖 Documentation & Architecture
 - [System Architecture & Multi-Server Connection](docs/system-architecture-design.md)
 - [Bot Engine Architecture & Extension Guide](docs/bot-architecture-design.md)
+- [Directus Control Plane Architecture & Setup Guide](docs/directus-control-plane.md)
 - [System Management Web App Design](docs/web-app-management-design.md)
 - [Smart Reply & Addressee Intent Design](docs/smart-reply-design.md)
 - [Persistent Conversation Memory Design](docs/persistent-memory-design.md)
 - [Voice Bouncer & Matchmaking Capabilities Design](docs/voice-and-matchmaking-design.md)
 - [AI Roast Feature PRD](docs/roast-feature-prd.md)
 - [AI Agent Guidelines](AGENTS.md)
+
 
