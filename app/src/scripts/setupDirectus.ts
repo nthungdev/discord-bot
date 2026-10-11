@@ -358,10 +358,33 @@ async function ensurePolicy(client: AxiosInstance): Promise<string> {
   return policyId;
 }
 
-async function ensureWebhook(
+export const CACHE_INVALIDATION_FLOW_NAME = "bot-cache-invalidation";
+export const CACHE_INVALIDATION_OPERATION_KEY = "webhook_request";
+export const CACHE_INVALIDATION_OPERATION_NAME =
+  "Send Cache Invalidation Webhook";
+export const CACHE_INVALIDATION_FLOW_COLLECTIONS = [
+  "bot_guild_configs",
+  "bot_roast_presets",
+] as const;
+export const CACHE_INVALIDATION_FLOW_SCOPES = [
+  "items.create",
+  "items.update",
+  "items.delete",
+] as const;
+
+/**
+ * Provisions or updates the Directus flow and request operation for outgoing cache invalidation webhooks.
+ *
+ * Directus 11+ replaces legacy webhooks with Flows and Operations. This ensures an active action event
+ * flow targeting bot collections triggers an HTTP POST request to the bot's webhook receiver.
+ *
+ * @param client Authenticated Directus Axios client
+ * @param config Directus setup configuration containing webhook secret and receiver URL
+ */
+export async function ensureWebhook(
   client: AxiosInstance,
   config: DirectusSetupConfig,
-) {
+): Promise<void> {
   if (!config.internalWebhookSecret) {
     console.log(
       "[SetupDirectus] Notice: INTERNAL_WEBHOOK_SECRET is not configured. Skipping webhook provisioning.",
@@ -369,25 +392,86 @@ async function ensureWebhook(
     return;
   }
   try {
-    const webhooksRes = await client.get(
-      "/webhooks?filter[name][_eq]=bot-cache-invalidation",
+    const flowsRes = await client.get(
+      `/flows?filter[name][_eq]=${CACHE_INVALIDATION_FLOW_NAME}`,
     );
-    if (webhooksRes.data.data.length === 0) {
-      console.log("Provisioning cache invalidation webhook...");
-      await client.post("/webhooks", {
-        name: "bot-cache-invalidation",
+    const existingFlow = flowsRes.data?.data?.[0];
+    let flowId = existingFlow?.id;
+
+    const flowOptions = {
+      type: "action",
+      scope: CACHE_INVALIDATION_FLOW_SCOPES,
+      collections: CACHE_INVALIDATION_FLOW_COLLECTIONS,
+    };
+
+    if (!flowId) {
+      console.log("Provisioning cache invalidation flow...");
+      const createFlowRes = await client.post("/flows", {
+        name: CACHE_INVALIDATION_FLOW_NAME,
+        icon: "bolt",
+        status: "active",
+        trigger: "event",
+        options: flowOptions,
+      });
+      flowId = createFlowRes.data?.data?.id;
+    } else {
+      await client.patch(`/flows/${flowId}`, {
+        status: "active",
+        trigger: "event",
+        options: flowOptions,
+      });
+    }
+
+    if (!flowId) {
+      throw new Error("Failed to obtain flow ID for cache invalidation.");
+    }
+
+    const operationsRes = await client.get(
+      `/operations?filter[flow][_eq]=${flowId}&filter[key][_eq]=${CACHE_INVALIDATION_OPERATION_KEY}`,
+    );
+    const existingOperation = operationsRes.data?.data?.[0];
+
+    const operationPayload = {
+      name: CACHE_INVALIDATION_OPERATION_NAME,
+      key: CACHE_INVALIDATION_OPERATION_KEY,
+      type: "request",
+      position_x: 10,
+      position_y: 10,
+      flow: flowId,
+      options: {
         method: "POST",
         url: config.webhookReceiverUrl,
-        status: "active",
-        data: true,
-        actions: ["create", "update", "delete"],
-        collections: ["bot_guild_configs", "bot_roast_presets"],
         headers: [
           {
             header: "x-webhook-secret",
             value: config.internalWebhookSecret,
           },
         ],
+        body: "{{$trigger}}",
+      },
+    };
+
+    let operationId = existingOperation?.id;
+    if (!existingOperation) {
+      console.log("Provisioning cache invalidation webhook operation...");
+      const createOpRes = await client.post("/operations", operationPayload);
+      operationId = createOpRes.data?.data?.id;
+    } else {
+      await client.patch(`/operations/${existingOperation.id}`, {
+        name: operationPayload.name,
+        type: "request",
+        options: operationPayload.options,
+      });
+    }
+
+    if (!operationId) {
+      throw new Error("Failed to obtain operation ID for cache invalidation.");
+    }
+
+    const flowRes = await client.get(`/flows/${flowId}`);
+    if (flowRes.data?.data?.operation !== operationId) {
+      await client.patch(`/flows/${flowId}`, {
+        operation: operationId,
       });
     }
   } catch (err: unknown) {
