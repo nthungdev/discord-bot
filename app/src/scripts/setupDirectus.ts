@@ -1,6 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
 import axios, { type AxiosInstance } from "axios";
 import { config } from "dotenv";
 
+// 1. Load app environment file (.env.production / .env.development)
 config({
   path:
     process.env.NODE_ENV === "production"
@@ -8,6 +11,20 @@ config({
       : ".env.development",
 });
 config();
+
+// 2. Load root-level .env or .env.directus as fallback so custom stack ports/credentials match
+const rootEnvPath = path.resolve(process.cwd(), "..", ".env");
+if (fs.existsSync(rootEnvPath)) {
+  config({ path: rootEnvPath });
+}
+const localRootEnvPath = path.resolve(process.cwd(), ".env");
+if (fs.existsSync(localRootEnvPath)) {
+  config({ path: localRootEnvPath });
+}
+const rootDirectusEnvPath = path.resolve(process.cwd(), "..", ".env.directus");
+if (fs.existsSync(rootDirectusEnvPath)) {
+  config({ path: rootDirectusEnvPath });
+}
 
 export interface DirectusSetupConfig {
   directusUrl: string;
@@ -21,11 +38,17 @@ export interface DirectusSetupConfig {
 export function resolveDirectusSetupConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): DirectusSetupConfig {
-  const directusUrl = env.DIRECTUS_URL || "http://localhost:8055";
+  const directusPort = env.DIRECTUS_PORT?.trim() || "8055";
+  const defaultUrl = `http://localhost:${directusPort}`;
+  const directusUrl = env.DIRECTUS_URL?.trim() || defaultUrl;
   const adminEmail =
-    env.ADMIN_EMAIL || env.DIRECTUS_ADMIN_EMAIL || "admin@local.dev";
+    env.ADMIN_EMAIL?.trim() ||
+    env.DIRECTUS_ADMIN_EMAIL?.trim() ||
+    "admin@local.dev";
   const adminPassword =
-    env.ADMIN_PASSWORD || env.DIRECTUS_ADMIN_PASSWORD || "adminpassword";
+    env.ADMIN_PASSWORD?.trim() ||
+    env.DIRECTUS_ADMIN_PASSWORD?.trim() ||
+    "adminpassword";
   const botStaticToken = env.DIRECTUS_BOT_TOKEN?.trim() || "";
 
   if (!botStaticToken) {
@@ -34,10 +57,10 @@ export function resolveDirectusSetupConfig(
     );
   }
 
-  const internalWebhookSecret = env.INTERNAL_WEBHOOK_SECRET || "";
+  const internalWebhookSecret = env.INTERNAL_WEBHOOK_SECRET?.trim() || "";
   const webhookReceiverUrl =
-    env.WEBHOOK_RECEIVER_URL ||
-    "http://localhost:3001/api/v1/webhooks/cache-invalidate";
+    env.WEBHOOK_RECEIVER_URL?.trim() ||
+    "http://host.docker.internal:3001/api/v1/webhooks/cache-invalidate";
 
   return {
     directusUrl,

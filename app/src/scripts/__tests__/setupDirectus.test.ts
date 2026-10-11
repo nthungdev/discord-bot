@@ -14,8 +14,17 @@ describe("resolveDirectusSetupConfig", () => {
       botStaticToken: "static-bot-token-123",
       internalWebhookSecret: "",
       webhookReceiverUrl:
-        "http://localhost:3001/api/v1/webhooks/cache-invalidate",
+        "http://host.docker.internal:3001/api/v1/webhooks/cache-invalidate",
     });
+  });
+
+  it("should construct directusUrl from DIRECTUS_PORT when DIRECTUS_URL is not provided", () => {
+    const config = resolveDirectusSetupConfig({
+      DIRECTUS_PORT: "8056",
+      DIRECTUS_BOT_TOKEN: "token-456",
+    });
+
+    expect(config.directusUrl).toBe("http://localhost:8056");
   });
 
   it("should respect custom environment overrides", () => {

@@ -186,11 +186,12 @@ The application supports [Directus](https://directus.io/) as a headless CMS cont
   ```bash
   cp .env.directus.example .env
   ```
-- **Bot Application**: In `app/.env.development`, define a secure `DIRECTUS_BOT_TOKEN` (required) and optional `INTERNAL_WEBHOOK_SECRET`:
+- **Bot Application**: In `app/.env.development`, define a secure `DIRECTUS_BOT_TOKEN` (required) and optional `INTERNAL_WEBHOOK_SECRET`. If you customize ports or admin credentials in root `.env`, `directus:setup` will automatically pick them up (or you can explicitly set `DIRECTUS_URL`, `DIRECTUS_ADMIN_EMAIL`, and `DIRECTUS_ADMIN_PASSWORD` in `app/.env.development`):
   ```bash
   DIRECTUS_BOT_TOKEN=my-secure-directus-bot-token
   INTERNAL_WEBHOOK_SECRET=my-webhook-cache-secret
   ```
+
 
 #### 2. Start PostgreSQL & Directus Containers
 ```bash
