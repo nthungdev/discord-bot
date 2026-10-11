@@ -8,6 +8,7 @@ import { directusClient } from "./client";
 
 export class DirectusRoastPresetRepository implements IRoastPresetRepository {
   private cache = new Map<string, { preset: RoastPreset; expiresAt: number }>();
+  private idToPresetNameMap = new Map<string, string>();
   private readonly ttlMs: number;
 
   constructor(ttlMs = 5 * 60 * 1000) {
@@ -40,6 +41,9 @@ export class DirectusRoastPresetRepository implements IRoastPresetRepository {
       }
 
       const raw = items[0];
+      if (raw.id) {
+        this.idToPresetNameMap.set(String(raw.id), raw.preset_name);
+      }
       const preset: RoastPreset = {
         name: raw.preset_name,
         systemPrompt: raw.system_prompt,
@@ -63,12 +67,20 @@ export class DirectusRoastPresetRepository implements IRoastPresetRepository {
     }
   }
 
-  invalidate(name?: string): void {
-    if (name) {
-      this.cache.delete(name);
-      console.log(`[RoastPresetRepo] Invalidation applied for preset: ${name}`);
+  invalidate(key?: string): void {
+    if (key) {
+      const targetName = this.idToPresetNameMap.get(key) || key;
+      this.cache.delete(targetName);
+      this.idToPresetNameMap.delete(key);
+      if (key !== targetName) {
+        this.cache.delete(key);
+      }
+      console.log(
+        `[RoastPresetRepo] Invalidation applied for key: ${key} (preset: ${targetName})`,
+      );
     } else {
       this.cache.clear();
+      this.idToPresetNameMap.clear();
       console.log("[RoastPresetRepo] All cached presets evicted.");
     }
   }

@@ -5,6 +5,7 @@ import type {
 } from "discord.js";
 import { Config, ConfigParameter } from "../../config";
 import type { BotsConfig } from "../../config/types";
+import { guildConfigRepository } from "../../infrastructure/repositories";
 import { buildTargetActor, fetchTargetRecentMessages } from "./ammunition";
 import { ROAST_MESSAGES, resolveRoastLocale } from "./i18n";
 import { clampIntensity, getRoastService } from "./index";
@@ -64,6 +65,43 @@ function parseRoastCommandInputs(
 }
 
 /**
+ * Resolves effective guild config by merging static config with Directus runtime settings.
+ */
+async function resolveEffectiveGuildConfig(
+  guildId: string,
+): Promise<import("../../config/types").BotGuildConfig | undefined> {
+  const botsConfig = Config.getInstance().getConfigValue(
+    ConfigParameter.bots,
+  ) as BotsConfig;
+  const legacyGuildConfig = botsConfig?.chatBot?.guilds?.[guildId];
+
+  try {
+    const directusConfig = await guildConfigRepository.getConfig(guildId);
+    if (!directusConfig) {
+      return legacyGuildConfig;
+    }
+    return {
+      ...legacyGuildConfig,
+      roast: {
+        ...legacyGuildConfig?.roast,
+        enabled: directusConfig.enableAiRoast,
+        defaultLocale: directusConfig.defaultLocale === "en" ? "en-US" : "vi",
+        allowedChannelIds:
+          directusConfig.allowedChannelIds.size > 0
+            ? Array.from(directusConfig.allowedChannelIds)
+            : legacyGuildConfig?.roast?.allowedChannelIds,
+      },
+    };
+  } catch (err) {
+    console.warn(
+      `[RoastHandler] Failed to read Directus guild config for ${guildId}, using static fallback:`,
+      err,
+    );
+    return legacyGuildConfig;
+  }
+}
+
+/**
  * Handles execution of roast commands (slash commands & user context menu).
  */
 export async function executeRoast(
@@ -83,10 +121,7 @@ export async function executeRoast(
     return;
   }
 
-  const botsConfig = Config.getInstance().getConfigValue(
-    ConfigParameter.bots,
-  ) as BotsConfig;
-  const guildConfig = botsConfig?.chatBot?.guilds?.[guildId];
+  const guildConfig = await resolveEffectiveGuildConfig(guildId);
   const locale = resolveRoastLocale(interaction, guildConfig);
 
   const { targetUser, requestedIntensity, topic, ephemeral } =

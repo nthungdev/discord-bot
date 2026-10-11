@@ -4,7 +4,11 @@ const DIRECTUS_URL = process.env.DIRECTUS_URL || "http://localhost:8055";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@local.dev";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "adminpassword";
 const BOT_STATIC_TOKEN =
-  process.env.DIRECTUS_BOT_TOKEN || "bot-dev-static-token-12345";
+  process.env.DIRECTUS_BOT_TOKEN ||
+  (process.env.NODE_ENV === "production" ? "" : "bot-dev-static-token-12345");
+if (!BOT_STATIC_TOKEN && process.env.NODE_ENV === "production") {
+  throw new Error("DIRECTUS_BOT_TOKEN must be specified in production");
+}
 
 const COLLECTIONS = [
   {
@@ -203,6 +207,11 @@ const COLLECTIONS = [
         meta: { interface: "boolean" },
       },
       {
+        field: "opted_out_guild_ids",
+        type: "json",
+        meta: { interface: "tags" },
+      },
+      {
         field: "reputation_score",
         type: "integer",
         schema: { default_value: 1000 },
@@ -242,35 +251,90 @@ async function ensurePolicy(client: AxiosInstance): Promise<string> {
   const policiesRes = await client.get(
     "/policies?filter[name][_eq]=bot-service-policy",
   );
-  if (policiesRes.data.data[0]?.id) {
-    return policiesRes.data.data[0].id;
+  let policyId = policiesRes.data.data[0]?.id;
+
+  if (!policyId) {
+    console.log("Creating bot-service-policy...");
+    const createPolicyRes = await client.post("/policies", {
+      name: "bot-service-policy",
+      icon: "smart_toy",
+      description: "Policy for Discord Bot backend",
+      app_access: false,
+      admin_access: false,
+    });
+    policyId = createPolicyRes.data.data.id;
   }
 
-  console.log("Creating bot-service-policy...");
-  const createPolicyRes = await client.post("/policies", {
-    name: "bot-service-policy",
-    icon: "smart_toy",
-    description: "Policy for Discord Bot backend",
-    app_access: false,
-    admin_access: false,
-  });
-  const policyId = createPolicyRes.data.data.id;
+  const existingPermsRes = await client.get(
+    `/permissions?filter[policy][_eq]=${policyId}&limit=-1`,
+  );
+  const existingPerms: Array<{ collection: string; action: string }> =
+    existingPermsRes.data.data || [];
+  const existingPermSet = new Set(
+    existingPerms.map((p) => `${p.collection}:${p.action}`),
+  );
 
   const actions = ["create", "read", "update", "delete"];
   for (const col of COLLECTIONS) {
     for (const action of actions) {
-      await client.post("/permissions", {
-        policy: policyId,
-        collection: col.collection,
-        action,
-        permissions: {},
-        validation: {},
-        fields: ["*"],
-      });
+      const key = `${col.collection}:${action}`;
+      if (!existingPermSet.has(key)) {
+        await client.post("/permissions", {
+          policy: policyId,
+          collection: col.collection,
+          action,
+          permissions: {},
+          validation: {},
+          fields: ["*"],
+        });
+      }
     }
   }
 
   return policyId;
+}
+
+const INTERNAL_WEBHOOK_SECRET =
+  process.env.INTERNAL_WEBHOOK_SECRET ||
+  (process.env.NODE_ENV === "production"
+    ? ""
+    : "directus-webhook-dev-secret-key-12345");
+const WEBHOOK_RECEIVER_URL =
+  process.env.WEBHOOK_RECEIVER_URL ||
+  "http://localhost:3001/api/v1/webhooks/cache-invalidate";
+
+async function ensureWebhook(client: AxiosInstance) {
+  try {
+    const webhooksRes = await client.get(
+      "/webhooks?filter[name][_eq]=bot-cache-invalidation",
+    );
+    if (webhooksRes.data.data.length === 0) {
+      console.log("Provisioning cache invalidation webhook...");
+      await client.post("/webhooks", {
+        name: "bot-cache-invalidation",
+        method: "POST",
+        url: WEBHOOK_RECEIVER_URL,
+        status: "active",
+        data: true,
+        actions: ["create", "update", "delete"],
+        collections: ["bot_guild_configs", "bot_roast_presets"],
+        headers: [
+          {
+            header: "x-webhook-secret",
+            value: INTERNAL_WEBHOOK_SECRET,
+          },
+        ],
+      });
+    }
+  } catch (err: unknown) {
+    const errorDetails = axios.isAxiosError(err)
+      ? err.response?.data || err.message
+      : String(err);
+    console.warn(
+      "[SetupDirectus] Notice: could not automatically provision webhook:",
+      errorDetails,
+    );
+  }
 }
 
 async function ensureRoleAndAccess(
@@ -352,6 +416,7 @@ async function main() {
   const roleId = await ensureRoleAndAccess(client, policyId);
   await ensureServiceUser(client, roleId);
   await ensurePresets(client);
+  await ensureWebhook(client);
 
   console.log("Directus setup completed successfully!");
 }

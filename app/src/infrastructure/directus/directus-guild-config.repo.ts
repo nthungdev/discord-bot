@@ -8,6 +8,7 @@ import { directusClient } from "./client";
 
 export class DirectusGuildConfigRepository implements IGuildConfigRepository {
   private cache = new Map<string, { config: GuildConfig; expiresAt: number }>();
+  private idToGuildMap = new Map<string, string>();
   private readonly ttlMs: number;
 
   constructor(ttlMs = 5 * 60 * 1000) {
@@ -41,6 +42,9 @@ export class DirectusGuildConfigRepository implements IGuildConfigRepository {
       }
 
       const raw = items[0];
+      if (raw.id) {
+        this.idToGuildMap.set(String(raw.id), raw.guild_id);
+      }
       const config: GuildConfig = {
         guildId: raw.guild_id,
         guildName: raw.guild_name ?? undefined,
@@ -67,14 +71,20 @@ export class DirectusGuildConfigRepository implements IGuildConfigRepository {
     }
   }
 
-  invalidate(guildId?: string): void {
-    if (guildId) {
-      this.cache.delete(guildId);
+  invalidate(key?: string): void {
+    if (key) {
+      const targetGuildId = this.idToGuildMap.get(key) || key;
+      this.cache.delete(targetGuildId);
+      this.idToGuildMap.delete(key);
+      if (key !== targetGuildId) {
+        this.cache.delete(key);
+      }
       console.log(
-        `[GuildConfigRepo] Invalidation applied for guild: ${guildId}`,
+        `[GuildConfigRepo] Invalidation applied for key: ${key} (guild: ${targetGuildId})`,
       );
     } else {
       this.cache.clear();
+      this.idToGuildMap.clear();
       console.log("[GuildConfigRepo] All cached guild configurations evicted.");
     }
   }
