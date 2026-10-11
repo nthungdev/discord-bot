@@ -87,6 +87,8 @@ describe("Capability System", () => {
       expect(capabilityIds).not.toContain("moderation");
       expect(capabilityIds).toContain("chat");
       expect(capabilityIds).toContain("roles");
+      expect(capabilityIds).toContain("voice-bouncer");
+      expect(capabilityIds).toContain("matchmaking");
 
       process.env.ENABLE_POLICE_CAPABILITY = prevEnv;
     });
@@ -106,6 +108,8 @@ describe("Capability System", () => {
       expect(capabilityIds).toContain("moderation");
       expect(capabilityIds).toContain("chat");
       expect(capabilityIds).toContain("roles");
+      expect(capabilityIds).toContain("voice-bouncer");
+      expect(capabilityIds).toContain("matchmaking");
 
       if (prevEnv !== undefined) {
         process.env.ENABLE_POLICE_CAPABILITY = prevEnv;
