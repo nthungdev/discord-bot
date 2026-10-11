@@ -52,4 +52,21 @@ describe("Webhook Router (/cache-invalidate)", () => {
     expect(res.status).toBe(204);
     expect(invalidateSpy).toHaveBeenCalledWith("savage");
   });
+
+  it("should prioritize payload domain key when provided", async () => {
+    const invalidateSpy = vi.spyOn(guildConfigRepository, "invalidate");
+
+    const res = await request(app)
+      .post("/webhooks/cache-invalidate")
+      .set("x-webhook-secret", "directus-webhook-dev-secret-key-12345")
+      .send({
+        collection: "bot_guild_configs",
+        keys: ["uuid-12345"],
+        payload: { guild_id: "guild-from-payload" },
+        event: "update",
+      });
+
+    expect(res.status).toBe(204);
+    expect(invalidateSpy).toHaveBeenCalledWith("guild-from-payload");
+  });
 });
