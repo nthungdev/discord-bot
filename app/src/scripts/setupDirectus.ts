@@ -395,7 +395,14 @@ export async function ensureWebhook(
     const flowsRes = await client.get(
       `/flows?filter[name][_eq]=${CACHE_INVALIDATION_FLOW_NAME}`,
     );
-    let flowId = flowsRes.data?.data?.[0]?.id;
+    const existingFlow = flowsRes.data?.data?.[0];
+    let flowId = existingFlow?.id;
+
+    const flowOptions = {
+      type: "action",
+      scope: CACHE_INVALIDATION_FLOW_SCOPES,
+      collections: CACHE_INVALIDATION_FLOW_COLLECTIONS,
+    };
 
     if (!flowId) {
       console.log("Provisioning cache invalidation flow...");
@@ -404,13 +411,15 @@ export async function ensureWebhook(
         icon: "bolt",
         status: "active",
         trigger: "event",
-        options: {
-          type: "action",
-          scope: CACHE_INVALIDATION_FLOW_SCOPES,
-          collections: CACHE_INVALIDATION_FLOW_COLLECTIONS,
-        },
+        options: flowOptions,
       });
       flowId = createFlowRes.data?.data?.id;
+    } else {
+      await client.patch(`/flows/${flowId}`, {
+        status: "active",
+        trigger: "event",
+        options: flowOptions,
+      });
     }
 
     if (!flowId) {
@@ -449,6 +458,8 @@ export async function ensureWebhook(
       operationId = createOpRes.data?.data?.id;
     } else {
       await client.patch(`/operations/${existingOperation.id}`, {
+        name: operationPayload.name,
+        type: "request",
         options: operationPayload.options,
       });
     }

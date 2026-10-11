@@ -1,8 +1,11 @@
 import type { AxiosInstance } from "axios";
 import { describe, expect, it, vi } from "vitest";
 import {
+  CACHE_INVALIDATION_FLOW_COLLECTIONS,
   CACHE_INVALIDATION_FLOW_NAME,
+  CACHE_INVALIDATION_FLOW_SCOPES,
   CACHE_INVALIDATION_OPERATION_KEY,
+  CACHE_INVALIDATION_OPERATION_NAME,
   ensureWebhook,
   resolveDirectusSetupConfig,
 } from "../setupDirectus";
@@ -196,8 +199,22 @@ describe("ensureWebhook", () => {
 
     expect(mockClient.post).not.toHaveBeenCalled();
     expect(mockClient.patch).toHaveBeenCalledWith(
+      "/flows/flow-existing",
+      expect.objectContaining({
+        status: "active",
+        trigger: "event",
+        options: {
+          type: "action",
+          scope: CACHE_INVALIDATION_FLOW_SCOPES,
+          collections: CACHE_INVALIDATION_FLOW_COLLECTIONS,
+        },
+      }),
+    );
+    expect(mockClient.patch).toHaveBeenCalledWith(
       "/operations/op-existing",
       expect.objectContaining({
+        name: CACHE_INVALIDATION_OPERATION_NAME,
+        type: "request",
         options: expect.objectContaining({
           headers: [{ header: "x-webhook-secret", value: "test-secret-456" }],
         }),
@@ -206,6 +223,111 @@ describe("ensureWebhook", () => {
     expect(mockClient.patch).toHaveBeenCalledWith("/flows/flow-existing", {
       operation: "op-existing",
     });
+  });
+
+  it("should reconcile inactive or incorrectly scoped existing flow to active status and required event options", async () => {
+    const mockClient = {
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/flows?filter[name][_eq]=")) {
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "flow-inactive",
+                  name: CACHE_INVALIDATION_FLOW_NAME,
+                  status: "inactive",
+                  trigger: "manual",
+                  options: {},
+                },
+              ],
+            },
+          });
+        }
+        if (url.includes("/operations?filter[flow][_eq]=")) {
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "op-1",
+                  key: CACHE_INVALIDATION_OPERATION_KEY,
+                },
+              ],
+            },
+          });
+        }
+        if (url.includes("/flows/flow-inactive")) {
+          return Promise.resolve({
+            data: { data: { id: "flow-inactive", operation: "op-1" } },
+          });
+        }
+        return Promise.reject(new Error(`Unexpected GET url: ${url}`));
+      }),
+      post: vi.fn(),
+      patch: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    } as unknown as AxiosInstance;
+
+    await ensureWebhook(mockClient, dummyConfig);
+
+    expect(mockClient.patch).toHaveBeenCalledWith("/flows/flow-inactive", {
+      status: "active",
+      trigger: "event",
+      options: {
+        type: "action",
+        scope: CACHE_INVALIDATION_FLOW_SCOPES,
+        collections: CACHE_INVALIDATION_FLOW_COLLECTIONS,
+      },
+    });
+  });
+
+  it("should reconcile an existing operation with non-request type to request type", async () => {
+    const mockClient = {
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/flows?filter[name][_eq]=")) {
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "flow-1",
+                  name: CACHE_INVALIDATION_FLOW_NAME,
+                  status: "active",
+                },
+              ],
+            },
+          });
+        }
+        if (url.includes("/operations?filter[flow][_eq]=")) {
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "op-non-request",
+                  key: CACHE_INVALIDATION_OPERATION_KEY,
+                  type: "exec",
+                },
+              ],
+            },
+          });
+        }
+        if (url.includes("/flows/flow-1")) {
+          return Promise.resolve({
+            data: { data: { id: "flow-1", operation: "op-non-request" } },
+          });
+        }
+        return Promise.reject(new Error(`Unexpected GET url: ${url}`));
+      }),
+      post: vi.fn(),
+      patch: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    } as unknown as AxiosInstance;
+
+    await ensureWebhook(mockClient, dummyConfig);
+
+    expect(mockClient.patch).toHaveBeenCalledWith(
+      "/operations/op-non-request",
+      expect.objectContaining({
+        name: CACHE_INVALIDATION_OPERATION_NAME,
+        type: "request",
+      }),
+    );
   });
 
   it("should catch and log error gracefully when request fails", async () => {
