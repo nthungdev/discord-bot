@@ -5,11 +5,9 @@ services:
     image: postgres:16-alpine
     container_name: discord-bot-postgres
     restart: unless-stopped
-    env_file:
-      - ./.env.production
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-directus}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-directus_secure_password}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in environment or .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in environment or .env.production}
       POSTGRES_DB: ${POSTGRES_DB:-directus}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
@@ -25,19 +23,17 @@ services:
     restart: unless-stopped
     ports:
       - "${DIRECTUS_PORT:-8055}:8055"
-    env_file:
-      - ./.env.production
     environment:
-      KEY: ${DIRECTUS_KEY}
-      SECRET: ${DIRECTUS_SECRET}
+      KEY: ${DIRECTUS_KEY:?DIRECTUS_KEY must be set in environment or .env.production}
+      SECRET: ${DIRECTUS_SECRET:?DIRECTUS_SECRET must be set in environment or .env.production}
       DB_CLIENT: pg
       DB_HOST: postgres
       DB_PORT: 5432
       DB_DATABASE: ${POSTGRES_DB:-directus}
-      DB_USER: ${POSTGRES_USER:-directus}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-directus_secure_password}
-      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:-admin@local.dev}
-      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD:-adminpassword}
+      DB_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in environment or .env.production}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in environment or .env.production}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:?DIRECTUS_ADMIN_EMAIL must be set in environment or .env.production}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD:?DIRECTUS_ADMIN_PASSWORD must be set in environment or .env.production}
       PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-http://localhost:8055}
       CORS_ENABLED: "true"
       CORS_ORIGIN: "true"
@@ -46,6 +42,12 @@ services:
         condition: service_healthy
     volumes:
       - ./data/directus:/directus/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8055/server/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   server:
     image: ${IMAGE_NAME:-ghcr.io/nthungdev/discord-bot:latest}
@@ -60,19 +62,19 @@ services:
       PORT: ${PORT:-3001}
       MEMORY_STORE_TYPE: ${MEMORY_STORE_TYPE:-directus}
       DIRECTUS_URL: ${DIRECTUS_URL:-http://directus:8055}
-      DIRECTUS_BOT_TOKEN: ${DIRECTUS_BOT_TOKEN:-}
-      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-}
+      DIRECTUS_BOT_TOKEN: ${DIRECTUS_BOT_TOKEN:?DIRECTUS_BOT_TOKEN must be set in environment or .env.production}
+      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:?INTERNAL_WEBHOOK_SECRET must be set in environment or .env.production}
       AUTO_DEPLOY_COMMAND_GUILDS: ${AUTO_DEPLOY_COMMAND_GUILDS:-}
     volumes:
       - ./config.json:/app/config.json:ro
       - ./service-account.json:/app/service-account.json:ro
       - ./service-account.json:/app/build/service-account.json:ro
     depends_on:
-      - directus
+      directus:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:$${PORT:-3001}/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
-

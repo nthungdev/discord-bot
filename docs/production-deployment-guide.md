@@ -37,7 +37,7 @@ flowchart TD
         Bot -->|Directus REST API: http://directus:8055| Directus
     end
 
-    Operator["Operator Browser"] -->|http://SERVER_IP:8055| Directus
+    Operator["Operator Browser"] -->|HTTPS via Reverse Proxy| Directus
     Discord["Discord Gateway"] <-->|WebSocket / Gateway| Bot
 ```
 
@@ -86,39 +86,46 @@ cd ~/discord-bot
 chmod -R 775 data
 ```
 
-### Step 2: Transfer Configuration Files
+### Step 2: Prepare and Transfer Configuration Files
 
-From your local machine or CI/CD runner, copy the configuration files:
+On your local development machine or CI/CD runner:
 
-```bash
-# Run from repository root:
-scp compose.prod.yaml <user>@<server_host>:~/discord-bot/compose.prod.yaml
-scp app/.env.production <user>@<server_host>:~/discord-bot/.env.production
-scp app/config.json <user>@<server_host>:~/discord-bot/config.json
-scp app/service-account.json <user>@<server_host>:~/discord-bot/service-account.json
-```
+1. **Prepare files from templates if on a clean checkout**:
+   ```bash
+   cp app/.env.example app/.env.production
+   cp app/config.example.json app/config.json
+   cp app/service-account.example.json app/service-account.json
+   ```
+2. **Populate `app/.env.production`** with production tokens and keys.
+3. **Copy the configuration files to the server**:
+   ```bash
+   scp compose.prod.yaml <user>@<server_host>:~/discord-bot/compose.prod.yaml
+   scp app/.env.production <user>@<server_host>:~/discord-bot/.env.production
+   scp app/config.json <user>@<server_host>:~/discord-bot/config.json
+   scp app/service-account.json <user>@<server_host>:~/discord-bot/service-account.json
+   ```
 
 ### Step 3: Configure Environment Variables
 
-Edit `.env.production` on the server and verify all required settings:
+In `~/discord-bot/.env.production` on the server, ensure all required production settings are present:
 
 ```ini
 # ==============================================================================
 # Discord & AI Credentials
 # ==============================================================================
 DISCORD_TOKEN=your_production_discord_bot_token
-CLIENT_ID=your_discord_application_client_id
+DISCORD_CLIENT_ID=your_discord_application_client_id
 AI_API_KEY=your_google_gemini_api_key
 BEARER_TOKEN=your_secure_random_bearer_token
 
 # ==============================================================================
-# Directus Core & Security Secrets (32+ chars random strings)
+# Directus Core & Security Secrets (Generate 32+ character random strings)
 # ==============================================================================
 DIRECTUS_KEY=generate_random_32_characters_key_here
 DIRECTUS_SECRET=generate_random_32_characters_secret_here
 DIRECTUS_ADMIN_EMAIL=admin@example.com
 DIRECTUS_ADMIN_PASSWORD=YourStrongAdminPassword123!
-DIRECTUS_PUBLIC_URL=http://<SERVER_IP>:8055
+DIRECTUS_PUBLIC_URL=https://directus.yourdomain.com
 
 # ==============================================================================
 # Bot & Directus Integration (Internal Docker Networking)
@@ -142,47 +149,38 @@ POSTGRES_DB=directus
 AUTO_DEPLOY_COMMAND_GUILDS=your_target_discord_guild_id
 ```
 
-### Step 4: Pull and Start Containers
-
-In your deployment directory, run:
-
-```bash
-# Pull the latest images
-docker compose -f compose.prod.yaml pull
-
-# Start containers in background
-docker compose -f compose.prod.yaml up -d
-
-# Verify all containers are running and healthy
-docker compose -f compose.prod.yaml ps
-```
+> [!SECURITY]
+> **Production HTTPS & Directus Admin Security**:
+> - Never expose Directus port `8055` over unencrypted HTTP on public networks. Production deployments should route Directus through a TLS-terminating reverse proxy (e.g., Caddy, Nginx, Cloudflare Tunnel, or Traefik) providing HTTPS.
+> - Configure `DIRECTUS_PUBLIC_URL` to match the public HTTPS endpoint (e.g. `https://directus.yourdomain.com`).
+> - In `compose.prod.yaml`, you can bind Directus to localhost (`127.0.0.1:8055:8055`) so only the local reverse proxy can reach it.
 
 ---
 
-## 4. First-Time Directus Setup
+## 4. First-Time Directus Setup & Startup Sequence
 
-When running Directus for the first time on a fresh database, follow this sequence:
+When running on a fresh host with a new database, execute this sequence to ensure Directus initializes and collections are bootstrapped before the bot begins handling traffic:
 
-### 1. Wait for Directus Initialization
-
-On its first run, Directus automatically creates all system tables in PostgreSQL:
-
+### 1. Start Database and Directus Services
 ```bash
-docker compose -f compose.prod.yaml logs -f directus
+# Pull latest container images
+docker compose --env-file .env.production -f compose.prod.yaml pull
+
+# Start PostgreSQL and Directus first
+docker compose --env-file .env.production -f compose.prod.yaml up -d postgres directus
 ```
 
-Wait until you see:
-```text
-Server started on port 8055
-```
-Press `Ctrl+C` to exit log streaming.
-
-### 2. Run the Automated Bootstrap Script
-
-Execute the provisioning script inside the running `server` container:
-
+### 2. Wait for Directus Healthcheck
+Directus automatically runs internal database migrations on its first boot. Wait until Directus is healthy:
 ```bash
-docker compose -f compose.prod.yaml exec server node build/src/scripts/setupDirectus.js
+docker compose --env-file .env.production -f compose.prod.yaml ps
+# Ensure directus displays "(healthy)"
+```
+
+### 3. Run the Automated Schema Bootstrap Script
+Run the provisioning script via a one-off `server` container before starting the bot daemon:
+```bash
+docker compose --env-file .env.production -f compose.prod.yaml run --rm server node build/src/scripts/setupDirectus.js
 ```
 
 **Expected output:**
@@ -207,15 +205,19 @@ Directus setup completed successfully!
 > - **AI Preset**: Default system prompt preset for AI roasts.
 > - **Flow & Operation**: Webhook dispatching to `http://server:3001/api/v1/webhooks/cache-invalidate` with `x-webhook-secret` header.
 
-### 3. Log In to the Directus Web Admin
+### 4. Start the Bot Server Daemon
+Now start the bot container:
+```bash
+docker compose --env-file .env.production -f compose.prod.yaml up -d server
+```
 
-1. Open your browser and navigate to: `http://<SERVER_IP>:8055`
+### 5. Log In to the Directus Web Admin
+1. Open your browser and navigate to: `https://directus.yourdomain.com` (or `http://<SERVER_IP>:8055` over trusted local network).
 2. Sign in with:
    - **Email**: Value of `DIRECTUS_ADMIN_EMAIL`
    - **Password**: Value of `DIRECTUS_ADMIN_PASSWORD`
 
-### 4. Configure Your Discord Server (`bot_guild_configs`)
-
+### 6. Configure Your Discord Server (`bot_guild_configs`)
 1. Click the **Content** icon (cube) on the left sidebar.
 2. Select **Bot Guild Configs** (`bot_guild_configs`).
 3. Click **+ Create Item**:
@@ -226,19 +228,17 @@ Directus setup completed successfully!
    - `allowed_channel_ids`: Leave empty to allow everywhere, or enter specific channel snowflakes.
 4. Click the checkmark icon to **Save**.
 
-### 5. Review / Customize AI Roast Presets (`bot_roast_presets`)
-
+### 7. Review / Customize AI Roast Presets (`bot_roast_presets`)
 1. In **Content**, click **Bot Roast Presets**.
 2. Notice the `default` preset seeded by the bootstrap script.
 3. Customize the `system_prompt` tone, change temperature, or add new presets.
 
-### 6. Verify Automated Cache Invalidation
-
+### 8. Verify Automated Cache Invalidation
 1. In the bottom-left sidebar, click **Settings** (gear icon) > **Flows**.
 2. Verify that **`bot-cache-invalidation`** is listed with status **Active**.
 3. In a terminal, stream bot logs:
    ```bash
-   docker compose -f compose.prod.yaml logs -f server
+   docker compose --env-file .env.production -f compose.prod.yaml logs -f server
    ```
 4. In Directus Web Admin, edit any field in `bot_guild_configs` (e.g. toggle `enable_ai_roast`) and click **Save**.
 5. You should immediately see in the `server` logs:
@@ -254,31 +254,40 @@ Directus setup completed successfully!
 ### Stream Container Logs
 ```bash
 # All containers
-docker compose -f compose.prod.yaml logs -f
+docker compose --env-file .env.production -f compose.prod.yaml logs -f
 
 # Specific container
-docker compose -f compose.prod.yaml logs -f server
-docker compose -f compose.prod.yaml logs -f directus
-docker compose -f compose.prod.yaml logs -f postgres
+docker compose --env-file .env.production -f compose.prod.yaml logs -f server
+docker compose --env-file .env.production -f compose.prod.yaml logs -f directus
+docker compose --env-file .env.production -f compose.prod.yaml logs -f postgres
 ```
 
 ### Redeploy / Update Bot Container
 When a new container image is published:
 ```bash
-docker compose -f compose.prod.yaml pull server
-docker compose -f compose.prod.yaml up -d server
+docker compose --env-file .env.production -f compose.prod.yaml pull server
+docker compose --env-file .env.production -f compose.prod.yaml up -d server
 ```
 
 ### Restarting the Entire Stack
 ```bash
-docker compose -f compose.prod.yaml restart
+docker compose --env-file .env.production -f compose.prod.yaml restart
 ```
 
 ### Stopping the Stack
 ```bash
 # Stop containers (preserves all data in ./data/)
-docker compose -f compose.prod.yaml down
-
-# Stop and wipe database (CAUTION: deletes all data)
-docker compose -f compose.prod.yaml down -v
+docker compose --env-file .env.production -f compose.prod.yaml down
 ```
+
+### Resetting Persistent Data
+> [!CAUTION]
+> `docker compose down -v` only removes anonymous and named Docker volumes; it preserves host bind mounts (`./data/postgres` and `./data/directus`).
+> If you intentionally want to perform a full factory reset and wipe all database records and uploaded media:
+> ```bash
+> # 1. Stop all containers
+> docker compose --env-file .env.production -f compose.prod.yaml down
+>
+> # 2. PERMANENT DATA LOSS: Remove all persisted host data
+> sudo rm -rf ./data/postgres/* ./data/directus/*
+> ```
