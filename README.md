@@ -177,6 +177,23 @@ pnpm --prefix app docker-dev
 pnpm --prefix app docker-prod
 ```
 
+### Directus Control Plane (Local Development)
+
+To run the Directus headless CMS control plane locally for guild configurations, roast presets, and audit logs:
+
+1. **Start Directus & PostgreSQL containers:**
+   ```bash
+   docker compose -f compose.directus-dev.yaml up -d
+   ```
+2. **Initialize Schema & Bot Service User:**
+   ```bash
+   pnpm --prefix app directus:setup
+   ```
+   *This provisions the required collections (`bot_guild_configs`, `bot_roast_presets`, `bot_user_profiles`, `bot_roast_logs`), RBAC policies, service user, and cache invalidation webhook.*
+
+3. Access the Directus Admin UI at `http://localhost:8055` (default: `admin@local.dev` / `adminpassword`, configurable via `DIRECTUS_ADMIN_EMAIL` and `DIRECTUS_ADMIN_PASSWORD`).
+
+
 ---
 
 ## 📖 Documentation & Architecture

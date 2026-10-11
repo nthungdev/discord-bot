@@ -5,6 +5,7 @@ import configRouter from "./configRouter";
 import dashboardRouter from "./dashboardRouter";
 import guildsRouter from "./guildsRouter";
 import memoryRouter from "./memoryRouter";
+import webhookRouter from "./webhookRouter";
 
 const v1Router = Router();
 
@@ -14,5 +15,6 @@ v1Router.use("/guilds", guildsRouter);
 v1Router.use("/config", configRouter);
 v1Router.use("/dashboard", dashboardRouter);
 v1Router.use("/memory", memoryRouter);
+v1Router.use("/webhooks", webhookRouter);
 
 export default v1Router;

@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import * as admin from "firebase-admin";
 import { Config, ConfigParameter } from "../../config";
+import type { IUserProfileRepository } from "../../domain/repositories/user-profile.repository";
+import { userProfileRepository } from "../../infrastructure/repositories";
 
 export interface IRoastOptOutStore {
   isOptedOut(guildId: string, userId: string): Promise<boolean>;
@@ -158,6 +160,36 @@ export class FirestoreRoastOptOutStore implements IRoastOptOutStore {
   }
 }
 
+export class DirectusRoastOptOutStore implements IRoastOptOutStore {
+  constructor(
+    private userProfileRepo: IUserProfileRepository = userProfileRepository,
+  ) {}
+
+  public async isOptedOut(guildId: string, userId: string): Promise<boolean> {
+    try {
+      return await this.userProfileRepo.isOptedOut(userId, guildId);
+    } catch (error) {
+      console.error(
+        "[DirectusRoastOptOutStore] isOptedOut error, failing closed to protect user privacy:",
+        error,
+      );
+      return true;
+    }
+  }
+
+  public async optOut(guildId: string, userId: string): Promise<void> {
+    return this.userProfileRepo.setOptOut(userId, true, guildId);
+  }
+
+  public async optIn(guildId: string, userId: string): Promise<void> {
+    return this.userProfileRepo.setOptOut(userId, false, guildId);
+  }
+
+  public async clear(guildId?: string): Promise<void> {
+    return this.userProfileRepo.clearOptOuts(guildId);
+  }
+}
+
 let optOutStoreInstance: IRoastOptOutStore | null = null;
 
 export function getRoastOptOutStore(): IRoastOptOutStore {
@@ -173,7 +205,10 @@ export function getRoastOptOutStore(): IRoastOptOutStore {
     }
 
     const selectedType = envType || configType;
-    if (selectedType === "firestore") {
+
+    if (selectedType === "directus") {
+      optOutStoreInstance = new DirectusRoastOptOutStore();
+    } else if (selectedType === "firestore") {
       optOutStoreInstance = new FirestoreRoastOptOutStore();
     } else {
       optOutStoreInstance = new LocalFileRoastOptOutStore();

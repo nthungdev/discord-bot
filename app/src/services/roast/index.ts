@@ -8,6 +8,8 @@ import {
   type MessageMentionOptions,
 } from "discord.js";
 import type { BotGuildConfig } from "../../config/types";
+import type { IRoastPresetRepository } from "../../domain/repositories/roast-preset.repository";
+import { roastPresetRepository } from "../../infrastructure/repositories";
 import type { DiscordUser } from "../../types";
 import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
 import {
@@ -111,13 +113,16 @@ export class RoastService {
   private optOutStore: IRoastOptOutStore;
   private activeRoasts = new Map<string, RoastReactionRecord>();
   private previewStore = new Map<string, RoastPreviewRecord>();
+  private presetRepository: IRoastPresetRepository;
 
   constructor(
     cooldownManager?: RoastCooldownManager,
     optOutStore?: IRoastOptOutStore,
+    presetRepository?: IRoastPresetRepository,
   ) {
     this.cooldownManager = cooldownManager || getRoastCooldownManager();
     this.optOutStore = optOutStore || getRoastOptOutStore();
+    this.presetRepository = presetRepository || roastPresetRepository;
   }
 
   /**
@@ -174,8 +179,16 @@ export class RoastService {
     }
 
     // Target opt-out check
-    const hasOptedOut = await this.optOutStore.isOptedOut(guildId, targetId);
-    if (hasOptedOut) {
+    try {
+      const hasOptedOut = await this.optOutStore.isOptedOut(guildId, targetId);
+      if (hasOptedOut) {
+        return { allowed: false, reasonKey: "target_opted_out" };
+      }
+    } catch (error) {
+      console.error(
+        `[RoastService] Failed to check opt-out status for target ${targetId}. Failing closed for privacy:`,
+        error,
+      );
       return { allowed: false, reasonKey: "target_opted_out" };
     }
 
@@ -252,7 +265,22 @@ export class RoastService {
     const intensityAddon =
       INTENSITY_INSTRUCTIONS[locale][request.intensity] ??
       INTENSITY_INSTRUCTIONS[locale][RoastIntensity.Medium];
-    const fullSystemInstruction = `${baseSystem}\n\n${intensityAddon}`;
+    let fullSystemInstruction = `${baseSystem}\n\n${intensityAddon}`;
+
+    // Apply Directus roast preset persona guidelines if available
+    try {
+      const presetName =
+        request.intensity === RoastIntensity.Savage ? "savage" : "default";
+      const preset = await this.presetRepository.getPreset(presetName);
+      if (preset?.isActive && preset.systemPrompt) {
+        fullSystemInstruction += `\n\nDirectus Persona Guidelines:\n${preset.systemPrompt}`;
+      }
+    } catch (err) {
+      console.warn(
+        "[RoastService] Failed to load preset from Directus, using default prompt:",
+        err,
+      );
+    }
 
     const ammunitionText = buildAmmunitionPrompt(request, recentMessages);
 

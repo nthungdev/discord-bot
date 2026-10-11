@@ -11,6 +11,7 @@ import * as admin from "firebase-admin";
 import serviceAccountKey from "../service-account.json";
 import { Config } from "./config";
 import { validateEnvs } from "./helpers";
+import { roastLogRepository } from "./infrastructure/repositories";
 import server from "./server";
 import { getBotManager } from "./services/bot-manager";
 import { registerDefaultTools } from "./tools";
@@ -44,9 +45,24 @@ const main = async () => {
   const botManager = getBotManager();
   await botManager.init();
 
-  server.listen(port, () => {
+  const httpServer = server.listen(port, () => {
     console.log(`Express app & management server listening on port ${port}!`);
   });
+
+  const gracefulShutdown = async (signal: string) => {
+    console.info(`[Process] Received ${signal}. Starting graceful shutdown...`);
+    httpServer.close();
+    try {
+      await roastLogRepository.destroy();
+      console.info("[Process] Roast log queue drained successfully.");
+    } catch (err) {
+      console.error("[Process] Error draining roast log queue:", err);
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
+  process.on("SIGTERM", () => void gracefulShutdown("SIGTERM"));
 };
 
 main();

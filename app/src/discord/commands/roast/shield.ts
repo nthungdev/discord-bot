@@ -72,6 +72,37 @@ export const data = new SlashCommandBuilder()
       }),
   );
 
+async function handleShieldStatus(
+  interaction: ChatInputCommandInteraction,
+  guildId: string,
+  userId: string,
+  locale: ReturnType<typeof resolveRoastLocale>,
+  guildConfig: import("../../../config/types").BotGuildConfig | undefined,
+): Promise<void> {
+  const optOutStore = getRoastOptOutStore();
+  const cooldownManager = getRoastCooldownManager();
+  const msgs = ROAST_MESSAGES[locale];
+
+  const isOptedOut = await optOutStore.isOptedOut(guildId, userId);
+  const shieldResult = cooldownManager.checkTargetShield(
+    guildId,
+    userId,
+    guildConfig?.roast?.targetShieldCooldownSeconds,
+  );
+
+  const optStatus = isOptedOut ? msgs.statusOptedOut : msgs.statusOptedIn;
+  const shieldStatus = shieldResult.isShielded
+    ? msgs.statusShieldActive(
+        formatDuration(shieldResult.remainingSeconds, locale),
+      )
+    : msgs.statusShieldInactive;
+
+  await interaction.reply({
+    content: msgs.statusDisplay(optStatus, shieldStatus),
+    ephemeral: true,
+  });
+}
+
 export async function execute(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
@@ -95,45 +126,46 @@ export async function execute(
   const locale = resolveRoastLocale(interaction, guildConfig);
   const msgs = ROAST_MESSAGES[locale];
   const optOutStore = getRoastOptOutStore();
-  const cooldownManager = getRoastCooldownManager();
   const userId = interaction.user.id;
 
-  if (subcommand === ShieldSubcommand.OptOut || subcommand === "tu-choi") {
-    await optOutStore.optOut(guildId, userId);
-    await interaction.reply({
-      content: msgs.optOutSuccess(),
-      ephemeral: true,
-    });
-    return;
-  }
+  try {
+    if (subcommand === ShieldSubcommand.OptOut || subcommand === "tu-choi") {
+      await optOutStore.optOut(guildId, userId);
+      await interaction.reply({
+        content: msgs.optOutSuccess(),
+        ephemeral: true,
+      });
+      return;
+    }
 
-  if (subcommand === ShieldSubcommand.OptIn || subcommand === "tham-gia") {
-    await optOutStore.optIn(guildId, userId);
-    await interaction.reply({
-      content: msgs.optInSuccess(),
-      ephemeral: true,
-    });
-    return;
-  }
+    if (subcommand === ShieldSubcommand.OptIn || subcommand === "tham-gia") {
+      await optOutStore.optIn(guildId, userId);
+      await interaction.reply({
+        content: msgs.optInSuccess(),
+        ephemeral: true,
+      });
+      return;
+    }
 
-  if (subcommand === ShieldSubcommand.Status || subcommand === "trang-thai") {
-    const isOptedOut = await optOutStore.isOptedOut(guildId, userId);
-    const shieldResult = cooldownManager.checkTargetShield(
-      guildId,
-      userId,
-      guildConfig?.roast?.targetShieldCooldownSeconds,
+    if (subcommand === ShieldSubcommand.Status || subcommand === "trang-thai") {
+      await handleShieldStatus(
+        interaction,
+        guildId,
+        userId,
+        locale,
+        guildConfig,
+      );
+    }
+  } catch (error) {
+    console.error(
+      `[ShieldCommand] Failed to execute subcommand ${subcommand}:`,
+      error,
     );
-
-    const optStatus = isOptedOut ? msgs.statusOptedOut : msgs.statusOptedIn;
-    const shieldStatus = shieldResult.isShielded
-      ? msgs.statusShieldActive(
-          formatDuration(shieldResult.remainingSeconds, locale),
-        )
-      : msgs.statusShieldInactive;
-
-    await interaction.reply({
-      content: msgs.statusDisplay(optStatus, shieldStatus),
-      ephemeral: true,
-    });
+    if (!(interaction.replied || interaction.deferred)) {
+      await interaction.reply({
+        content: msgs.errorGeneric(),
+        ephemeral: true,
+      });
+    }
   }
 }
