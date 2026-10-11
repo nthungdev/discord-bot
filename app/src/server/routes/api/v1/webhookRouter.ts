@@ -7,22 +7,21 @@ import {
 
 const webhookRouter = Router();
 
-const INTERNAL_WEBHOOK_SECRET =
-  process.env.INTERNAL_WEBHOOK_SECRET ||
-  (process.env.NODE_ENV === "production"
-    ? ""
-    : "directus-webhook-dev-secret-key-12345");
+function getInternalWebhookSecret(): string {
+  return process.env.INTERNAL_WEBHOOK_SECRET || "";
+}
 
 function isSecretValid(providedSecret: unknown): boolean {
+  const expectedSecret = getInternalWebhookSecret();
   if (
     typeof providedSecret !== "string" ||
-    !INTERNAL_WEBHOOK_SECRET ||
-    INTERNAL_WEBHOOK_SECRET.length === 0
+    !expectedSecret ||
+    expectedSecret.length === 0
   ) {
     return false;
   }
   const providedBuffer = Buffer.from(providedSecret);
-  const expectedBuffer = Buffer.from(INTERNAL_WEBHOOK_SECRET);
+  const expectedBuffer = Buffer.from(expectedSecret);
   if (providedBuffer.length !== expectedBuffer.length) {
     return false;
   }

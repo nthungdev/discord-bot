@@ -1,16 +1,32 @@
 import express from "express";
 import request from "supertest";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   guildConfigRepository,
   roastPresetRepository,
 } from "../../../../../infrastructure/repositories";
 import webhookRouter from "../webhookRouter";
 
+const TEST_SECRET = "test-webhook-secret-xyz";
+
 describe("Webhook Router (/cache-invalidate)", () => {
   const app = express();
   app.use(express.json());
   app.use("/webhooks", webhookRouter);
+
+  const originalSecret = process.env.INTERNAL_WEBHOOK_SECRET;
+
+  beforeEach(() => {
+    process.env.INTERNAL_WEBHOOK_SECRET = TEST_SECRET;
+  });
+
+  afterEach(() => {
+    if (originalSecret !== undefined) {
+      process.env.INTERNAL_WEBHOOK_SECRET = originalSecret;
+    } else {
+      delete process.env.INTERNAL_WEBHOOK_SECRET;
+    }
+  });
 
   it("should reject requests with invalid webhook secret with 401", async () => {
     const res = await request(app)
@@ -26,7 +42,7 @@ describe("Webhook Router (/cache-invalidate)", () => {
 
     const res = await request(app)
       .post("/webhooks/cache-invalidate")
-      .set("x-webhook-secret", "directus-webhook-dev-secret-key-12345")
+      .set("x-webhook-secret", TEST_SECRET)
       .send({
         collection: "bot_guild_configs",
         keys: ["guild-999"],
@@ -42,7 +58,7 @@ describe("Webhook Router (/cache-invalidate)", () => {
 
     const res = await request(app)
       .post("/webhooks/cache-invalidate")
-      .set("x-webhook-secret", "directus-webhook-dev-secret-key-12345")
+      .set("x-webhook-secret", TEST_SECRET)
       .send({
         collection: "bot_roast_presets",
         keys: ["savage"],
@@ -58,7 +74,7 @@ describe("Webhook Router (/cache-invalidate)", () => {
 
     const res = await request(app)
       .post("/webhooks/cache-invalidate")
-      .set("x-webhook-secret", "directus-webhook-dev-secret-key-12345")
+      .set("x-webhook-secret", TEST_SECRET)
       .send({
         collection: "bot_guild_configs",
         keys: ["uuid-12345"],

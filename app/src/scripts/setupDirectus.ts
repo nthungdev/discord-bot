@@ -300,16 +300,18 @@ async function ensurePolicy(client: AxiosInstance): Promise<string> {
   return policyId;
 }
 
-const INTERNAL_WEBHOOK_SECRET =
-  process.env.INTERNAL_WEBHOOK_SECRET ||
-  (process.env.NODE_ENV === "production"
-    ? ""
-    : "directus-webhook-dev-secret-key-12345");
+const INTERNAL_WEBHOOK_SECRET = process.env.INTERNAL_WEBHOOK_SECRET || "";
 const WEBHOOK_RECEIVER_URL =
   process.env.WEBHOOK_RECEIVER_URL ||
   "http://localhost:3001/api/v1/webhooks/cache-invalidate";
 
 async function ensureWebhook(client: AxiosInstance) {
+  if (!INTERNAL_WEBHOOK_SECRET) {
+    console.log(
+      "[SetupDirectus] Notice: INTERNAL_WEBHOOK_SECRET is not configured. Skipping webhook provisioning.",
+    );
+    return;
+  }
   try {
     const webhooksRes = await client.get(
       "/webhooks?filter[name][_eq]=bot-cache-invalidation",
