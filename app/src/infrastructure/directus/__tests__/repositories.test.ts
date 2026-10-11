@@ -121,35 +121,44 @@ describe("Directus Repositories", () => {
   });
 
   describe("DirectusUserProfileRepository", () => {
-    it("should perform per-interaction check for user opt-out status", async () => {
+    it("should perform per-interaction check for user opt-out status with guild scoping", async () => {
       const mockRequest = vi
         .spyOn(directusClient, "request")
         .mockResolvedValueOnce([{ opt_out_roast: true }])
-        .mockResolvedValueOnce([{ opt_out_roast: false }])
+        .mockResolvedValueOnce([
+          { opt_out_roast: false, opted_out_guild_ids: ["g-target"] },
+        ])
+        .mockResolvedValueOnce([
+          { opt_out_roast: false, opted_out_guild_ids: ["g-other"] },
+        ])
         .mockResolvedValueOnce([]);
 
       const repo = new DirectusUserProfileRepository();
 
-      const res1 = await repo.isOptedOut("user-opted-out");
+      const res1 = await repo.isOptedOut("user-opted-out", "g-any");
       expect(res1).toBe(true);
 
-      const res2 = await repo.isOptedOut("user-active");
-      expect(res2).toBe(false);
+      const res2 = await repo.isOptedOut("user-guild-opted-out", "g-target");
+      expect(res2).toBe(true);
 
-      const res3 = await repo.isOptedOut("user-unknown");
+      const res3 = await repo.isOptedOut("user-guild-opted-out", "g-not-opted");
       expect(res3).toBe(false);
 
-      expect(mockRequest).toHaveBeenCalledTimes(3);
+      const res4 = await repo.isOptedOut("user-unknown", "g-any");
+      expect(res4).toBe(false);
+
+      expect(mockRequest).toHaveBeenCalledTimes(4);
     });
 
-    it("should fail-open (return false) if Directus throws an error", async () => {
+    it("should rethrow if Directus throws an error to prevent fail-open bypass", async () => {
       vi.spyOn(directusClient, "request").mockRejectedValueOnce(
         new Error("Service unavailable"),
       );
 
       const repo = new DirectusUserProfileRepository();
-      const result = await repo.isOptedOut("user-error");
-      expect(result).toBe(false);
+      await expect(repo.isOptedOut("user-error")).rejects.toThrow(
+        "Service unavailable",
+      );
     });
   });
 
@@ -177,7 +186,7 @@ describe("Directus Repositories", () => {
       await repo.flush();
       expect(mockRequest).toHaveBeenCalledTimes(1);
 
-      repo.destroy();
+      await repo.destroy();
     });
 
     it("should trigger automatic flush when queue reaches batch size", async () => {
@@ -199,7 +208,7 @@ describe("Directus Repositories", () => {
 
       // Reached batchSize 5, should trigger flush
       expect(mockRequest).toHaveBeenCalledTimes(1);
-      repo.destroy();
+      await repo.destroy();
     });
   });
 });

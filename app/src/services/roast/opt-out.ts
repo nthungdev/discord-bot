@@ -163,20 +163,28 @@ export class DirectusRoastOptOutStore implements IRoastOptOutStore {
     private userProfileRepo: import("../../domain/repositories/user-profile.repository").IUserProfileRepository = require("../../infrastructure/repositories").userProfileRepository,
   ) {}
 
-  public async isOptedOut(_guildId: string, userId: string): Promise<boolean> {
-    return this.userProfileRepo.isOptedOut(userId);
+  public async isOptedOut(guildId: string, userId: string): Promise<boolean> {
+    try {
+      return await this.userProfileRepo.isOptedOut(userId, guildId);
+    } catch (error) {
+      console.error(
+        "[DirectusRoastOptOutStore] isOptedOut error, failing closed to protect user privacy:",
+        error,
+      );
+      return true;
+    }
   }
 
-  public async optOut(_guildId: string, userId: string): Promise<void> {
-    return this.userProfileRepo.setOptOut(userId, true);
+  public async optOut(guildId: string, userId: string): Promise<void> {
+    return this.userProfileRepo.setOptOut(userId, true, guildId);
   }
 
-  public async optIn(_guildId: string, userId: string): Promise<void> {
-    return this.userProfileRepo.setOptOut(userId, false);
+  public async optIn(guildId: string, userId: string): Promise<void> {
+    return this.userProfileRepo.setOptOut(userId, false, guildId);
   }
 
-  public async clear(_guildId?: string): Promise<void> {
-    // Directus stores user profiles centrally, no bulk clear by guild
+  public async clear(guildId?: string): Promise<void> {
+    return this.userProfileRepo.clearOptOuts(guildId);
   }
 }
 
@@ -194,11 +202,15 @@ export function getRoastOptOutStore(): IRoastOptOutStore {
       // Config not initialized yet
     }
 
-    const selectedType = envType || configType;
-    if (
-      selectedType === "directus" ||
-      (!selectedType && process.env.DIRECTUS_URL)
-    ) {
+    let selectedType = envType;
+    if (!selectedType && process.env.DIRECTUS_URL) {
+      selectedType = "directus";
+    }
+    if (!selectedType) {
+      selectedType = configType;
+    }
+
+    if (selectedType === "directus") {
       optOutStoreInstance = new DirectusRoastOptOutStore();
     } else if (selectedType === "firestore") {
       optOutStoreInstance = new FirestoreRoastOptOutStore();

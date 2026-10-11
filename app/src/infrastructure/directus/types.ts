@@ -35,6 +35,7 @@ export interface DirectusUserProfileRaw {
   id?: string;
   user_id: string;
   opt_out_roast?: boolean | null;
+  opted_out_guild_ids?: string[] | null;
   reputation_score?: number | null;
 }
 
