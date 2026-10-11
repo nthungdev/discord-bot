@@ -1,4 +1,4 @@
-name: discord-bot-nas
+name: discord-bot-prod
 
 services:
   postgres:
@@ -75,3 +75,4 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
