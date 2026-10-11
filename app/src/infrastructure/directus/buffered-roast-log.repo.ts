@@ -10,6 +10,7 @@ export class BufferedDirectusRoastLogRepository implements IRoastLogRepository {
   private readonly flushIntervalMs: number;
   private readonly maxQueueLimit: number;
   private isFlushing = false;
+  private inFlightFlushPromise: Promise<void> | null = null;
 
   constructor(batchSize = 25, flushIntervalMs = 10000, maxQueueLimit = 1000) {
     this.batchSize = batchSize;
@@ -43,6 +44,9 @@ export class BufferedDirectusRoastLogRepository implements IRoastLogRepository {
 
   async flush(): Promise<void> {
     if (this.isFlushing || this.queue.length === 0) {
+      if (this.inFlightFlushPromise) {
+        await this.inFlightFlushPromise;
+      }
       return;
     }
 
@@ -60,25 +64,43 @@ export class BufferedDirectusRoastLogRepository implements IRoastLogRepository {
       feedback_rating: item.feedbackRating ?? null,
     }));
 
-    try {
-      await directusClient.request(createItems("bot_roast_logs", records));
-    } catch (error) {
-      console.error(
-        "[BufferedRoastLogRepo] Failed to flush batch to Directus. Restoring queue:",
-        error,
-      );
-      // Restore the failed batch to the front of the queue
-      this.queue.unshift(...batch);
-    } finally {
-      this.isFlushing = false;
-    }
+    this.inFlightFlushPromise = (async () => {
+      try {
+        await directusClient.request(createItems("bot_roast_logs", records));
+      } catch (error) {
+        console.error(
+          "[BufferedRoastLogRepo] Failed to flush batch to Directus. Restoring queue:",
+          error,
+        );
+        // Restore the failed batch to the front of the queue
+        this.queue.unshift(...batch);
+      } finally {
+        this.isFlushing = false;
+        this.inFlightFlushPromise = null;
+      }
+    })();
+
+    await this.inFlightFlushPromise;
   }
 
-  destroy(): void {
+  async destroy(): Promise<void> {
     clearInterval(this.flushTimer);
-    // Final synchronous-triggered flush on shutdown
-    if (this.queue.length > 0) {
-      void this.flush();
+
+    if (this.inFlightFlushPromise) {
+      await this.inFlightFlushPromise;
+    }
+
+    let attempts = 0;
+    while (this.queue.length > 0 && attempts < 5) {
+      attempts++;
+      const prevLength = this.queue.length;
+      await this.flush();
+      if (this.queue.length >= prevLength) {
+        console.warn(
+          `[BufferedRoastLogRepo] Failed to drain ${this.queue.length} logs during shutdown.`,
+        );
+        break;
+      }
     }
   }
 }
