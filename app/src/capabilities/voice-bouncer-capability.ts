@@ -1,6 +1,8 @@
 import type {
   Client,
   GuildMember,
+  User,
+  UserPrimaryGuild,
   VoiceBasedChannel,
   VoiceState,
 } from "discord.js";
@@ -14,32 +16,30 @@ import type { IBotCapability } from "./types";
 export const MAX_BOUNCE_BURST_ATTEMPTS = 3;
 export const BOUNCE_WINDOW_MS = 30_000;
 export const WARNING_AUTO_DELETE_DELAY_MS = 15_000;
+export const USER_TAG_CACHE_TTL_MS = 60_000;
 export const DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON =
   "Missing required server tag";
+export function formatDefaultVoiceBounceWarning(memberId: string): string {
+  return `⚠️ **[Voice Bouncer]** Hey <@${memberId}>, this voice channel is reserved for members with this server's tag equipped. Please set this server as your Primary Guild (Server Tag) in your Discord profile to join.`;
+}
 
 /**
- * Determines whether a guild member's display name or username satisfies the tag regex pattern.
- * Fails closed (returns false) if the pattern is empty or malformed.
+ * Determines whether a guild member has equipped the target guild's server tag as their primary guild.
+ * Fails closed (returns false) if primaryGuild is missing, disabled, or does not match the target guild ID.
  */
-export function isMemberTagCompliant(
-  displayName: string,
-  username: string,
-  pattern: string,
+export function isMemberGuildTagCompliant(
+  primaryGuild: UserPrimaryGuild | null | undefined,
+  guildId: string,
 ): boolean {
-  if (!pattern || pattern.trim() === "") {
+  if (!primaryGuild) {
     return false;
   }
-  try {
-    const regex = new RegExp(pattern, "i");
-    return regex.test(displayName) || regex.test(username);
-  } catch (error) {
-    console.warn(
-      `[VoiceBouncerCapability] Invalid regex pattern '${pattern}':`,
-      error,
-    );
-    // Fail-closed on malformed pattern to prevent unauthorized bypass
+  if (primaryGuild.identityEnabled === false) {
     return false;
   }
+  return Boolean(
+    primaryGuild.identityGuildId && primaryGuild.identityGuildId === guildId,
+  );
 }
 
 /**
@@ -81,6 +81,10 @@ export class VoiceBouncerCapability implements IBotCapability {
   readonly name = "Voice Channel Bouncer";
 
   private bounceHistory: Map<string, number[]> = new Map();
+  private userTagCache: Map<
+    string,
+    { primaryGuild: UserPrimaryGuild | null; expiresAt: number }
+  > = new Map();
   private pendingDeletionTimers: Set<NodeJS.Timeout> = new Set();
 
   init(_client: Client, _config: Config): void {
@@ -89,6 +93,7 @@ export class VoiceBouncerCapability implements IBotCapability {
 
   destroy(): void {
     this.bounceHistory.clear();
+    this.userTagCache.clear();
     for (const timer of this.pendingDeletionTimers) {
       clearTimeout(timer);
     }
@@ -124,6 +129,42 @@ export class VoiceBouncerCapability implements IBotCapability {
     this.bounceHistory.set(key, validTimestamps);
 
     return validTimestamps.length > MAX_BOUNCE_BURST_ATTEMPTS;
+  }
+
+  /**
+   * Resolves the user's primary guild tag, falling back to a REST fetch if not cached in memory.
+   * Caches results for 60 seconds to prevent REST API rate limits.
+   */
+  public async resolveUserPrimaryGuild(
+    user: User,
+    now: number = Date.now(),
+  ): Promise<UserPrimaryGuild | null> {
+    const cached = this.userTagCache.get(user.id);
+    if (cached && cached.expiresAt > now) {
+      return cached.primaryGuild;
+    }
+
+    let primaryGuild: UserPrimaryGuild | null = user.primaryGuild ?? null;
+
+    // Discord Gateway events frequently omit primary_guild; fetch from REST if null
+    if (!primaryGuild) {
+      try {
+        const fetchedUser = await user.fetch();
+        primaryGuild = fetchedUser.primaryGuild ?? null;
+      } catch (error) {
+        console.warn(
+          `[VoiceBouncerCapability] Failed to fetch user '${user.id}' from Discord API:`,
+          error,
+        );
+      }
+    }
+
+    this.userTagCache.set(user.id, {
+      primaryGuild,
+      expiresAt: now + USER_TAG_CACHE_TTL_MS,
+    });
+
+    return primaryGuild;
   }
 
   /**
@@ -174,11 +215,13 @@ export class VoiceBouncerCapability implements IBotCapability {
       return;
     }
 
-    const pattern = bouncerConfig.tagPattern;
-    if (
-      pattern &&
-      isMemberTagCompliant(member.displayName, member.user.username, pattern)
-    ) {
+    const guildId = newState.guild?.id ?? member.guild?.id;
+    if (!guildId) {
+      return;
+    }
+
+    const primaryGuild = await this.resolveUserPrimaryGuild(member.user);
+    if (isMemberGuildTagCompliant(primaryGuild, guildId)) {
       return;
     }
 
@@ -218,8 +261,7 @@ export class VoiceBouncerCapability implements IBotCapability {
 
       if (!isRateLimited && channel && channel.isSendable()) {
         const warning =
-          config.warningMessage ||
-          `⚠️ **[Voice Bouncer]** Hey <@${member.id}>, this voice channel is reserved for tagged server members. Please update your nickname or profile with the server tag to join.`;
+          config.warningMessage || formatDefaultVoiceBounceWarning(member.id);
 
         const sentMessage = await channel.send({ content: warning });
         const timer = setTimeout(() => {

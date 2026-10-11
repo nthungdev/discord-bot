@@ -323,7 +323,6 @@ tenManPlayerStats/
 
 tenManGuildSettings/
   ├── {guildId}
-  │     ├── tagPattern: string (e.g., "^\[OMA\]")
   │     ├── tagOnlyVoiceChannelIds: string[]
   │     ├── exemptRoleIds: string[]
   │     ├── lobbyVoiceChannelId: string
@@ -361,7 +360,6 @@ Rather than configuring a separate bot instance, voice bouncer and matchmaking s
 ```typescript
 export interface VoiceBouncerCapabilityConfig {
   enabled?: boolean;
-  tagPattern?: string;
   tagOnlyVoiceChannelIds?: string[];
   tagOnlyCategoryIds?: string[];
   exemptRoleIds?: string[];

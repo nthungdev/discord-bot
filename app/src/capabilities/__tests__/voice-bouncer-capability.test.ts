@@ -1,4 +1,10 @@
-import type { Client, VoiceBasedChannel, VoiceState } from "discord.js";
+import type {
+  Client,
+  User,
+  UserPrimaryGuild,
+  VoiceBasedChannel,
+  VoiceState,
+} from "discord.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Config } from "../../config";
 import type { BotGuildConfig } from "../../config/types";
@@ -6,7 +12,7 @@ import {
   DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON,
   isChannelProtectedByBouncer,
   isMemberExemptByRole,
-  isMemberTagCompliant,
+  isMemberGuildTagCompliant,
   VoiceBouncerCapability,
   WARNING_AUTO_DELETE_DELAY_MS,
 } from "../voice-bouncer-capability";
@@ -26,33 +32,50 @@ describe("VoiceBouncerCapability", () => {
   });
 
   describe("Helper Functions", () => {
-    describe("isMemberTagCompliant", () => {
-      it("should return false when pattern is empty (fails closed)", () => {
-        expect(isMemberTagCompliant("Player", "player_user", "")).toBe(false);
+    describe("isMemberGuildTagCompliant", () => {
+      it("should return false when primaryGuild is null or undefined", () => {
+        expect(isMemberGuildTagCompliant(null, "guild-1")).toBe(false);
+        expect(isMemberGuildTagCompliant(undefined, "guild-1")).toBe(false);
       });
 
-      it("should return true when display name matches pattern", () => {
-        expect(
-          isMemberTagCompliant("[TAG] Player", "player_user", "^\\[TAG\\]"),
-        ).toBe(true);
+      it("should return false when identityEnabled is false", () => {
+        const primaryGuild: UserPrimaryGuild = {
+          identityGuildId: "guild-1",
+          identityEnabled: false,
+          tag: "TAG",
+          badge: "hash123",
+        };
+        expect(isMemberGuildTagCompliant(primaryGuild, "guild-1")).toBe(false);
       });
 
-      it("should return true when username matches pattern", () => {
-        expect(
-          isMemberTagCompliant("Player", "[TAG] player_user", "^\\[TAG\\]"),
-        ).toBe(true);
+      it("should return false when identityGuildId does not match target guildId", () => {
+        const primaryGuild: UserPrimaryGuild = {
+          identityGuildId: "guild-other",
+          identityEnabled: true,
+          tag: "TAG",
+          badge: "hash123",
+        };
+        expect(isMemberGuildTagCompliant(primaryGuild, "guild-1")).toBe(false);
       });
 
-      it("should return false when neither matches pattern", () => {
-        expect(
-          isMemberTagCompliant("Player", "player_user", "^\\[TAG\\]"),
-        ).toBe(false);
+      it("should return true when identityGuildId matches target guildId and identity is enabled", () => {
+        const primaryGuild: UserPrimaryGuild = {
+          identityGuildId: "guild-1",
+          identityEnabled: true,
+          tag: "TAG",
+          badge: "hash123",
+        };
+        expect(isMemberGuildTagCompliant(primaryGuild, "guild-1")).toBe(true);
       });
 
-      it("should return false and not throw when regex pattern is invalid (fail-closed)", () => {
-        expect(
-          isMemberTagCompliant("Player", "player_user", "[invalid(regex"),
-        ).toBe(false);
+      it("should return true when identityEnabled is null/undefined (default active)", () => {
+        const primaryGuild: UserPrimaryGuild = {
+          identityGuildId: "guild-1",
+          identityEnabled: null,
+          tag: "TAG",
+          badge: null,
+        };
+        expect(isMemberGuildTagCompliant(primaryGuild, "guild-1")).toBe(true);
       });
     });
 
@@ -95,6 +118,68 @@ describe("VoiceBouncerCapability", () => {
           isChannelProtectedByBouncer("vc-99", "cat-2", ["vc-1"], ["cat-1"]),
         ).toBe(false);
       });
+    });
+  });
+
+  describe("resolveUserPrimaryGuild", () => {
+    it("should return primaryGuild directly if already populated on user", async () => {
+      const primaryGuild: UserPrimaryGuild = {
+        identityGuildId: "guild-1",
+        identityEnabled: true,
+        tag: "TAG",
+        badge: null,
+      };
+      const mockUser = {
+        id: "user-1",
+        primaryGuild,
+      } as unknown as User;
+
+      const result = await capability.resolveUserPrimaryGuild(mockUser);
+      expect(result).toEqual(primaryGuild);
+    });
+
+    it("should fetch user from Discord REST API when primaryGuild is missing", async () => {
+      const fetchedPrimaryGuild: UserPrimaryGuild = {
+        identityGuildId: "guild-1",
+        identityEnabled: true,
+        tag: "TAG",
+        badge: "badge-hash",
+      };
+      const mockFetch = vi.fn().mockResolvedValue({
+        primaryGuild: fetchedPrimaryGuild,
+      });
+      const mockUser = {
+        id: "user-2",
+        primaryGuild: null,
+        fetch: mockFetch,
+      } as unknown as User;
+
+      const result = await capability.resolveUserPrimaryGuild(mockUser);
+      expect(mockFetch).toHaveBeenCalled();
+      expect(result).toEqual(fetchedPrimaryGuild);
+    });
+
+    it("should serve subsequent requests from cache within TTL", async () => {
+      const primaryGuild: UserPrimaryGuild = {
+        identityGuildId: "guild-1",
+        identityEnabled: true,
+        tag: "TAG",
+        badge: null,
+      };
+      const mockFetch = vi.fn().mockResolvedValue({ primaryGuild });
+      const mockUser = {
+        id: "user-3",
+        primaryGuild: null,
+        fetch: mockFetch,
+      } as unknown as User;
+
+      const now = 1_000_000;
+      await capability.resolveUserPrimaryGuild(mockUser, now);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Call again 10s later (within 60s TTL)
+      await capability.resolveUserPrimaryGuild(mockUser, now + 10_000);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -170,7 +255,6 @@ describe("VoiceBouncerCapability", () => {
       respondToMentions: false,
       voiceBouncer: {
         enabled: true,
-        tagPattern: "^\\[TAG\\]",
         tagOnlyVoiceChannelIds: ["vc-protected"],
         exemptRoleIds: ["role-booster"],
       },
@@ -267,11 +351,13 @@ describe("VoiceBouncerCapability", () => {
       const newState = {
         channelId: "vc-protected",
         channel: { parentId: null },
+        guild: { id: "guild-1" },
         member: {
           id: "user-booster",
           displayName: "Untagged Booster",
-          user: { bot: false, username: "booster" },
+          user: { bot: false, username: "booster", primaryGuild: null },
           roles: { cache: new Map([["role-booster", {}]]) },
+          guild: { id: "guild-1" },
         },
         disconnect: mockDisconnect,
       } as unknown as VoiceState;
@@ -285,16 +371,28 @@ describe("VoiceBouncerCapability", () => {
       expect(mockDisconnect).not.toHaveBeenCalled();
     });
 
-    it("should do nothing when member has matching server tag", async () => {
+    it("should do nothing when member has equipped matching server tag", async () => {
       const mockDisconnect = vi.fn();
       const newState = {
         channelId: "vc-protected",
         channel: { parentId: null },
+        guild: { id: "guild-1" },
         member: {
           id: "user-tagged",
-          displayName: "[TAG] Proud Member",
-          user: { bot: false, username: "proud_member" },
+          displayName: "Proud Member",
+          user: {
+            id: "user-tagged",
+            bot: false,
+            username: "proud_member",
+            primaryGuild: {
+              identityGuildId: "guild-1",
+              identityEnabled: true,
+              tag: "OMA",
+              badge: "badge-123",
+            },
+          },
           roles: { cache: new Map() },
+          guild: { id: "guild-1" },
         },
         disconnect: mockDisconnect,
       } as unknown as VoiceState;
@@ -308,7 +406,7 @@ describe("VoiceBouncerCapability", () => {
       expect(mockDisconnect).not.toHaveBeenCalled();
     });
 
-    it("should disconnect non-compliant member, send warning, and auto-delete warning message after delay", async () => {
+    it("should disconnect non-compliant member without server tag, send warning, and auto-delete warning message after delay", async () => {
       const mockDisconnect = vi.fn().mockResolvedValue(undefined);
       const mockDelete = vi.fn().mockResolvedValue(undefined);
       const mockSend = vi.fn().mockResolvedValue({ delete: mockDelete });
@@ -325,8 +423,14 @@ describe("VoiceBouncerCapability", () => {
         guild: { id: "guild-1" },
         member: {
           id: "user-intruder",
-          displayName: "No Tag Here",
-          user: { bot: false, username: "no_tag" },
+          displayName: "Untagged Member",
+          user: {
+            id: "user-intruder",
+            bot: false,
+            username: "untagged",
+            primaryGuild: null,
+            fetch: vi.fn().mockResolvedValue({ primaryGuild: null }),
+          },
           roles: { cache: new Map() },
           guild: { id: "guild-1" },
         },
@@ -374,8 +478,18 @@ describe("VoiceBouncerCapability", () => {
         guild: { id: "guild-1" },
         member: {
           id: "user-intruder",
-          displayName: "No Tag",
-          user: { bot: false, username: "no_tag" },
+          displayName: "Other Tag",
+          user: {
+            id: "user-intruder",
+            bot: false,
+            username: "other_tag",
+            primaryGuild: {
+              identityGuildId: "other-guild",
+              identityEnabled: true,
+              tag: "OTHER",
+              badge: null,
+            },
+          },
           roles: { cache: new Map() },
           guild: { id: "guild-1" },
         },
@@ -417,7 +531,13 @@ describe("VoiceBouncerCapability", () => {
         member: {
           id: "user-intruder",
           displayName: "No Tag",
-          user: { bot: false, username: "no_tag" },
+          user: {
+            id: "user-intruder",
+            bot: false,
+            username: "no_tag",
+            primaryGuild: null,
+            fetch: vi.fn().mockResolvedValue({ primaryGuild: null }),
+          },
           roles: { cache: new Map() },
           guild: { id: "guild-1" },
         },

@@ -66,7 +66,6 @@ export interface ModerationCapabilityConfig {
 
 export interface VoiceBouncerCapabilityConfig {
   enabled?: boolean;
-  tagPattern?: string;
   tagOnlyVoiceChannelIds?: string[];
   tagOnlyCategoryIds?: string[];
   exemptRoleIds?: string[];
