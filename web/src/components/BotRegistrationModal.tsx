@@ -119,7 +119,6 @@ export const BotRegistrationModal: React.FC<BotRegistrationModalProps> = ({
               >
                 <option value="chatBot">ChatBot (GenAI conversational)</option>
                 <option value="policeBot">PoliceBot (Moderation)</option>
-                <option value="bouncergonBot">BouncergonBot (Voice)</option>
                 <option value="custom">Custom Handler</option>
               </select>
             </div>
