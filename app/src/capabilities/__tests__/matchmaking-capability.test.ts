@@ -241,6 +241,41 @@ describe("MatchmakingCapability", () => {
       );
     });
 
+    it("should fallback to disconnect if moving intruder to lobby rejects", async () => {
+      const mockSetChannel = vi
+        .fn()
+        .mockRejectedValue(new Error("Lobby channel full"));
+      const mockDisconnect = vi.fn().mockResolvedValue(undefined);
+      const lobbyConfig: BotGuildConfig = {
+        ...guildConfig,
+        matchmaking: {
+          ...guildConfig.matchmaking,
+          lobbyVoiceChannelId: "vc-lobby",
+        },
+      };
+
+      const newState = {
+        channelId: "vc-team1",
+        member: { id: "user-intruder", user: { bot: false } },
+        setChannel: mockSetChannel,
+        disconnect: mockDisconnect,
+      } as unknown as VoiceState;
+
+      await capability.handleVoiceStateUpdate(
+        {} as VoiceState,
+        newState,
+        lobbyConfig,
+      );
+
+      expect(mockSetChannel).toHaveBeenCalledWith(
+        "vc-lobby",
+        expect.stringContaining("restricted"),
+      );
+      expect(mockDisconnect).toHaveBeenCalledWith(
+        expect.stringContaining("restricted"),
+      );
+    });
+
     it("should catch and log error if eviction fails without throwing", async () => {
       const mockDisconnect = vi
         .fn()

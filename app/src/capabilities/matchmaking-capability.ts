@@ -112,13 +112,21 @@ export class MatchmakingCapability implements IBotCapability {
     // Evict the intruder back to the main lobby, or disconnect if no lobby is configured.
     try {
       if (matchmakingConfig.lobbyVoiceChannelId) {
-        await newState.setChannel(
-          matchmakingConfig.lobbyVoiceChannelId,
-          DEFAULT_TEAM_EVICT_REASON,
-        );
-      } else {
-        await newState.disconnect(DEFAULT_TEAM_EVICT_REASON);
+        try {
+          await newState.setChannel(
+            matchmakingConfig.lobbyVoiceChannelId,
+            DEFAULT_TEAM_EVICT_REASON,
+          );
+          return;
+        } catch (moveError) {
+          console.warn(
+            `[MatchmakingCapability] Failed to move intruder '${member.id}' to lobby '${matchmakingConfig.lobbyVoiceChannelId}', falling back to disconnect:`,
+            moveError,
+          );
+        }
       }
+
+      await newState.disconnect(DEFAULT_TEAM_EVICT_REASON);
     } catch (error) {
       console.error(
         `[MatchmakingCapability] Failed to evict intruder '${member.id}' from team channel:`,

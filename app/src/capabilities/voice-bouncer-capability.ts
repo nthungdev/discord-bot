@@ -85,6 +85,8 @@ export class VoiceBouncerCapability implements IBotCapability {
     string,
     { primaryGuild: UserPrimaryGuild | null; expiresAt: number }
   > = new Map();
+  private inFlightUserFetches: Map<string, Promise<UserPrimaryGuild | null>> =
+    new Map();
   private pendingDeletionTimers: Set<NodeJS.Timeout> = new Set();
 
   init(_client: Client, _config: Config): void {
@@ -94,6 +96,7 @@ export class VoiceBouncerCapability implements IBotCapability {
   destroy(): void {
     this.bounceHistory.clear();
     this.userTagCache.clear();
+    this.inFlightUserFetches.clear();
     for (const timer of this.pendingDeletionTimers) {
       clearTimeout(timer);
     }
@@ -144,10 +147,13 @@ export class VoiceBouncerCapability implements IBotCapability {
       return cached.primaryGuild;
     }
 
-    let primaryGuild: UserPrimaryGuild | null = user.primaryGuild ?? null;
+    const inFlight = this.inFlightUserFetches.get(user.id);
+    if (inFlight) {
+      return inFlight;
+    }
 
-    // Discord Gateway events frequently omit primary_guild; fetch from REST if null
-    if (!primaryGuild) {
+    const fetchPromise = (async () => {
+      let primaryGuild: UserPrimaryGuild | null = null;
       try {
         const fetchedUser = await user.fetch();
         primaryGuild = fetchedUser.primaryGuild ?? null;
@@ -156,15 +162,21 @@ export class VoiceBouncerCapability implements IBotCapability {
           `[VoiceBouncerCapability] Failed to fetch user '${user.id}' from Discord API:`,
           error,
         );
+        primaryGuild = user.primaryGuild ?? null;
+      } finally {
+        this.inFlightUserFetches.delete(user.id);
       }
-    }
 
-    this.userTagCache.set(user.id, {
-      primaryGuild,
-      expiresAt: now + USER_TAG_CACHE_TTL_MS,
-    });
+      this.userTagCache.set(user.id, {
+        primaryGuild,
+        expiresAt: now + USER_TAG_CACHE_TTL_MS,
+      });
 
-    return primaryGuild;
+      return primaryGuild;
+    })();
+
+    this.inFlightUserFetches.set(user.id, fetchPromise);
+    return fetchPromise;
   }
 
   /**
@@ -222,6 +234,11 @@ export class VoiceBouncerCapability implements IBotCapability {
 
     const primaryGuild = await this.resolveUserPrimaryGuild(member.user);
     if (isMemberGuildTagCompliant(primaryGuild, guildId)) {
+      return;
+    }
+
+    // Guard against race conditions where member moved or disconnected during async fetch
+    if (member.voice && member.voice.channelId !== targetChannelId) {
       return;
     }
 

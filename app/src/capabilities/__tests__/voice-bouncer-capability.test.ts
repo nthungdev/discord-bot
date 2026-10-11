@@ -181,6 +181,77 @@ describe("VoiceBouncerCapability", () => {
       await capability.resolveUserPrimaryGuild(mockUser, now + 10_000);
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
+
+    it("should force fresh fetch when TTL expires to detect tag changes or removal", async () => {
+      const initialPrimaryGuild: UserPrimaryGuild = {
+        identityGuildId: "guild-1",
+        identityEnabled: true,
+        tag: "TAG",
+        badge: null,
+      };
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({ primaryGuild: initialPrimaryGuild })
+        .mockResolvedValueOnce({ primaryGuild: null }); // Member removed tag in Discord!
+
+      const mockUser = {
+        id: "user-tag-removed",
+        primaryGuild: null,
+        fetch: mockFetch,
+      } as unknown as User;
+
+      const now = 1_000_000;
+      const firstResult = await capability.resolveUserPrimaryGuild(
+        mockUser,
+        now,
+      );
+      expect(firstResult).toEqual(initialPrimaryGuild);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Even if mockUser in-memory has the stale primaryGuild, when TTL expires it must re-fetch
+      (mockUser as unknown as { primaryGuild: UserPrimaryGuild }).primaryGuild =
+        initialPrimaryGuild;
+      const secondResult = await capability.resolveUserPrimaryGuild(
+        mockUser,
+        now + 65_000,
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(secondResult).toBeNull();
+    });
+
+    it("should deduplicate concurrent in-flight fetches for the same user", async () => {
+      let resolvePromise: (value: unknown) => void = () => {};
+      const pendingFetch = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+
+      const mockFetch = vi.fn().mockImplementation(() => pendingFetch);
+      const mockUser = {
+        id: "user-concurrent",
+        primaryGuild: null,
+        fetch: mockFetch,
+      } as unknown as User;
+
+      const p1 = capability.resolveUserPrimaryGuild(mockUser);
+      const p2 = capability.resolveUserPrimaryGuild(mockUser);
+
+      // Verify fetch was only initiated once
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Resolve the in-flight fetch
+      resolvePromise({
+        primaryGuild: {
+          identityGuildId: "guild-1",
+          identityEnabled: true,
+          tag: "TAG",
+          badge: null,
+        },
+      });
+
+      const [res1, res2] = await Promise.all([p1, p2]);
+      expect(res1).toEqual(res2);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("Bounce Rate Limiting", () => {
@@ -558,6 +629,44 @@ describe("VoiceBouncerCapability", () => {
       expect(mockDisconnect).toHaveBeenCalledWith(
         DEFAULT_VOICE_BOUNCE_DISCONNECT_REASON,
       );
+    });
+
+    it("should not bounce member if they moved away from protected channel during async tag resolution", async () => {
+      const mockDisconnect = vi.fn();
+      const mockSetChannel = vi.fn();
+
+      const member = {
+        id: "user-moved",
+        displayName: "Moved Member",
+        user: {
+          id: "user-moved",
+          bot: false,
+          username: "moved_member",
+          primaryGuild: null,
+          fetch: vi.fn().mockResolvedValue({ primaryGuild: null }),
+        },
+        roles: { cache: new Map() },
+        guild: { id: "guild-1" },
+        voice: { channelId: "vc-public" }, // Member moved to vc-public during fetch!
+      };
+
+      const newState = {
+        channelId: "vc-protected", // Event triggered for protected channel
+        channel: { parentId: null, isSendable: () => false },
+        guild: { id: "guild-1" },
+        member,
+        disconnect: mockDisconnect,
+        setChannel: mockSetChannel,
+      } as unknown as VoiceState;
+
+      await capability.handleVoiceStateUpdate(
+        {} as VoiceState,
+        newState,
+        guildConfig,
+      );
+
+      expect(mockDisconnect).not.toHaveBeenCalled();
+      expect(mockSetChannel).not.toHaveBeenCalled();
     });
   });
 });
