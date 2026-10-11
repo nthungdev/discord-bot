@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: discord-bot-postgres-dev
     environment:
-      POSTGRES_USER: directus
-      POSTGRES_PASSWORD: directus_dev_password
-      POSTGRES_DB: directus
+      POSTGRES_USER: ${POSTGRES_USER:-directus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-directus_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-directus}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - directus_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U directus -d directus"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-directus} -d $${POSTGRES_DB:-directus}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,19 +22,19 @@ services:
     image: directus/directus:12.5.0
     container_name: discord-bot-directus-dev
     ports:
-      - "8055:8055"
+      - "${DIRECTUS_PORT:-8055}:8055"
     environment:
-      KEY: "local-dev-directus-secret-key-32chars"
-      SECRET: "local-dev-directus-secret-token-32"
+      KEY: ${DIRECTUS_KEY:-local-dev-directus-secret-key-32chars}
+      SECRET: ${DIRECTUS_SECRET:-local-dev-directus-secret-token-32}
       DB_CLIENT: pg
       DB_HOST: postgres-dev
       DB_PORT: 5432
-      DB_DATABASE: directus
-      DB_USER: directus
-      DB_PASSWORD: directus_dev_password
-      ADMIN_EMAIL: admin@local.dev
-      ADMIN_PASSWORD: adminpassword
-      PUBLIC_URL: "http://localhost:8055"
+      DB_DATABASE: ${POSTGRES_DB:-directus}
+      DB_USER: ${POSTGRES_USER:-directus}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-directus_dev_password}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:-admin@local.dev}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD:-adminpassword}
+      PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-http://localhost:8055}
       CORS_ENABLED: "true"
       CORS_ORIGIN: "true"
     depends_on:
