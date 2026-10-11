@@ -16,9 +16,11 @@ import { Config } from "../config";
 import { getMetricsService } from "../services/metrics";
 import type { BotLifecycleStatus, JoinedGuildDetail } from "../shared";
 import { ChatCapability } from "./chat-capability";
+import { MatchmakingCapability } from "./matchmaking-capability";
 import { ModerationCapability } from "./moderation-capability";
 import { RoleCapability } from "./role-capability";
 import type { IBotCapability } from "./types";
+import { VoiceBouncerCapability } from "./voice-bouncer-capability";
 
 /**
  * Unified Discord Bot Engine
@@ -66,6 +68,8 @@ export class DiscordBotEngine {
 
     this.registerCapability(new RoleCapability());
     this.registerCapability(new ChatCapability());
+    this.registerCapability(new VoiceBouncerCapability());
+    this.registerCapability(new MatchmakingCapability());
   }
 
   /**
@@ -193,6 +197,11 @@ export class DiscordBotEngine {
       errorCount24h: 0,
       assignedGuildIds: Array.from(this.client.guilds.cache.keys()),
       tokenMasked,
+      capabilities: this.capabilities.map((cap) => ({
+        id: cap.id,
+        name: cap.name,
+        enabled: true,
+      })),
     };
   }
 
