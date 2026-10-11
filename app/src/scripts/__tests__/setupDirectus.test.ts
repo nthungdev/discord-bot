@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { resolveDirectusSetupConfig } from "../setupDirectus";
+import type { AxiosInstance } from "axios";
+import { describe, expect, it, vi } from "vitest";
+import {
+  CACHE_INVALIDATION_FLOW_NAME,
+  CACHE_INVALIDATION_OPERATION_KEY,
+  ensureWebhook,
+  resolveDirectusSetupConfig,
+} from "../setupDirectus";
 
 describe("resolveDirectusSetupConfig", () => {
   it("should parse default configuration when only required token is provided", () => {
@@ -70,5 +76,151 @@ describe("resolveDirectusSetupConfig", () => {
     expect(() =>
       resolveDirectusSetupConfig({ DIRECTUS_BOT_TOKEN: "   " }),
     ).toThrowError("Missing required environment variable: DIRECTUS_BOT_TOKEN");
+  });
+});
+
+describe("ensureWebhook", () => {
+  const dummyConfig = {
+    directusUrl: "http://localhost:8055",
+    adminEmail: "admin@local.dev",
+    adminPassword: "adminpassword",
+    botStaticToken: "token-123",
+    internalWebhookSecret: "test-secret-456",
+    webhookReceiverUrl:
+      "http://host.docker.internal:3001/api/v1/webhooks/cache-invalidate",
+  };
+
+  it("should skip provisioning if internalWebhookSecret is not configured", async () => {
+    const mockClient = {
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn(),
+    } as unknown as AxiosInstance;
+
+    await ensureWebhook(mockClient, {
+      ...dummyConfig,
+      internalWebhookSecret: "",
+    });
+
+    expect(mockClient.get).not.toHaveBeenCalled();
+    expect(mockClient.post).not.toHaveBeenCalled();
+  });
+
+  it("should create flow, operation, and link operation when flow does not exist", async () => {
+    const mockClient = {
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/flows?filter[name][_eq]=")) {
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url.includes("/operations?filter[flow][_eq]=")) {
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url.includes("/flows/flow-123")) {
+          return Promise.resolve({
+            data: { data: { id: "flow-123", operation: null } },
+          });
+        }
+        return Promise.reject(new Error(`Unexpected GET url: ${url}`));
+      }),
+      post: vi.fn().mockImplementation((url: string) => {
+        if (url === "/flows") {
+          return Promise.resolve({ data: { data: { id: "flow-123" } } });
+        }
+        if (url === "/operations") {
+          return Promise.resolve({ data: { data: { id: "op-456" } } });
+        }
+        return Promise.reject(new Error(`Unexpected POST url: ${url}`));
+      }),
+      patch: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    } as unknown as AxiosInstance;
+
+    await ensureWebhook(mockClient, dummyConfig);
+
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/flows",
+      expect.objectContaining({
+        name: CACHE_INVALIDATION_FLOW_NAME,
+        status: "active",
+        trigger: "event",
+      }),
+    );
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/operations",
+      expect.objectContaining({
+        flow: "flow-123",
+        key: CACHE_INVALIDATION_OPERATION_KEY,
+        type: "request",
+      }),
+    );
+    expect(mockClient.patch).toHaveBeenCalledWith("/flows/flow-123", {
+      operation: "op-456",
+    });
+  });
+
+  it("should update operation and link flow when flow and operation already exist", async () => {
+    const mockClient = {
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/flows?filter[name][_eq]=")) {
+          return Promise.resolve({
+            data: {
+              data: [
+                { id: "flow-existing", name: CACHE_INVALIDATION_FLOW_NAME },
+              ],
+            },
+          });
+        }
+        if (url.includes("/operations?filter[flow][_eq]=")) {
+          return Promise.resolve({
+            data: {
+              data: [
+                {
+                  id: "op-existing",
+                  key: CACHE_INVALIDATION_OPERATION_KEY,
+                },
+              ],
+            },
+          });
+        }
+        if (url.includes("/flows/flow-existing")) {
+          return Promise.resolve({
+            data: { data: { id: "flow-existing", operation: "op-other" } },
+          });
+        }
+        return Promise.reject(new Error(`Unexpected GET url: ${url}`));
+      }),
+      post: vi.fn(),
+      patch: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    } as unknown as AxiosInstance;
+
+    await ensureWebhook(mockClient, dummyConfig);
+
+    expect(mockClient.post).not.toHaveBeenCalled();
+    expect(mockClient.patch).toHaveBeenCalledWith(
+      "/operations/op-existing",
+      expect.objectContaining({
+        options: expect.objectContaining({
+          headers: [{ header: "x-webhook-secret", value: "test-secret-456" }],
+        }),
+      }),
+    );
+    expect(mockClient.patch).toHaveBeenCalledWith("/flows/flow-existing", {
+      operation: "op-existing",
+    });
+  });
+
+  it("should catch and log error gracefully when request fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mockClient = {
+      get: vi.fn().mockRejectedValue(new Error("Network connection failed")),
+      post: vi.fn(),
+      patch: vi.fn(),
+    } as unknown as AxiosInstance;
+
+    await expect(ensureWebhook(mockClient, dummyConfig)).resolves.not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[SetupDirectus] Notice: could not automatically provision webhook:",
+      expect.stringContaining("Network connection failed"),
+    );
+    warnSpy.mockRestore();
   });
 });
