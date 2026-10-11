@@ -21,6 +21,17 @@ namespace NodeJS {
     USE_CONFIG_FILE?: string;
     CONFIG_PATH?: string;
     GOOGLE_APPLICATION_CREDENTIALS?: string;
+
+    // Directus Control Plane
+    DIRECTUS_URL?: string;
+    DIRECTUS_BOT_TOKEN?: string;
+    INTERNAL_WEBHOOK_SECRET?: string;
+    WEBHOOK_RECEIVER_URL?: string;
+    DIRECTUS_ADMIN_EMAIL?: string;
+    DIRECTUS_ADMIN_PASSWORD?: string;
+    ADMIN_EMAIL?: string;
+    ADMIN_PASSWORD?: string;
   }
 }
+
 
