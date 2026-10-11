@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import * as admin from "firebase-admin";
 import { Config, ConfigParameter } from "../../config";
+import type { IUserProfileRepository } from "../../domain/repositories/user-profile.repository";
+import { userProfileRepository } from "../../infrastructure/repositories";
 
 export interface IRoastOptOutStore {
   isOptedOut(guildId: string, userId: string): Promise<boolean>;
@@ -160,7 +162,7 @@ export class FirestoreRoastOptOutStore implements IRoastOptOutStore {
 
 export class DirectusRoastOptOutStore implements IRoastOptOutStore {
   constructor(
-    private userProfileRepo: import("../../domain/repositories/user-profile.repository").IUserProfileRepository = require("../../infrastructure/repositories").userProfileRepository,
+    private userProfileRepo: IUserProfileRepository = userProfileRepository,
   ) {}
 
   public async isOptedOut(guildId: string, userId: string): Promise<boolean> {
@@ -202,13 +204,7 @@ export function getRoastOptOutStore(): IRoastOptOutStore {
       // Config not initialized yet
     }
 
-    let selectedType = envType;
-    if (!selectedType && process.env.DIRECTUS_URL) {
-      selectedType = "directus";
-    }
-    if (!selectedType) {
-      selectedType = configType;
-    }
+    const selectedType = envType || configType;
 
     if (selectedType === "directus") {
       optOutStoreInstance = new DirectusRoastOptOutStore();

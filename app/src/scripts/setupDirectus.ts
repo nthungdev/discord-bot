@@ -1,13 +1,19 @@
 import axios, { type AxiosInstance } from "axios";
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || "http://localhost:8055";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@local.dev";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "adminpassword";
-const BOT_STATIC_TOKEN =
-  process.env.DIRECTUS_BOT_TOKEN ||
-  (process.env.NODE_ENV === "production" ? "" : "bot-dev-static-token-12345");
-if (!BOT_STATIC_TOKEN && process.env.NODE_ENV === "production") {
-  throw new Error("DIRECTUS_BOT_TOKEN must be specified in production");
+const ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL ||
+  process.env.DIRECTUS_ADMIN_EMAIL ||
+  "admin@local.dev";
+const ADMIN_PASSWORD =
+  process.env.ADMIN_PASSWORD ||
+  process.env.DIRECTUS_ADMIN_PASSWORD ||
+  "adminpassword";
+const BOT_STATIC_TOKEN = process.env.DIRECTUS_BOT_TOKEN;
+if (!BOT_STATIC_TOKEN) {
+  throw new Error(
+    "Missing required environment variable: DIRECTUS_BOT_TOKEN. Please set DIRECTUS_BOT_TOKEN before running setup.",
+  );
 }
 
 const COLLECTIONS = [

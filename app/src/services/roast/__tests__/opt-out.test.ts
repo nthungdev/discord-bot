@@ -108,4 +108,45 @@ describe("getRoastOptOutStore", () => {
       setRoastOptOutStore(null);
     }
   });
+
+  it("should instantiate DirectusRoastOptOutStore when MEMORY_STORE_TYPE is 'directus'", () => {
+    const prev = process.env.MEMORY_STORE_TYPE;
+    try {
+      process.env.MEMORY_STORE_TYPE = "directus";
+      setRoastOptOutStore(null);
+      const store = getRoastOptOutStore();
+      expect(store.constructor.name).toBe("DirectusRoastOptOutStore");
+    } finally {
+      if (prev !== undefined) {
+        process.env.MEMORY_STORE_TYPE = prev;
+      } else {
+        delete process.env.MEMORY_STORE_TYPE;
+      }
+      setRoastOptOutStore(null);
+    }
+  });
+
+  it("should not implicitly select Directus when only DIRECTUS_URL is set", () => {
+    const prevType = process.env.MEMORY_STORE_TYPE;
+    const prevUrl = process.env.DIRECTUS_URL;
+    try {
+      delete process.env.MEMORY_STORE_TYPE;
+      process.env.DIRECTUS_URL = "http://localhost:8055";
+      setRoastOptOutStore(null);
+      const store = getRoastOptOutStore();
+      expect(store).toBeInstanceOf(LocalFileRoastOptOutStore);
+    } finally {
+      if (prevType !== undefined) {
+        process.env.MEMORY_STORE_TYPE = prevType;
+      } else {
+        delete process.env.MEMORY_STORE_TYPE;
+      }
+      if (prevUrl !== undefined) {
+        process.env.DIRECTUS_URL = prevUrl;
+      } else {
+        delete process.env.DIRECTUS_URL;
+      }
+      setRoastOptOutStore(null);
+    }
+  });
 });
