@@ -1,19 +1,52 @@
 import axios, { type AxiosInstance } from "axios";
+import { config } from "dotenv";
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || "http://localhost:8055";
-const ADMIN_EMAIL =
-  process.env.ADMIN_EMAIL ||
-  process.env.DIRECTUS_ADMIN_EMAIL ||
-  "admin@local.dev";
-const ADMIN_PASSWORD =
-  process.env.ADMIN_PASSWORD ||
-  process.env.DIRECTUS_ADMIN_PASSWORD ||
-  "adminpassword";
-const BOT_STATIC_TOKEN = process.env.DIRECTUS_BOT_TOKEN;
-if (!BOT_STATIC_TOKEN) {
-  throw new Error(
-    "Missing required environment variable: DIRECTUS_BOT_TOKEN. Please set DIRECTUS_BOT_TOKEN before running setup.",
-  );
+config({
+  path:
+    process.env.NODE_ENV === "production"
+      ? ".env.production"
+      : ".env.development",
+});
+config();
+
+export interface DirectusSetupConfig {
+  directusUrl: string;
+  adminEmail: string;
+  adminPassword: string;
+  botStaticToken: string;
+  internalWebhookSecret: string;
+  webhookReceiverUrl: string;
+}
+
+export function resolveDirectusSetupConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): DirectusSetupConfig {
+  const directusUrl = env.DIRECTUS_URL || "http://localhost:8055";
+  const adminEmail =
+    env.ADMIN_EMAIL || env.DIRECTUS_ADMIN_EMAIL || "admin@local.dev";
+  const adminPassword =
+    env.ADMIN_PASSWORD || env.DIRECTUS_ADMIN_PASSWORD || "adminpassword";
+  const botStaticToken = env.DIRECTUS_BOT_TOKEN?.trim() || "";
+
+  if (!botStaticToken) {
+    throw new Error(
+      "Missing required environment variable: DIRECTUS_BOT_TOKEN. Please set DIRECTUS_BOT_TOKEN in app/.env.development or your environment before running setup.",
+    );
+  }
+
+  const internalWebhookSecret = env.INTERNAL_WEBHOOK_SECRET || "";
+  const webhookReceiverUrl =
+    env.WEBHOOK_RECEIVER_URL ||
+    "http://localhost:3001/api/v1/webhooks/cache-invalidate";
+
+  return {
+    directusUrl,
+    adminEmail,
+    adminPassword,
+    botStaticToken,
+    internalWebhookSecret,
+    webhookReceiverUrl,
+  };
 }
 
 const COLLECTIONS = [
@@ -227,14 +260,16 @@ const COLLECTIONS = [
   },
 ];
 
-async function authenticate(): Promise<AxiosInstance> {
-  const loginRes = await axios.post(`${DIRECTUS_URL}/auth/login`, {
-    email: ADMIN_EMAIL,
-    password: ADMIN_PASSWORD,
+async function authenticate(
+  config: DirectusSetupConfig,
+): Promise<AxiosInstance> {
+  const loginRes = await axios.post(`${config.directusUrl}/auth/login`, {
+    email: config.adminEmail,
+    password: config.adminPassword,
   });
   const token = loginRes.data.data.access_token;
   return axios.create({
-    baseURL: DIRECTUS_URL,
+    baseURL: config.directusUrl,
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -300,13 +335,11 @@ async function ensurePolicy(client: AxiosInstance): Promise<string> {
   return policyId;
 }
 
-const INTERNAL_WEBHOOK_SECRET = process.env.INTERNAL_WEBHOOK_SECRET || "";
-const WEBHOOK_RECEIVER_URL =
-  process.env.WEBHOOK_RECEIVER_URL ||
-  "http://localhost:3001/api/v1/webhooks/cache-invalidate";
-
-async function ensureWebhook(client: AxiosInstance) {
-  if (!INTERNAL_WEBHOOK_SECRET) {
+async function ensureWebhook(
+  client: AxiosInstance,
+  config: DirectusSetupConfig,
+) {
+  if (!config.internalWebhookSecret) {
     console.log(
       "[SetupDirectus] Notice: INTERNAL_WEBHOOK_SECRET is not configured. Skipping webhook provisioning.",
     );
@@ -321,7 +354,7 @@ async function ensureWebhook(client: AxiosInstance) {
       await client.post("/webhooks", {
         name: "bot-cache-invalidation",
         method: "POST",
-        url: WEBHOOK_RECEIVER_URL,
+        url: config.webhookReceiverUrl,
         status: "active",
         data: true,
         actions: ["create", "update", "delete"],
@@ -329,7 +362,7 @@ async function ensureWebhook(client: AxiosInstance) {
         headers: [
           {
             header: "x-webhook-secret",
-            value: INTERNAL_WEBHOOK_SECRET,
+            value: config.internalWebhookSecret,
           },
         ],
       });
@@ -376,7 +409,11 @@ async function ensureRoleAndAccess(
   return roleId;
 }
 
-async function ensureServiceUser(client: AxiosInstance, roleId: string) {
+async function ensureServiceUser(
+  client: AxiosInstance,
+  roleId: string,
+  botToken: string,
+) {
   const usersRes = await client.get(
     "/users?filter[email][_eq]=bot-service@local.dev",
   );
@@ -389,11 +426,11 @@ async function ensureServiceUser(client: AxiosInstance, roleId: string) {
       last_name: "Service",
       email: "bot-service@local.dev",
       role: roleId,
-      token: BOT_STATIC_TOKEN,
+      token: botToken,
       status: "active",
     });
   } else {
-    await client.patch(`/users/${userId}`, { token: BOT_STATIC_TOKEN });
+    await client.patch(`/users/${userId}`, { token: botToken });
   }
 }
 
@@ -414,22 +451,25 @@ async function ensurePresets(client: AxiosInstance) {
   }
 }
 
-async function main() {
-  console.log(`Connecting to Directus at ${DIRECTUS_URL}...`);
-  const client = await authenticate();
+export async function runDirectusSetup(): Promise<void> {
+  const setupConfig = resolveDirectusSetupConfig();
+  console.log(`Connecting to Directus at ${setupConfig.directusUrl}...`);
+  const client = await authenticate(setupConfig);
   console.log("Logged in as admin.");
 
   await ensureCollections(client);
   const policyId = await ensurePolicy(client);
   const roleId = await ensureRoleAndAccess(client, policyId);
-  await ensureServiceUser(client, roleId);
+  await ensureServiceUser(client, roleId, setupConfig.botStaticToken);
   await ensurePresets(client);
-  await ensureWebhook(client);
+  await ensureWebhook(client, setupConfig);
 
   console.log("Directus setup completed successfully!");
 }
 
-main().catch((err) => {
-  console.error("Setup failed:", err.response?.data || err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  runDirectusSetup().catch((err) => {
+    console.error("Setup failed:", err.response?.data || err.message);
+    process.exit(1);
+  });
+}
