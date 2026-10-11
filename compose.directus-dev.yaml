@@ -40,6 +40,8 @@ services:
     depends_on:
       postgres-dev:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - directus_dev_uploads:/directus/uploads
 

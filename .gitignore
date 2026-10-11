@@ -8,3 +8,7 @@ coverage
 
 # agents
 .agents/plugins
+
+# environment files
+.env*
+!.env*.example

@@ -163,9 +163,22 @@ pnpm --prefix app docker-dev
 pnpm --prefix app docker-prod
 ```
 
+### Directus Control Plane
+```bash
+# Start local Directus & PostgreSQL stack
+docker compose -f compose.directus-dev.yaml up -d
+
+# Provision Directus collections, RBAC policies, service user, and webhooks
+pnpm --prefix app directus:setup
+
+# Stop local Directus stack
+docker compose -f compose.directus-dev.yaml down
+```
+
 ---
 
 ## 4. Coding Standards & Architectural Guidelines
+
 
 ### TypeScript & Code Quality Standards
 
