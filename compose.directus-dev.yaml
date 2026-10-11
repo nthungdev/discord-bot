@@ -19,7 +19,7 @@ services:
       retries: 5
 
   directus-dev:
-    image: directus/directus:latest
+    image: directus/directus:12.5.0
     container_name: discord-bot-directus-dev
     ports:
       - "8055:8055"
