@@ -87,6 +87,62 @@ export interface MatchmakingCapabilityConfig {
   autoMovePlayers?: boolean;
 }
 
+export interface ValorantFeaturesConfig {
+  compare?: {
+    enabled?: boolean;
+  };
+  statsSummary?: {
+    enabled?: boolean;
+    defaultPeriod?: "recent_20" | "current_act" | "all_time";
+  };
+  autoRecap?: {
+    enabled?: boolean;
+    channelId?: string;
+    minTierAlert?: number;
+    sportscasterBanter?: boolean;
+  };
+  liveScouting?: {
+    enabled?: boolean;
+    channelId?: string;
+    alertOnGameStart?: boolean;
+  };
+  rankRoleSync?: {
+    enabled?: boolean;
+    roleMappings?: Record<string, string>;
+  };
+  tiltProtection?: {
+    enabled?: boolean;
+    consecutiveLossesThreshold?: number;
+    nightOwlHourStart?: number;
+    nightOwlHourEnd?: number;
+    dmAlert?: boolean;
+  };
+}
+
+export interface ValorantCapabilityConfig {
+  enabled?: boolean;
+  features?: ValorantFeaturesConfig;
+}
+
+/**
+ * Evaluates whether a specific Valorant sub-feature is active for a guild.
+ */
+export function isValorantFeatureEnabled(
+  guildConfig: BotGuildConfig | undefined,
+  feature: keyof ValorantFeaturesConfig,
+): boolean {
+  if (guildConfig?.valorant?.enabled === false) {
+    return false;
+  }
+  const features = guildConfig?.valorant?.features;
+  const subFeature = features?.[feature] as { enabled?: boolean } | undefined;
+  if (subFeature?.enabled !== undefined) {
+    return subFeature.enabled;
+  }
+  // rankRoleSync is disabled by default; other features are enabled by default
+  return feature !== "rankRoleSync";
+}
+
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
@@ -104,6 +160,7 @@ export interface BotGuildConfig {
   moderation?: ModerationCapabilityConfig;
   voiceBouncer?: VoiceBouncerCapabilityConfig;
   matchmaking?: MatchmakingCapabilityConfig;
+  valorant?: ValorantCapabilityConfig;
 }
 
 export interface BotGuildsConfig {

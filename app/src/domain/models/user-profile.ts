@@ -3,4 +3,8 @@ export interface UserProfile {
   optOutRoast: boolean;
   optedOutGuildIds?: string[];
   reputationScore: number;
+  riotId?: string;
+  riotRegion?: string;
+  riotPuuid?: string;
+  lastKnownMatchId?: string;
 }

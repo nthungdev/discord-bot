@@ -6,6 +6,23 @@ import {
 import type { IGuildConfigRepository } from "../../domain/repositories/guild-config.repository";
 import { directusClient } from "./client";
 
+function mapRawToGuildConfig(
+  raw: import("./types").DirectusGuildConfigRaw,
+): GuildConfig {
+  return {
+    guildId: raw.guild_id,
+    guildName: raw.guild_name ?? undefined,
+    enableAiRoast: raw.enable_ai_roast ?? true,
+    enableBouncergon: raw.enable_bouncergon ?? false,
+    defaultLocale: raw.default_locale === "en" ? "en" : "vi",
+    maxRoastsPerDay: raw.max_roasts_per_day ?? 10,
+    allowedChannelIds: new Set<string>(raw.allowed_channel_ids || []),
+    scmsVoiceChannelId: raw.scms_voice_channel_id ?? undefined,
+    valorantEnabled: raw.valorant_enabled ?? true,
+    valorantFeatures: raw.valorant_features ?? undefined,
+  };
+}
+
 export class DirectusGuildConfigRepository implements IGuildConfigRepository {
   private cache = new Map<string, { config: GuildConfig; expiresAt: number }>();
   private idToGuildMap = new Map<string, string>();
@@ -45,16 +62,7 @@ export class DirectusGuildConfigRepository implements IGuildConfigRepository {
       if (raw.id) {
         this.idToGuildMap.set(String(raw.id), raw.guild_id);
       }
-      const config: GuildConfig = {
-        guildId: raw.guild_id,
-        guildName: raw.guild_name ?? undefined,
-        enableAiRoast: raw.enable_ai_roast ?? true,
-        enableBouncergon: raw.enable_bouncergon ?? false,
-        defaultLocale: raw.default_locale === "en" ? "en" : "vi",
-        maxRoastsPerDay: raw.max_roasts_per_day ?? 10,
-        allowedChannelIds: new Set<string>(raw.allowed_channel_ids || []),
-        scmsVoiceChannelId: raw.scms_voice_channel_id ?? undefined,
-      };
+      const config = mapRawToGuildConfig(raw);
 
       this.cache.set(guildId, {
         config,

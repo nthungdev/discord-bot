@@ -27,6 +27,14 @@ vi.mock("discord.js", async () => {
   };
 });
 
+vi.mock("../utils", async () => {
+  const actual = await vi.importActual<typeof import("../utils")>("../utils");
+  return {
+    ...actual,
+    getWordleAnswers: vi.fn().mockResolvedValue([]),
+  };
+});
+
 describe("PoliceBot", () => {
   const botConfig = {
     id: "policeBot",

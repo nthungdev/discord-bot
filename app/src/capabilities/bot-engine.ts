@@ -20,6 +20,7 @@ import { MatchmakingCapability } from "./matchmaking-capability";
 import { ModerationCapability } from "./moderation-capability";
 import { RoleCapability } from "./role-capability";
 import type { IBotCapability } from "./types";
+import { ValorantCapability } from "./valorant-capability";
 import { VoiceBouncerCapability } from "./voice-bouncer-capability";
 
 /**
@@ -70,6 +71,7 @@ export class DiscordBotEngine {
     this.registerCapability(new ChatCapability());
     this.registerCapability(new VoiceBouncerCapability());
     this.registerCapability(new MatchmakingCapability());
+    this.registerCapability(new ValorantCapability());
   }
 
   /**
@@ -200,6 +202,7 @@ export class DiscordBotEngine {
       capabilities: (() => {
         let isVoiceBouncerEnabled = false;
         let isMatchmakingEnabled = false;
+        let isValorantEnabled = true;
         try {
           const botsConfig = Config.getInstance().getConfigValue(
             ConfigParameter.bots,
@@ -211,6 +214,9 @@ export class DiscordBotEngine {
           );
           isMatchmakingEnabled = guildList.some(
             (g) => g.matchmaking?.enabled === true,
+          );
+          isValorantEnabled = guildList.some(
+            (g) => g.valorant?.enabled !== false,
           );
         } catch {
           // Ignore uninitialized config in unit tests
@@ -224,6 +230,8 @@ export class DiscordBotEngine {
             isEnabled = isMatchmakingEnabled;
           } else if (cap.id === "moderation") {
             isEnabled = process.env.ENABLE_POLICE_CAPABILITY === "true";
+          } else if (cap.id === "valorant") {
+            isEnabled = isValorantEnabled;
           }
           return {
             id: cap.id,

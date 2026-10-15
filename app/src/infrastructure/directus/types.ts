@@ -8,6 +8,10 @@ export interface DirectusGuildConfigRaw {
   max_roasts_per_day?: number | null;
   allowed_channel_ids?: string[] | null;
   scms_voice_channel_id?: string | null;
+  valorant_enabled?: boolean | null;
+  valorant_features?:
+    | import("../../config/types").ValorantFeaturesConfig
+    | null;
 }
 
 export interface DirectusRoastPresetRaw {
@@ -37,6 +41,10 @@ export interface DirectusUserProfileRaw {
   opt_out_roast?: boolean | null;
   opted_out_guild_ids?: string[] | null;
   reputation_score?: number | null;
+  riot_id?: string | null;
+  riot_region?: string | null;
+  riot_puuid?: string | null;
+  last_known_match_id?: string | null;
 }
 
 export interface DirectusSchema {

@@ -14,3 +14,6 @@ coverage
 # environment files
 .env*
 !.env*.example
+
+# demo captures
+demos/

@@ -160,24 +160,175 @@ export class DirectusUserProfileRepository implements IUserProfileRepository {
       );
 
       if (!items || items.length === 0) {
-        return null;
+        return this.inMemoryFallback.get(userId) ?? null;
       }
 
       const raw = items[0];
-      return {
+      const profile: UserProfile = {
         userId: raw.user_id,
         optOutRoast: Boolean(raw.opt_out_roast),
         optedOutGuildIds: Array.isArray(raw.opted_out_guild_ids)
           ? raw.opted_out_guild_ids
           : [],
         reputationScore: raw.reputation_score ?? 1000,
+        riotId: raw.riot_id ?? undefined,
+        riotRegion: raw.riot_region ?? undefined,
+        riotPuuid: raw.riot_puuid ?? undefined,
+        lastKnownMatchId: raw.last_known_match_id ?? undefined,
       };
+      this.inMemoryFallback.set(userId, profile);
+      return profile;
     } catch (error) {
       console.warn(
         `[UserProfileRepo] Failed to fetch profile for user ${userId}:`,
         error,
       );
+      return this.inMemoryFallback.get(userId) ?? null;
+    }
+  }
+
+  private inMemoryFallback = new Map<string, UserProfile>();
+
+  async linkRiotAccount(
+    userId: string,
+    riotId: string,
+    region: string,
+    puuid: string,
+  ): Promise<void> {
+    const existing = (await this.getProfile(userId)) ?? {
+      userId,
+      optOutRoast: false,
+      reputationScore: 1000,
+    };
+
+    const updated: UserProfile = {
+      ...existing,
+      riotId,
+      riotRegion: region,
+      riotPuuid: puuid,
+    };
+    this.inMemoryFallback.set(userId, updated);
+
+    try {
+      const items = await directusClient.request(
+        readItems("bot_user_profiles", {
+          filter: { user_id: { _eq: userId } },
+          limit: 1,
+        }),
+      );
+
+      const profileId = items?.[0]?.id;
+      const payload = {
+        riot_id: riotId,
+        riot_region: region,
+        riot_puuid: puuid,
+      };
+
+      if (profileId) {
+        await directusClient.request(
+          updateItem("bot_user_profiles", profileId, payload),
+        );
+      } else {
+        await directusClient.request(
+          createItem("bot_user_profiles", {
+            user_id: userId,
+            reputation_score: 1000,
+            opt_out_roast: false,
+            ...payload,
+          }),
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `[UserProfileRepo] Failed to save Riot link to Directus for ${userId}, stored in memory:`,
+        error,
+      );
+    }
+  }
+
+  async unlinkRiotAccount(userId: string): Promise<void> {
+    const existing = await this.getProfile(userId);
+    if (existing) {
+      existing.riotId = undefined;
+      existing.riotRegion = undefined;
+      existing.riotPuuid = undefined;
+      existing.lastKnownMatchId = undefined;
+      this.inMemoryFallback.set(userId, existing);
+    }
+
+    try {
+      const items = await directusClient.request(
+        readItems("bot_user_profiles", {
+          filter: { user_id: { _eq: userId } },
+          limit: 1,
+        }),
+      );
+
+      const profileId = items?.[0]?.id;
+      if (profileId) {
+        await directusClient.request(
+          updateItem("bot_user_profiles", profileId, {
+            riot_id: null,
+            riot_region: null,
+            riot_puuid: null,
+            last_known_match_id: null,
+          }),
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `[UserProfileRepo] Failed to unlink Riot account in Directus for ${userId}:`,
+        error,
+      );
+    }
+  }
+
+  async getRiotProfile(userId: string): Promise<{
+    riotId: string;
+    region: string;
+    puuid: string;
+    lastKnownMatchId?: string;
+  } | null> {
+    const profile = await this.getProfile(userId);
+    if (!(profile?.riotId && profile.riotRegion && profile.riotPuuid)) {
       return null;
+    }
+    return {
+      riotId: profile.riotId,
+      region: profile.riotRegion,
+      puuid: profile.riotPuuid,
+      lastKnownMatchId: profile.lastKnownMatchId,
+    };
+  }
+
+  async setLastKnownMatchId(userId: string, matchId: string): Promise<void> {
+    const profile = await this.getProfile(userId);
+    if (profile) {
+      profile.lastKnownMatchId = matchId;
+      this.inMemoryFallback.set(userId, profile);
+    }
+
+    try {
+      const items = await directusClient.request(
+        readItems("bot_user_profiles", {
+          filter: { user_id: { _eq: userId } },
+          limit: 1,
+        }),
+      );
+
+      const profileId = items?.[0]?.id;
+      if (profileId) {
+        await directusClient.request(
+          updateItem("bot_user_profiles", profileId, {
+            last_known_match_id: matchId,
+          }),
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `[UserProfileRepo] Failed to update lastKnownMatchId for ${userId}:`,
+        error,
+      );
     }
   }
 }
