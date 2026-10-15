@@ -207,7 +207,6 @@ export class DirectusUserProfileRepository implements IUserProfileRepository {
       riotRegion: region,
       riotPuuid: puuid,
     };
-    this.inMemoryFallback.set(userId, updated);
 
     try {
       const items = await directusClient.request(
@@ -238,23 +237,18 @@ export class DirectusUserProfileRepository implements IUserProfileRepository {
           }),
         );
       }
+      this.inMemoryFallback.set(userId, updated);
     } catch (error) {
-      console.warn(
-        `[UserProfileRepo] Failed to save Riot link to Directus for ${userId}, stored in memory:`,
+      console.error(
+        `[UserProfileRepo] Failed to save Riot link to Directus for ${userId}:`,
         error,
       );
+      throw error;
     }
   }
 
   async unlinkRiotAccount(userId: string): Promise<void> {
     const existing = await this.getProfile(userId);
-    if (existing) {
-      existing.riotId = undefined;
-      existing.riotRegion = undefined;
-      existing.riotPuuid = undefined;
-      existing.lastKnownMatchId = undefined;
-      this.inMemoryFallback.set(userId, existing);
-    }
 
     try {
       const items = await directusClient.request(
@@ -275,11 +269,19 @@ export class DirectusUserProfileRepository implements IUserProfileRepository {
           }),
         );
       }
+      if (existing) {
+        existing.riotId = undefined;
+        existing.riotRegion = undefined;
+        existing.riotPuuid = undefined;
+        existing.lastKnownMatchId = undefined;
+        this.inMemoryFallback.set(userId, existing);
+      }
     } catch (error) {
-      console.warn(
+      console.error(
         `[UserProfileRepo] Failed to unlink Riot account in Directus for ${userId}:`,
         error,
       );
+      throw error;
     }
   }
 
@@ -303,10 +305,6 @@ export class DirectusUserProfileRepository implements IUserProfileRepository {
 
   async setLastKnownMatchId(userId: string, matchId: string): Promise<void> {
     const profile = await this.getProfile(userId);
-    if (profile) {
-      profile.lastKnownMatchId = matchId;
-      this.inMemoryFallback.set(userId, profile);
-    }
 
     try {
       const items = await directusClient.request(
@@ -324,11 +322,16 @@ export class DirectusUserProfileRepository implements IUserProfileRepository {
           }),
         );
       }
+      if (profile) {
+        profile.lastKnownMatchId = matchId;
+        this.inMemoryFallback.set(userId, profile);
+      }
     } catch (error) {
-      console.warn(
+      console.error(
         `[UserProfileRepo] Failed to update lastKnownMatchId for ${userId}:`,
         error,
       );
+      throw error;
     }
   }
 }

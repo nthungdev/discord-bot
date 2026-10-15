@@ -4,6 +4,7 @@ import type {
   HenrikLiveMatchData,
   HenrikMatch,
   HenrikMmrData,
+  HenrikMmrHistoryItem,
 } from "./types";
 
 export const HENRIK_API_BASE_URL = "https://api.henrikdev.xyz";
@@ -81,6 +82,16 @@ export class RiotClientAdapter {
   }
 
   /**
+   * Checks whether mock mode is enabled for development or testing.
+   */
+  public isMockModeEnabled(): boolean {
+    return (
+      process.env.VALORANT_MOCK_MODE === "true" ||
+      process.env.NODE_ENV === "test"
+    );
+  }
+
+  /**
    * Clears the in-memory cache.
    */
   public clearCache(): void {
@@ -100,12 +111,48 @@ export class RiotClientAdapter {
     );
   }
 
+  private handleAccountError(
+    err: unknown,
+    name: string,
+    tag: string,
+  ): HenrikAccountData {
+    if (!axios.isAxiosError(err)) {
+      throw new RiotApiError(`Failed to fetch account for ${name}#${tag}`);
+    }
+    const status = err.response?.status;
+    if (status === 404) {
+      throw new RiotAccountNotFoundError(name, tag);
+    }
+    if (status === 401 || status === 403) {
+      if (this.isMockModeEnabled()) {
+        return this.generateMockAccount(name, tag);
+      }
+      console.error(
+        `[RiotClientAdapter] HenrikDev API authentication failed (${status}): ${err.message}`,
+      );
+      throw new RiotApiError(
+        "HenrikDev API credentials were rejected. Please check HENRIK_API_KEY.",
+        status,
+      );
+    }
+    throw new RiotApiError(
+      `Failed to fetch account for ${name}#${tag}`,
+      status,
+    );
+  }
+
   private async fetchRemoteAccount(
     name: string,
     tag: string,
   ): Promise<HenrikAccountData> {
     if (!this.apiKey) {
-      return this.generateMockAccount(name, tag);
+      if (this.isMockModeEnabled()) {
+        return this.generateMockAccount(name, tag);
+      }
+      throw new RiotApiError(
+        "HenrikDev API key is not configured. Set HENRIK_API_KEY or enable VALORANT_MOCK_MODE=true for testing.",
+        401,
+      );
     }
 
     try {
@@ -121,16 +168,7 @@ export class RiotClientAdapter {
       }
       throw new RiotAccountNotFoundError(name, tag);
     } catch (err: unknown) {
-      if (!axios.isAxiosError(err)) {
-        throw new RiotApiError(`Failed to fetch account for ${name}#${tag}`);
-      }
-      if (err.response?.status === 404) {
-        throw new RiotAccountNotFoundError(name, tag);
-      }
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        return this.generateMockAccount(name, tag);
-      }
-      throw new RiotApiError(`Failed to fetch account for ${name}#${tag}`);
+      return this.handleAccountError(err, name, tag);
     }
   }
 
@@ -144,12 +182,31 @@ export class RiotClientAdapter {
     );
   }
 
+  private handleMmrError(err: unknown, puuid: string): HenrikMmrData {
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      if (status === 401 || status === 403) {
+        if (this.isMockModeEnabled()) {
+          return this.generateMockMmr();
+        }
+        throw new RiotApiError(
+          "HenrikDev API credentials were rejected.",
+          status,
+        );
+      }
+    }
+    throw new RiotApiError(`Failed to fetch MMR for PUUID ${puuid}`);
+  }
+
   private async fetchRemoteMmr(
     region: string,
     puuid: string,
   ): Promise<HenrikMmrData> {
     if (!this.apiKey) {
-      return this.generateMockMmr();
+      if (this.isMockModeEnabled()) {
+        return this.generateMockMmr();
+      }
+      throw new RiotApiError("HenrikDev API key is not configured.", 401);
     }
 
     try {
@@ -161,15 +218,12 @@ export class RiotClientAdapter {
       if (resp.status === 200 && resp.data?.data) {
         return resp.data.data;
       }
-      return this.generateMockMmr();
-    } catch (err: unknown) {
-      if (
-        axios.isAxiosError(err) &&
-        (err.response?.status === 401 || err.response?.status === 403)
-      ) {
+      if (this.isMockModeEnabled()) {
         return this.generateMockMmr();
       }
       throw new RiotApiError(`Failed to fetch MMR for PUUID ${puuid}`);
+    } catch (err: unknown) {
+      return this.handleMmrError(err, puuid);
     }
   }
 
@@ -188,6 +242,26 @@ export class RiotClientAdapter {
     );
   }
 
+  private handleMatchesError(
+    err: unknown,
+    puuid: string,
+    size: number,
+  ): HenrikMatch[] {
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      if (status === 401 || status === 403) {
+        if (this.isMockModeEnabled()) {
+          return this.generateMockMatches(puuid, size);
+        }
+        throw new RiotApiError(
+          "HenrikDev API credentials were rejected.",
+          status,
+        );
+      }
+    }
+    throw new RiotApiError(`Failed to fetch matches for PUUID ${puuid}`);
+  }
+
   private async fetchRemoteMatches(
     region: string,
     puuid: string,
@@ -195,7 +269,10 @@ export class RiotClientAdapter {
     mode: string,
   ): Promise<HenrikMatch[]> {
     if (!this.apiKey) {
-      return this.generateMockMatches(puuid, size);
+      if (this.isMockModeEnabled()) {
+        return this.generateMockMatches(puuid, size);
+      }
+      throw new RiotApiError("HenrikDev API key is not configured.", 401);
     }
 
     try {
@@ -209,15 +286,58 @@ export class RiotClientAdapter {
       if (resp.status === 200 && Array.isArray(resp.data?.data)) {
         return resp.data.data;
       }
-      return this.generateMockMatches(puuid, size);
+      if (this.isMockModeEnabled()) {
+        return this.generateMockMatches(puuid, size);
+      }
+      return [];
+    } catch (err: unknown) {
+      return this.handleMatchesError(err, puuid, size);
+    }
+  }
+
+  /**
+   * Fetches rating history from HenrikDev MMR history endpoint.
+   */
+  public async getMmrHistory(
+    region: string,
+    puuid: string,
+  ): Promise<HenrikMmrHistoryItem[]> {
+    const cacheKey = `mmr-history:${region}:${puuid}`;
+    return this.getOrSetCache(cacheKey, DEFAULT_MATCH_CACHE_TTL_MS, () =>
+      this.fetchRemoteMmrHistory(region, puuid),
+    );
+  }
+
+  private async fetchRemoteMmrHistory(
+    region: string,
+    puuid: string,
+  ): Promise<HenrikMmrHistoryItem[]> {
+    if (!this.apiKey) {
+      if (this.isMockModeEnabled()) {
+        return this.generateMockMmrHistory();
+      }
+      return [];
+    }
+
+    try {
+      const resp = await this.httpClient.get<{
+        status: number;
+        data: HenrikMmrHistoryItem[];
+      }>(`/valorant/v1/by-puuid/mmr-history/${region}/${puuid}`);
+
+      if (resp.status === 200 && Array.isArray(resp.data?.data)) {
+        return resp.data.data;
+      }
+      return [];
     } catch (err: unknown) {
       if (
         axios.isAxiosError(err) &&
-        (err.response?.status === 401 || err.response?.status === 403)
+        (err.response?.status === 401 || err.response?.status === 403) &&
+        this.isMockModeEnabled()
       ) {
-        return this.generateMockMatches(puuid, size);
+        return this.generateMockMmrHistory();
       }
-      throw new RiotApiError(`Failed to fetch matches for PUUID ${puuid}`);
+      return [];
     }
   }
 
@@ -234,12 +354,34 @@ export class RiotClientAdapter {
     );
   }
 
+  private handleLiveMatchError(err: unknown): HenrikLiveMatchData | null {
+    if (!axios.isAxiosError(err)) {
+      throw new RiotApiError(
+        "Live scouting request failed due to unexpected error.",
+      );
+    }
+    const status = err.response?.status;
+    if (status === 404) {
+      return null;
+    }
+    if ((status === 401 || status === 403) && this.isMockModeEnabled()) {
+      return this.generateMockLiveMatch();
+    }
+    console.warn(
+      `[RiotClientAdapter] Live scouting request failed (${status ?? "network"}): ${err.message}`,
+    );
+    throw new RiotApiError(`Live scouting API error: ${err.message}`, status);
+  }
+
   private async fetchRemoteLiveMatch(
     region: string,
     puuid: string,
   ): Promise<HenrikLiveMatchData | null> {
     if (!this.apiKey) {
-      return this.generateMockLiveMatch();
+      if (this.isMockModeEnabled()) {
+        return this.generateMockLiveMatch();
+      }
+      throw new RiotApiError("HenrikDev API key is not configured.", 401);
     }
 
     try {
@@ -252,8 +394,8 @@ export class RiotClientAdapter {
         return resp.data.data;
       }
       return null;
-    } catch (_err: unknown) {
-      return null;
+    } catch (err: unknown) {
+      return this.handleLiveMatchError(err);
     }
   }
 
@@ -293,6 +435,31 @@ export class RiotClientAdapter {
         season: "e9a2",
       },
     };
+  }
+
+  private generateMockMmrHistory(): HenrikMmrHistoryItem[] {
+    return [
+      {
+        match_id: "mock-match-1",
+        currenttier: 23,
+        currenttierpatched: "Ascendant 3",
+        ranking_in_tier: 68,
+        mmr_change_to_last_game: 18,
+        elo: 1868,
+        date: "2026-10-15T12:00:00Z",
+        date_raw: Math.floor(Date.now() / 1000) - 3600,
+      },
+      {
+        match_id: "mock-match-2",
+        currenttier: 23,
+        currenttierpatched: "Ascendant 3",
+        ranking_in_tier: 50,
+        mmr_change_to_last_game: -16,
+        elo: 1850,
+        date: "2026-10-15T10:00:00Z",
+        date_raw: Math.floor(Date.now() / 1000) - 7200,
+      },
+    ];
   }
 
   private generateMockMatches(puuid: string, count: number): HenrikMatch[] {

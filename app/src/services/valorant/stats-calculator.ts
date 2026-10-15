@@ -28,7 +28,8 @@ interface RawCombatAccumulator {
   totalDamage: number;
   totalRounds: number;
   firstBloods: number;
-  netRrDelta: number;
+  firstDeaths: number;
+  netRrDelta: number | null;
 }
 
 interface AgentStats {
@@ -58,10 +59,8 @@ function processSingleMatch(
 
   if (hasWon) {
     acc.wins++;
-    acc.netRrDelta += 18;
   } else {
     acc.losses++;
-    acc.netRrDelta -= 16;
   }
 
   acc.totalRounds += match.metadata.rounds_played || 1;
@@ -116,11 +115,22 @@ function recordFirstBloods(
   acc: RawCombatAccumulator,
 ): void {
   for (const round of match.rounds ?? []) {
-    const roundPlayerStats = round.player_stats.find(
-      (ps) => ps.player_puuid === puuid,
-    );
-    if (roundPlayerStats && roundPlayerStats.kills >= 1) {
-      acc.firstBloods++;
+    const events =
+      round.kill_events ??
+      round.player_stats.flatMap((ps) => ps.kill_events ?? []);
+    if (events.length > 0) {
+      const sorted = [...events].sort(
+        (a, b) =>
+          (a.kill_time_in_round ?? a.kill_time_in_match ?? 0) -
+          (b.kill_time_in_round ?? b.kill_time_in_match ?? 0),
+      );
+      const openingKill = sorted[0];
+      if (openingKill.killer_puuid === puuid) {
+        acc.firstBloods++;
+      }
+      if (openingKill.victim_puuid === puuid) {
+        acc.firstDeaths++;
+      }
     }
   }
 }
@@ -168,6 +178,7 @@ export function aggregatePersonalSummary(
   mmr: HenrikMmrData,
   matches: HenrikMatch[],
   period: "recent_20" | "current_act" | "all_time" = "recent_20",
+  realNetRrDelta: number | null = null,
 ): ValorantPersonalSummary {
   const acc: RawCombatAccumulator = {
     wins: 0,
@@ -182,7 +193,8 @@ export function aggregatePersonalSummary(
     totalDamage: 0,
     totalRounds: 0,
     firstBloods: 0,
-    netRrDelta: 0,
+    firstDeaths: 0,
+    netRrDelta: realNetRrDelta,
   };
 
   const agentMap = new Map<string, AgentStats>();
@@ -190,6 +202,7 @@ export function aggregatePersonalSummary(
 
   for (const match of matches) {
     processSingleMatch(puuid, match, acc, agentMap, mapStatsMap);
+    recordFirstBloods(puuid, match, acc);
   }
 
   const evaluated = matches.length;
@@ -213,6 +226,8 @@ export function aggregatePersonalSummary(
 
   const firstBloodsPerMatch =
     evaluated > 0 ? roundTo2(acc.firstBloods / evaluated) : 0;
+  const firstDeathsPerMatch =
+    evaluated > 0 ? roundTo2(acc.firstDeaths / evaluated) : 0;
 
   const topAgents = extractTopAgents(agentMap);
   const mapStats = extractMapStats(mapStatsMap);
@@ -234,7 +249,7 @@ export function aggregatePersonalSummary(
     wins: acc.wins,
     losses: acc.losses,
     winRatePct,
-    netRrDelta: acc.netRrDelta,
+    netRrDelta: realNetRrDelta,
     kdRatio,
     totalKills: acc.totalKills,
     totalDeaths: acc.totalDeaths,
@@ -245,15 +260,11 @@ export function aggregatePersonalSummary(
     avgCombatScore,
     avgDamagePerRound,
     firstBloodsPerMatch,
-    firstDeathsPerMatch: 0,
+    firstDeathsPerMatch,
     clutchStats: {
-      v1: { won: 0, total: 0, winRate: Math.min(65, Math.round(kdRatio * 35)) },
-      v2: { won: 0, total: 0, winRate: Math.min(45, Math.round(kdRatio * 20)) },
-      v3Plus: {
-        won: 0,
-        total: 0,
-        winRate: Math.min(25, Math.round(kdRatio * 10)),
-      },
+      v1: { won: 0, total: 0, winRate: 0 },
+      v2: { won: 0, total: 0, winRate: 0 },
+      v3Plus: { won: 0, total: 0, winRate: 0 },
     },
     topAgents,
     mapStats,
@@ -307,16 +318,37 @@ function determineTiltAlert(fatigueRiskScore: number): {
   };
 }
 
-/**
- * Evaluates session fatigue, loss streaks, and tilt risk factors.
- */
-export function calculateFatigueRisk(
-  userId: string,
-  riotId: string,
+const REGION_UTC_OFFSETS: Record<string, number> = {
+  ap: 8,
+  kr: 9,
+  eu: 1,
+  na: -5,
+  latam: -4,
+  br: -3,
+};
+
+function resolvePlayerLocalHour(
+  matches: HenrikMatch[],
+  region: string,
+  providedHour?: number,
+): number | undefined {
+  if (providedHour !== undefined) {
+    return providedHour;
+  }
+  const gameStart = matches[0]?.metadata?.game_start;
+  if (!gameStart) {
+    return undefined;
+  }
+  const ms = gameStart < 1e11 ? gameStart * 1000 : gameStart;
+  const offset = REGION_UTC_OFFSETS[region.toLowerCase()] ?? 0;
+  const utcHour = new Date(ms).getUTCHours();
+  return (utcHour + offset + 24) % 24;
+}
+
+function analyzeMatchHistorySession(
   matches: HenrikMatch[],
   playerPuuid: string,
-  currentHour = new Date().getHours(),
-): ValorantHealthData {
+): { consecutiveLosses: number; sessionMatchCount: number } {
   let consecutiveLosses = 0;
   let hasLossStreakEnded = false;
   const sixHoursAgo = Date.now() - 6 * 3_600_000;
@@ -344,8 +376,29 @@ export function calculateFatigueRisk(
     }
   }
 
+  return { consecutiveLosses, sessionMatchCount };
+}
+
+/**
+ * Evaluates session fatigue, loss streaks, and tilt risk factors.
+ */
+export function calculateFatigueRisk(
+  userId: string,
+  riotId: string,
+  matches: HenrikMatch[],
+  playerPuuid: string,
+  currentHour?: number,
+  region = "ap",
+): ValorantHealthData {
+  const { consecutiveLosses, sessionMatchCount } = analyzeMatchHistorySession(
+    matches,
+    playerPuuid,
+  );
+
+  const effectiveHour = resolvePlayerLocalHour(matches, region, currentHour);
   const sessionDurationHours = roundTo2((sessionMatchCount * 35) / 60);
-  const isNightOwl = currentHour >= 1 && currentHour <= 5;
+  const isNightOwl =
+    effectiveHour !== undefined && effectiveHour >= 1 && effectiveHour <= 5;
 
   let fatigueRiskScore = 15;
   fatigueRiskScore += consecutiveLosses * 20;

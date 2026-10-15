@@ -16,7 +16,7 @@ export interface ValorantPersonalSummary {
   wins: number;
   losses: number;
   winRatePct: number;
-  netRrDelta: number;
+  netRrDelta?: number | null;
   kdRatio: number;
   totalKills: number;
   totalDeaths: number;
@@ -29,9 +29,9 @@ export interface ValorantPersonalSummary {
   firstBloodsPerMatch: number;
   firstDeathsPerMatch: number;
   clutchStats: {
-    v1: { won: number; total: number; winRate: number };
-    v2: { won: number; total: number; winRate: number };
-    v3Plus: { won: number; total: number; winRate: number };
+    v1: { won: number; total: number; attempts?: number; winRate: number };
+    v2: { won: number; total: number; attempts?: number; winRate: number };
+    v3Plus: { won: number; total: number; attempts?: number; winRate: number };
   };
   topAgents: {
     agentName: string;
@@ -144,6 +144,17 @@ export interface HenrikPlayerStats {
   legshots: number;
 }
 
+export interface HenrikMmrHistoryItem {
+  match_id?: string;
+  currenttier: number;
+  currenttierpatched: string;
+  ranking_in_tier: number;
+  mmr_change_to_last_game: number;
+  elo: number;
+  date: string;
+  date_raw: number;
+}
+
 export interface HenrikPlayer {
   puuid: string;
   name: string;
@@ -164,6 +175,13 @@ export interface HenrikTeam {
   rounds_lost: number;
 }
 
+export interface HenrikKillEvent {
+  kill_time_in_round?: number;
+  kill_time_in_match?: number;
+  killer_puuid: string;
+  victim_puuid: string;
+}
+
 export interface HenrikRoundPlayerStats {
   player_puuid: string;
   kills: number;
@@ -171,12 +189,14 @@ export interface HenrikRoundPlayerStats {
   headshots?: number;
   bodyshots?: number;
   legshots?: number;
+  kill_events?: HenrikKillEvent[];
 }
 
 export interface HenrikRound {
   winning_team: "Red" | "Blue" | string;
   end_type: string;
   player_stats: HenrikRoundPlayerStats[];
+  kill_events?: HenrikKillEvent[];
 }
 
 export interface HenrikMatch {

@@ -39,9 +39,25 @@ export function getRankColor(tier: number): number {
 }
 
 /**
+ * Clamps text to ensure it does not exceed Discord's 1024-character field limit.
+ */
+export function clampFieldText(text: string, maxLength = 1024): string {
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
+/**
  * Formats signed metric delta with emoji indicator.
  */
-export function formatDelta(delta: number, suffix = ""): string {
+export function formatDelta(
+  delta: number | null | undefined,
+  suffix = "",
+): string {
+  if (delta === null || delta === undefined || Number.isNaN(delta)) {
+    return "N/A";
+  }
   if (delta > 0) return `📈 +${delta}${suffix}`;
   if (delta < 0) return `📉 ${delta}${suffix}`;
   return `⚖️ 0${suffix}`;
@@ -77,7 +93,21 @@ export class ValorantCardBuilder {
         },
         {
           name: "🏆 Rating & Clutches",
-          value: `**Win Rate**: ${summary.winRatePct}% (${summary.wins}W - ${summary.losses}L)\n**Net RR**: ${formatDelta(summary.netRrDelta, " RR")}\n**1v1 Clutch**: ${summary.clutchStats.v1.winRate}%\n**1v2 Clutch**: ${summary.clutchStats.v2.winRate}%`,
+          value: `**Win Rate**: ${summary.winRatePct}% (${summary.wins}W - ${summary.losses}L)\n**Net RR**: ${
+            summary.netRrDelta !== null && summary.netRrDelta !== undefined
+              ? formatDelta(summary.netRrDelta, " RR")
+              : "N/A"
+          }\n**1v1 Clutch**: ${
+            (summary.clutchStats.v1.attempts ?? summary.clutchStats.v1.total) >
+            0
+              ? `${summary.clutchStats.v1.winRate}%`
+              : "N/A"
+          }\n**1v2 Clutch**: ${
+            (summary.clutchStats.v2.attempts ?? summary.clutchStats.v2.total) >
+            0
+              ? `${summary.clutchStats.v2.winRate}%`
+              : "N/A"
+          }`,
           inline: true,
         },
         {
@@ -88,9 +118,10 @@ export class ValorantCardBuilder {
       );
 
     if (summary.aiCoachVerdict) {
+      const coachText = `🌟 **Strength**: ${summary.aiCoachVerdict.strength}\n⚠️ **Weakness**: ${summary.aiCoachVerdict.weakness}\n💡 **Coach Drill**: ${summary.aiCoachVerdict.actionableTip}`;
       embed.addFields({
         name: "🧠 AI Performance Coach",
-        value: `🌟 **Strength**: ${summary.aiCoachVerdict.strength}\n⚠️ **Weakness**: ${summary.aiCoachVerdict.weakness}\n💡 **Coach Drill**: ${summary.aiCoachVerdict.actionableTip}`,
+        value: clampFieldText(coachText, 1024),
         inline: false,
       });
     }
@@ -134,7 +165,7 @@ export class ValorantCardBuilder {
     if (aiVerdict) {
       embed.addFields({
         name: "🎙️ Sportscaster Verdict",
-        value: aiVerdict.verdict,
+        value: clampFieldText(aiVerdict.verdict, 1024),
         inline: false,
       });
     }
@@ -259,9 +290,9 @@ export class ValorantCardBuilder {
   ): EmbedBuilder {
     const embed = new EmbedBuilder()
       .setColor(0x22c55e)
-      .setTitle("✅ Riot Account Linked Successfully!")
+      .setTitle("✅ Riot Player Associated (Unverified)")
       .setDescription(
-        `Your Discord account is now linked to **${account.name}#${account.tag}**.`,
+        `Your Discord account is now associated with **${account.name}#${account.tag}** for stats tracking.\n\n⚠️ *Notice: This is an unverified player association for stat tracking only. Full in-game verification challenge will be supported in an upcoming release.*`,
       )
       .addFields(
         { name: "Region", value: region.toUpperCase(), inline: true },
@@ -277,7 +308,7 @@ export class ValorantCardBuilder {
         },
       )
       .setFooter({
-        text: "You can now use /val stats, /val compare, and /val live!",
+        text: "Unverified player tracking • Run /val stats to inspect performance",
       });
 
     if (account.card?.small) {

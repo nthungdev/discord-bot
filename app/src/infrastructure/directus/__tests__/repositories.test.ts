@@ -67,6 +67,20 @@ describe("Directus Repositories", () => {
       expect(config.enableAiRoast).toBe(DEFAULT_GUILD_CONFIG.enableAiRoast);
       expect(config.defaultLocale).toBe(DEFAULT_GUILD_CONFIG.defaultLocale);
     });
+
+    it("should update valorant config in Directus and invalidate cache", async () => {
+      const mockRequest = vi
+        .spyOn(directusClient, "request")
+        .mockResolvedValueOnce([{ id: "cfg-1", guild_id: "guild-val" }]) // read existing
+        .mockResolvedValueOnce({}); // update
+
+      const repo = new DirectusGuildConfigRepository();
+      await repo.updateValorantConfig("guild-val", true, {
+        compare: { enabled: true },
+      });
+
+      expect(mockRequest).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("DirectusRoastPresetRepository", () => {
@@ -159,6 +173,24 @@ describe("Directus Repositories", () => {
       await expect(repo.isOptedOut("user-error")).rejects.toThrow(
         "Service unavailable",
       );
+    });
+
+    it("should persist linkRiotAccount to Directus and rethrow on error", async () => {
+      const mockRequest = vi
+        .spyOn(directusClient, "request")
+        .mockResolvedValueOnce([{ id: "prof-1", user_id: "user-riot" }]) // getProfile
+        .mockResolvedValueOnce([{ id: "prof-1", user_id: "user-riot" }]) // link query
+        .mockResolvedValueOnce({}); // link update
+
+      const repo = new DirectusUserProfileRepository();
+      await repo.linkRiotAccount("user-riot", "TenZ#NA1", "na", "puuid-123");
+      expect(mockRequest).toHaveBeenCalledTimes(3);
+
+      // Verify failure rethrow
+      mockRequest.mockRejectedValue(new Error("Directus write failed"));
+      await expect(
+        repo.linkRiotAccount("user-fail", "Fail#NA1", "na", "puuid-fail"),
+      ).rejects.toThrow("Directus write failed");
     });
   });
 

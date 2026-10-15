@@ -1,4 +1,4 @@
-import { readItems } from "@directus/sdk";
+import { createItem, readItems, updateItem } from "@directus/sdk";
 import {
   DEFAULT_GUILD_CONFIG,
   type GuildConfig,
@@ -76,6 +76,51 @@ export class DirectusGuildConfigRepository implements IGuildConfigRepository {
         error,
       );
       return cached?.config ?? { ...DEFAULT_GUILD_CONFIG, guildId };
+    }
+  }
+
+  async updateValorantConfig(
+    guildId: string,
+    valorantEnabled: boolean,
+    valorantFeatures?: import("../../config/types").ValorantFeaturesConfig,
+  ): Promise<void> {
+    try {
+      const items = await directusClient.request(
+        readItems("bot_guild_configs", {
+          filter: { guild_id: { _eq: guildId } },
+          limit: 1,
+        }),
+      );
+
+      const existing = items?.[0];
+      const payload = {
+        valorant_enabled: valorantEnabled,
+        valorant_features: valorantFeatures ?? {},
+      };
+
+      if (existing?.id) {
+        await directusClient.request(
+          updateItem("bot_guild_configs", existing.id, payload),
+        );
+      } else {
+        await directusClient.request(
+          createItem("bot_guild_configs", {
+            guild_id: guildId,
+            enable_ai_roast: true,
+            enable_bouncergon: false,
+            default_locale: "vi",
+            max_roasts_per_day: 10,
+            ...payload,
+          }),
+        );
+      }
+      this.invalidate(guildId);
+    } catch (error) {
+      console.error(
+        `[GuildConfigRepo] Failed to persist Valorant config to Directus for guild ${guildId}:`,
+        error,
+      );
+      throw error;
     }
   }
 

@@ -10,6 +10,7 @@ import type {
   ValorantFeaturesConfig,
 } from "../../../config/types";
 import { isValorantFeatureEnabled } from "../../../config/types";
+import { guildConfigRepository } from "../../../infrastructure/repositories";
 import { ValorantCardBuilder } from "../../../services/valorant/card-builder";
 import {
   getValorantService,
@@ -102,7 +103,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName("link")
-      .setDescription("Link your Discord account to a Riot ID")
+      .setDescription(
+        "Associate your Discord account with a Riot Games ID (unverified tracking)",
+      )
       .addStringOption((opt) =>
         opt
           .setName("riot_id")
@@ -348,7 +351,18 @@ async function handleHealthSubcommand(
   }
 
   const targetUser = interaction.options.getUser("user") ?? interaction.user;
-  await interaction.deferReply();
+
+  // Protect player privacy: health and fatigue analysis is restricted to the invoking user
+  if (targetUser.id !== interaction.user.id) {
+    await interaction.reply({
+      content:
+        "❌ For player privacy, aim fatigue and tilt health analysis is private to each player and cannot be viewed for other users.",
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
 
   try {
     const service = getValorantService();
@@ -358,7 +372,7 @@ async function handleHealthSubcommand(
   } catch (err: unknown) {
     if (err instanceof UserNotLinkedError) {
       await interaction.editReply({
-        content: `⚠️ <@${targetUser.id}> has not linked their Riot account yet. Run \`/val link\` to connect.`,
+        content: `⚠️ You have not linked your Riot account yet. Run \`/val link\` to connect.`,
       });
       return;
     }
@@ -433,16 +447,15 @@ async function handleConfigSubcommand(
     return;
   }
 
-  // Update in-memory configuration
-  const botsConfig = Config.getInstance().getConfigValue(
-    ConfigParameter.bots,
-  ) as BotsConfig;
-  const currentGuildConfig = botsConfig?.chatBot?.guilds?.[guildId] ??
-    guildConfig ?? {
-      replyChannelIds: [],
-      ignoredChannelIds: [],
-      respondToMentions: false,
-    };
+  // Clone authoritative configuration to avoid mutating read-only state
+  const currentGuildConfig: BotGuildConfig = structuredClone(
+    Config.getInstance().getBotGuildConfig("chatBot", guildId) ??
+      guildConfig ?? {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: false,
+      },
+  );
 
   if (!currentGuildConfig.valorant) {
     currentGuildConfig.valorant = { enabled: true, features: {} };
@@ -459,6 +472,23 @@ async function handleConfigSubcommand(
       enabled,
       ...(channel ? { channelId: channel.id } : {}),
     };
+  }
+
+  // Update in-memory configuration
+  Config.getInstance().updateBotGuildConfig(guildId, currentGuildConfig);
+
+  // Persist to Directus so configuration survives restarts
+  try {
+    await guildConfigRepository.updateValorantConfig?.(
+      guildId,
+      currentGuildConfig.valorant.enabled ?? true,
+      currentGuildConfig.valorant.features,
+    );
+  } catch (err) {
+    console.warn(
+      `[ValCommand] Failed to persist Valorant config to Directus for guild ${guildId}:`,
+      err,
+    );
   }
 
   await interaction.reply({
@@ -485,6 +515,31 @@ export async function execute(
       guildConfig = botsConfig?.chatBot?.guilds?.[guildId];
     } catch {
       // Ignore if config not fully loaded
+    }
+
+    try {
+      const directusConfig = await guildConfigRepository.getConfig(guildId);
+      if (directusConfig) {
+        guildConfig = {
+          replyChannelIds: guildConfig?.replyChannelIds ?? [],
+          ignoredChannelIds: guildConfig?.ignoredChannelIds ?? [],
+          respondToMentions: guildConfig?.respondToMentions ?? false,
+          ...guildConfig,
+          valorant: {
+            ...guildConfig?.valorant,
+            enabled:
+              directusConfig.valorantEnabled !== undefined
+                ? directusConfig.valorantEnabled
+                : (guildConfig?.valorant?.enabled ?? true),
+            features: {
+              ...guildConfig?.valorant?.features,
+              ...directusConfig.valorantFeatures,
+            },
+          },
+        };
+      }
+    } catch {
+      // Ignore Directus errors
     }
   }
 

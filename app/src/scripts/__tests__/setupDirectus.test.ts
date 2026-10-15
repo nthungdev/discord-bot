@@ -6,6 +6,7 @@ import {
   CACHE_INVALIDATION_FLOW_SCOPES,
   CACHE_INVALIDATION_OPERATION_KEY,
   CACHE_INVALIDATION_OPERATION_NAME,
+  ensureCollections,
   ensureWebhook,
   resolveDirectusSetupConfig,
 } from "../setupDirectus";
@@ -344,5 +345,104 @@ describe("ensureWebhook", () => {
       expect.stringContaining("Network connection failed"),
     );
     warnSpy.mockRestore();
+  });
+});
+
+describe("ensureCollections", () => {
+  it("should create collections that do not exist", async () => {
+    const mockClient = {
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url === "/collections") {
+          return Promise.resolve({ data: { data: [] } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      }),
+      post: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    } as unknown as AxiosInstance;
+
+    await ensureCollections(mockClient);
+
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/collections",
+      expect.objectContaining({ collection: "bot_guild_configs" }),
+    );
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/collections",
+      expect.objectContaining({ collection: "bot_user_profiles" }),
+    );
+  });
+
+  it("should synchronize missing fields for collections that already exist", async () => {
+    const mockClient = {
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url === "/collections") {
+          return Promise.resolve({
+            data: {
+              data: [
+                { collection: "bot_guild_configs" },
+                { collection: "bot_roast_presets" },
+                { collection: "bot_roast_logs" },
+                { collection: "bot_match_logs" },
+                { collection: "bot_user_profiles" },
+              ],
+            },
+          });
+        }
+        if (url === "/fields/bot_guild_configs") {
+          // Existing collection lacks valorant_enabled and valorant_features
+          return Promise.resolve({
+            data: {
+              data: [
+                { field: "id" },
+                { field: "guild_id" },
+                { field: "enable_ai_roast" },
+              ],
+            },
+          });
+        }
+        if (url === "/fields/bot_user_profiles") {
+          // Existing collection lacks riot fields
+          return Promise.resolve({
+            data: {
+              data: [
+                { field: "id" },
+                { field: "user_id" },
+                { field: "opt_out_roast" },
+              ],
+            },
+          });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      }),
+      post: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    } as unknown as AxiosInstance;
+
+    await ensureCollections(mockClient);
+
+    // Should NOT call post /collections because they already exist
+    expect(mockClient.post).not.toHaveBeenCalledWith(
+      "/collections",
+      expect.anything(),
+    );
+
+    // Should call post /fields/bot_guild_configs for missing fields
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/fields/bot_guild_configs",
+      expect.objectContaining({ field: "valorant_enabled" }),
+    );
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/fields/bot_guild_configs",
+      expect.objectContaining({ field: "valorant_features" }),
+    );
+
+    // Should call post /fields/bot_user_profiles for missing fields
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/fields/bot_user_profiles",
+      expect.objectContaining({ field: "riot_id" }),
+    );
+    expect(mockClient.post).toHaveBeenCalledWith(
+      "/fields/bot_user_profiles",
+      expect.objectContaining({ field: "riot_puuid" }),
+    );
   });
 });

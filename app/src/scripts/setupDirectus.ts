@@ -3,27 +3,33 @@ import path from "node:path";
 import axios, { type AxiosInstance } from "axios";
 import { config } from "dotenv";
 
-// 1. Load app environment file (.env.production / .env.development)
-config({
-  path:
-    process.env.NODE_ENV === "production"
-      ? ".env.production"
-      : ".env.development",
-});
-config();
+// 1. Load app environment file (.env.production / .env.development) when not in test
+if (process.env.NODE_ENV !== "test") {
+  config({
+    path:
+      process.env.NODE_ENV === "production"
+        ? ".env.production"
+        : ".env.development",
+  });
+  config();
 
-// 2. Load root-level .env or .env.directus as fallback so custom stack ports/credentials match
-const rootEnvPath = path.resolve(process.cwd(), "..", ".env");
-if (fs.existsSync(rootEnvPath)) {
-  config({ path: rootEnvPath });
-}
-const localRootEnvPath = path.resolve(process.cwd(), ".env");
-if (fs.existsSync(localRootEnvPath)) {
-  config({ path: localRootEnvPath });
-}
-const rootDirectusEnvPath = path.resolve(process.cwd(), "..", ".env.directus");
-if (fs.existsSync(rootDirectusEnvPath)) {
-  config({ path: rootDirectusEnvPath });
+  // 2. Load root-level .env or .env.directus as fallback so custom stack ports/credentials match
+  const rootEnvPath = path.resolve(process.cwd(), "..", ".env");
+  if (fs.existsSync(rootEnvPath)) {
+    config({ path: rootEnvPath });
+  }
+  const localRootEnvPath = path.resolve(process.cwd(), ".env");
+  if (fs.existsSync(localRootEnvPath)) {
+    config({ path: localRootEnvPath });
+  }
+  const rootDirectusEnvPath = path.resolve(
+    process.cwd(),
+    "..",
+    ".env.directus",
+  );
+  if (fs.existsSync(rootDirectusEnvPath)) {
+    config({ path: rootDirectusEnvPath });
+  }
 }
 
 export interface DirectusSetupConfig {
@@ -128,6 +134,17 @@ const COLLECTIONS = [
         field: "scms_voice_channel_id",
         type: "string",
         meta: { interface: "input" },
+      },
+      {
+        field: "valorant_enabled",
+        type: "boolean",
+        schema: { default_value: true },
+        meta: { interface: "boolean" },
+      },
+      {
+        field: "valorant_features",
+        type: "json",
+        meta: { interface: "input-code", options: { language: "json" } },
       },
     ],
   },
@@ -279,6 +296,26 @@ const COLLECTIONS = [
         schema: { default_value: 1000 },
         meta: { interface: "input" },
       },
+      {
+        field: "riot_id",
+        type: "string",
+        meta: { interface: "input" },
+      },
+      {
+        field: "riot_region",
+        type: "string",
+        meta: { interface: "input" },
+      },
+      {
+        field: "riot_puuid",
+        type: "string",
+        meta: { interface: "input" },
+      },
+      {
+        field: "last_known_match_id",
+        type: "string",
+        meta: { interface: "input" },
+      },
     ],
   },
 ];
@@ -297,7 +334,33 @@ async function authenticate(
   });
 }
 
-async function ensureCollections(client: AxiosInstance) {
+async function ensureCollectionFields(
+  client: AxiosInstance,
+  collection: string,
+  fields: Array<{ field: string }>,
+): Promise<void> {
+  try {
+    const fieldsRes = await client.get(`/fields/${collection}`);
+    const existingFieldNames = new Set(
+      (fieldsRes.data?.data || []).map((f: { field: string }) => f.field),
+    );
+    for (const field of fields) {
+      if (!existingFieldNames.has(field.field)) {
+        console.log(
+          `Adding missing field ${field.field} to collection ${collection}...`,
+        );
+        await client.post(`/fields/${collection}`, field);
+      }
+    }
+  } catch (err: unknown) {
+    console.warn(
+      `[SetupDirectus] Notice: could not synchronize fields for collection ${collection}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+export async function ensureCollections(client: AxiosInstance): Promise<void> {
   const res = await client.get("/collections");
   const existingNames = new Set(
     res.data.data.map((c: { collection: string }) => c.collection),
@@ -307,6 +370,8 @@ async function ensureCollections(client: AxiosInstance) {
     if (!existingNames.has(col.collection)) {
       console.log(`Creating collection ${col.collection}...`);
       await client.post("/collections", col);
+    } else {
+      await ensureCollectionFields(client, col.collection, col.fields);
     }
   }
 }

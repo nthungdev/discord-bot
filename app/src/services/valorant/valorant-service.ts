@@ -126,18 +126,45 @@ export class ValorantService {
     }
 
     const { name, tag } = parseRiotId(linked.riotId);
-    const [account, mmr, matches] = await Promise.all([
+    const fetchSize = period === "all_time" ? 50 : 20;
+    const [account, mmr, rawMatches, mmrHistory] = await Promise.all([
       this.riotAdapter.getAccount(name, tag),
       this.riotAdapter.getMmr(linked.region, linked.puuid),
-      this.riotAdapter.getMatches(linked.region, linked.puuid, 20, mode),
+      this.riotAdapter.getMatches(linked.region, linked.puuid, fetchSize, mode),
+      this.riotAdapter
+        .getMmrHistory(linked.region, linked.puuid)
+        .catch(() => []),
     ]);
+
+    let filteredMatches = rawMatches;
+    if (period === "current_act" && rawMatches.length > 0) {
+      const currentSeasonId = rawMatches[0].metadata?.season_id;
+      if (currentSeasonId) {
+        filteredMatches = rawMatches.filter(
+          (m) => m.metadata?.season_id === currentSeasonId,
+        );
+      }
+    } else if (period === "recent_20") {
+      filteredMatches = rawMatches.slice(0, 20);
+    }
+
+    let realNetRrDelta: number | null = null;
+    if (mmrHistory.length > 0) {
+      const matchWindowSize = filteredMatches.length;
+      const relevantHistory = mmrHistory.slice(0, matchWindowSize);
+      realNetRrDelta = relevantHistory.reduce(
+        (sum, item) => sum + (item.mmr_change_to_last_game || 0),
+        0,
+      );
+    }
 
     const summary = aggregatePersonalSummary(
       linked.puuid,
       account,
       mmr,
-      matches,
+      filteredMatches,
       period,
+      realNetRrDelta,
     );
 
     summary.aiCoachVerdict =
@@ -242,7 +269,14 @@ export class ValorantService {
       linked.puuid,
       15,
     );
-    return calculateFatigueRisk(userId, linked.riotId, matches, linked.puuid);
+    return calculateFatigueRisk(
+      userId,
+      linked.riotId,
+      matches,
+      linked.puuid,
+      undefined,
+      linked.region,
+    );
   }
 }
 

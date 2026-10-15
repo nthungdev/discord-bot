@@ -1,10 +1,14 @@
 import type { ChatInputCommandInteraction } from "discord.js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BotsConfig } from "../../../../config/types";
+import { directusClient } from "../../../../infrastructure/directus/client";
 import { execute as executeRiot } from "../riot";
 import { data, execute } from "../val";
 
 describe("/val slash command", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   it("should have correct command metadata and subcommands", () => {
     expect(data.name).toBe("val");
     const json = data.toJSON();
@@ -59,6 +63,7 @@ describe("/val slash command", () => {
   });
 
   it("should handle /val link successfully", async () => {
+    vi.spyOn(directusClient, "request").mockResolvedValue([]);
     const mockInteraction = {
       user: { id: "user-123" },
       options: {
@@ -83,7 +88,33 @@ describe("/val slash command", () => {
     });
   });
 
+  it("should report failure when Directus persistence fails during /val link", async () => {
+    vi.spyOn(directusClient, "request").mockRejectedValue(
+      new Error("Database connection refused"),
+    );
+    const mockInteraction = {
+      user: { id: "user-err" },
+      options: {
+        getSubcommand: vi.fn().mockReturnValue("link"),
+        getString: vi.fn().mockImplementation((key: string) => {
+          if (key === "riot_id") return "TenZ#NA1";
+          if (key === "region") return "na";
+          return null;
+        }),
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockInteraction.editReply).toHaveBeenCalledWith({
+      content: expect.stringContaining("Failed to link Riot account"),
+    });
+  });
+
   it("should handle /riot link successfully", async () => {
+    vi.spyOn(directusClient, "request").mockResolvedValue([]);
     const mockInteraction = {
       user: { id: "user-123" },
       options: {
@@ -105,6 +136,25 @@ describe("/val slash command", () => {
     });
     expect(mockInteraction.editReply).toHaveBeenCalledWith({
       embeds: [expect.any(Object)],
+    });
+  });
+
+  it("should restrict /val health to invoking user and reject inspecting other users", async () => {
+    const mockInteraction = {
+      guildId: "guild-1",
+      user: { id: "user-invoker" },
+      options: {
+        getSubcommand: vi.fn().mockReturnValue("health"),
+        getUser: vi.fn().mockReturnValue({ id: "user-other" }),
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockInteraction.reply).toHaveBeenCalledWith({
+      content: expect.stringContaining("player privacy"),
+      ephemeral: true,
     });
   });
 

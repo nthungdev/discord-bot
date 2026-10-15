@@ -45,7 +45,7 @@ Player: ${summary.gameName}#${summary.tagLine}
 Rank: ${summary.currentRank} (${summary.currentRR} RR) | Peak: ${summary.peakRank}
 KD: ${summary.kdRatio} | HS%: ${summary.headshotPct}% | ACS: ${summary.avgCombatScore} | ADR: ${summary.avgDamagePerRound}
 First Bloods/Match: ${summary.firstBloodsPerMatch} | First Deaths/Match: ${summary.firstDeathsPerMatch}
-Win Rate: ${summary.winRatePct}% (Net RR: ${summary.netRrDelta >= 0 ? "+" : ""}${summary.netRrDelta} RR)
+Win Rate: ${summary.winRatePct}% (${summary.netRrDelta != null ? `Net RR: ${summary.netRrDelta >= 0 ? "+" : ""}${summary.netRrDelta} RR` : "Net RR: N/A"})
 Top Agents: ${summary.topAgents.map((a) => `${a.agentName} (${a.winRate}%)`).join(", ") || "None"}
 Best Map: ${summary.mapStats.bestMap.name} (${summary.mapStats.bestMap.winRate}%) | Worst Map: ${summary.mapStats.worstMap.name} (${summary.mapStats.worstMap.winRate}%)
 

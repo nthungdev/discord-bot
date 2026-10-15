@@ -15,7 +15,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName("link")
-      .setDescription("Link your Discord account to your Riot Games ID")
+      .setDescription(
+        "Associate your Discord account with a Riot Games ID (unverified tracking)",
+      )
       .addStringOption((opt) =>
         opt
           .setName("riot_id")
