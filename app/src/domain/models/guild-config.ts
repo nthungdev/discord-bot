@@ -7,6 +7,8 @@ export interface GuildConfig {
   maxRoastsPerDay: number;
   allowedChannelIds: Set<string>;
   scmsVoiceChannelId?: string;
+  valorantEnabled?: boolean;
+  valorantFeatures?: import("../../config/types").ValorantFeaturesConfig;
 }
 
 export const DEFAULT_GUILD_CONFIG: GuildConfig = {
@@ -16,4 +18,5 @@ export const DEFAULT_GUILD_CONFIG: GuildConfig = {
   defaultLocale: "vi",
   maxRoastsPerDay: 10,
   allowedChannelIds: new Set<string>(),
+  valorantEnabled: true,
 };

@@ -4,4 +4,5 @@ export * from "./matchmaking-capability";
 export * from "./moderation-capability";
 export * from "./role-capability";
 export * from "./types";
+export * from "./valorant-capability";
 export * from "./voice-bouncer-capability";
