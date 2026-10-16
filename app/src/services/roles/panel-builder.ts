@@ -287,7 +287,7 @@ export async function generateWittyWelcomeGreeting(
       : `Thành viên mới ${member.displayName} (username: ${member.user.username}) vừa tham gia ${member.guild.name}. Họ là thành viên thứ #${member.guild.memberCount}. Hãy chào đón họ thật hài hước, duyên dáng!`;
 
     const genAi = getGenAi({
-      apiKey: process.env.AI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
       guildId: member.guild.id,
       systemInstruction,
     });

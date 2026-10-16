@@ -48,7 +48,11 @@ export const DEFAULT_EMPTY_CHANNEL_GRACE_SECONDS = 60;
 export const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
 
 // Gemini Live configuration
-export const DEFAULT_GEMINI_LIVE_MODEL = "gemini-2.0-flash-exp";
+export const DEFAULT_GEMINI_LIVE_MODEL = "gemini-3.8-live";
+export const SUPPORTED_GEMINI_LIVE_MODELS = ["gemini-3.8-live"] as const;
+export type SupportedGeminiLiveModel =
+  (typeof SUPPORTED_GEMINI_LIVE_MODELS)[number];
+
 export const DEFAULT_VOICE_NAME = "Aoede";
 export const SUPPORTED_GEMINI_VOICES = [
   "Puck",

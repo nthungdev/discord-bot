@@ -2,7 +2,10 @@
  * Type definitions for Voice Companion audio processing and streaming sessions.
  */
 
-import type { SupportedGeminiVoice } from "./constants";
+import type {
+  SupportedGeminiLiveModel,
+  SupportedGeminiVoice,
+} from "./constants";
 
 export type VoiceParticipationMode =
   | "ambient"
@@ -63,7 +66,7 @@ export interface VoiceSessionStats {
 export interface VoiceCompanionSessionConfig {
   readonly guildId: string;
   readonly channelId: string;
-  readonly modelId?: string;
+  readonly modelId?: SupportedGeminiLiveModel;
   readonly voiceName?: SupportedGeminiVoice;
   readonly systemInstruction?: string;
   readonly participationMode?: VoiceParticipationMode;

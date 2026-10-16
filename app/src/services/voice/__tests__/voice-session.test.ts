@@ -13,12 +13,16 @@ const mockAudioPlayer = {
   state: { status: "idle" },
 };
 
+const mockSpeaking = Object.assign(new EventEmitter(), {
+  users: new Map<string, number>(),
+});
+
 const mockVoiceConnection = {
   subscribe: vi.fn(),
   destroy: vi.fn(),
   on: vi.fn(),
   receiver: {
-    speaking: { on: vi.fn() },
+    speaking: mockSpeaking,
     subscribe: vi.fn(),
   },
 };
@@ -27,6 +31,7 @@ vi.mock("@discordjs/voice", () => ({
   joinVoiceChannel: vi.fn(() => mockVoiceConnection),
   createAudioPlayer: vi.fn(() => mockAudioPlayer),
   createAudioResource: vi.fn(() => ({})),
+  entersState: vi.fn().mockResolvedValue(undefined),
   AudioPlayerStatus: {
     Idle: "idle",
     Playing: "playing",
@@ -169,6 +174,13 @@ describe("VoiceSession", () => {
     session.triggerInstantBargeIn("user-1");
     expect(session.getJitterBuffer()).toBeNull();
 
+    // In-flight audio chunks from the interrupted turn are suppressed
+    mockLiveSession.emit("audio", Buffer.alloc(960, 25));
+    expect(session.getJitterBuffer()).toBeNull();
+
+    // Model confirms interruption or finishes turn
+    mockLiveSession.emit("interrupted");
+
     // Turn 2 arrives
     mockLiveSession.emit("audio", Buffer.alloc(960, 30));
     const secondJitter = session.getJitterBuffer();
@@ -191,5 +203,54 @@ describe("VoiceSession", () => {
 
     session.registerMember(newMember as unknown as GuildMember);
     expect(session.getStats().activeSpeakersCount).toBe(1);
+  });
+
+  it("should destroy session when liveSession emits close event", async () => {
+    const session = new VoiceSession(
+      { guildId: "guild-1", channelId: "channel-1" },
+      mockLiveSession,
+    );
+    await session.start(mockGuild, mockChannel);
+    expect(session.getStats().status).toBe("ACTIVE");
+
+    mockLiveSession.emit("close", 1000, "Normal closure");
+    expect(session.getStats().status).toBe("DISCONNECTED");
+  });
+
+  it("should immediately clean up speaker stream and ignore frames when user opts out", async () => {
+    const session = new VoiceSession(
+      { guildId: "guild-1", channelId: "channel-1" },
+      mockLiveSession,
+    );
+    await session.start(mockGuild, mockChannel);
+
+    session.setOptOut("user-alice", true);
+    expect(session.getStats().status).toBe("ACTIVE");
+
+    // handleSpeakerStart should ignore opted out user
+    session.handleSpeakerStart("user-alice");
+    expect(mockVoiceConnection.receiver.subscribe).not.toHaveBeenCalledWith(
+      "user-alice",
+      expect.anything(),
+    );
+  });
+
+  it("should configure addressed_only mode with specialized system instruction", async () => {
+    const session = new VoiceSession(
+      {
+        guildId: "guild-1",
+        channelId: "channel-1",
+        participationMode: "addressed_only",
+        systemInstruction: "Base prompt.",
+      },
+      mockLiveSession,
+    );
+    await session.start(mockGuild, mockChannel);
+
+    expect(mockLiveSession.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        systemInstruction: expect.stringContaining("addressed_only"),
+      }),
+    );
   });
 });

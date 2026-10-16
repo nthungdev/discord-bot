@@ -11,6 +11,7 @@ import {
   type Tool,
 } from "@google/genai";
 import { getToolRegistry } from "../../../tools/registry";
+import { resolveProviderApiKey } from "../../../utils/genAi";
 import { DEFAULT_GEMINI_LIVE_MODEL, DEFAULT_VOICE_NAME } from "../constants";
 import { buildFunctionDeclarations, executeToolCalls } from "./tool-bridge";
 import type {
@@ -23,7 +24,8 @@ import type {
 
 interface LiveSessionHandle {
   sendRealtimeInput(params: {
-    mediaChunks: { data: string; mimeType: string }[];
+    audio?: { data: string; mimeType: string };
+    media?: { data: string; mimeType: string };
   }): void;
   sendClientContent(params: {
     turns?: unknown[];
@@ -46,8 +48,7 @@ export class GeminiLiveSession
    */
   public async connect(config: StreamingSessionConfig): Promise<void> {
     this.currentConfig = config;
-    const apiKey =
-      config.apiKey || process.env.GEMINI_API_KEY || this.resolveGlobalApiKey();
+    const apiKey = config.apiKey || this.resolveGlobalApiKey();
 
     if (!apiKey) {
       throw new Error(
@@ -147,12 +148,10 @@ export class GeminiLiveSession
 
     const base64Audio = pcmChunk16kMono.toString("base64");
     this.session.sendRealtimeInput({
-      mediaChunks: [
-        {
-          data: base64Audio,
-          mimeType: "audio/pcm;rate=16000",
-        },
-      ],
+      audio: {
+        data: base64Audio,
+        mimeType: "audio/pcm;rate=16000",
+      },
     });
   }
 
@@ -300,6 +299,6 @@ export class GeminiLiveSession
   }
 
   private resolveGlobalApiKey(): string | undefined {
-    return process.env.GEMINI_API_KEY;
+    return resolveProviderApiKey("gemini");
   }
 }

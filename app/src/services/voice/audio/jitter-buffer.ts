@@ -26,6 +26,7 @@ export class OutboundJitterBuffer extends Readable {
   private isPreBuffering = true;
   private isPurged = false;
   private isFinished = false;
+  private hasEnded = false;
 
   constructor(options: JitterBufferOptions = {}) {
     super({ highWaterMark: DISCORD_FRAME_BYTES * 10 });
@@ -45,7 +46,12 @@ export class OutboundJitterBuffer extends Readable {
    * Pushes raw 24kHz mono PCM audio received from the AI model into the jitter buffer.
    */
   public pushModelAudio(chunk24kMono: Buffer): void {
-    if (this.isPurged || !chunk24kMono || chunk24kMono.length === 0) {
+    if (
+      this.isPurged ||
+      this.isEnded() ||
+      !chunk24kMono ||
+      chunk24kMono.length === 0
+    ) {
       return;
     }
 
@@ -114,6 +120,7 @@ export class OutboundJitterBuffer extends Readable {
     this.partialRemainder = Buffer.alloc(0);
     this.isPreBuffering = true;
     this.isFinished = false;
+    this.hasEnded = false;
     this.emit("purged");
   }
 
@@ -126,6 +133,14 @@ export class OutboundJitterBuffer extends Readable {
     this.partialRemainder = Buffer.alloc(0);
     this.isPreBuffering = true;
     this.isFinished = false;
+    this.hasEnded = false;
+  }
+
+  /**
+   * Returns whether this stream has ended (EOF sent), is destroyed, or purged.
+   */
+  public isEnded(): boolean {
+    return this.hasEnded || this.readableEnded || this.destroyed;
   }
 
   /**
@@ -149,7 +164,10 @@ export class OutboundJitterBuffer extends Readable {
         this.push(frame);
       }
     } else if (this.isFinished) {
-      this.push(null);
+      if (!this.hasEnded) {
+        this.hasEnded = true;
+        this.push(null);
+      }
     }
   }
 }

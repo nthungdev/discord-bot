@@ -152,7 +152,7 @@ async function executePoliceGeneration(
     : guildConfig?.systemInstruction;
 
   const genAi = getGenAi({
-    apiKey: process.env.AI_API_KEY,
+    apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
     guildId: message.guildId,
     systemInstruction,
   });
@@ -504,7 +504,7 @@ ${censoredMessage
       : guildConfig?.systemInstruction;
 
     const genAi = getGenAi({
-      apiKey: process.env.AI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
       guildId: guild.id,
       systemInstruction,
       membersInstruction: " ",

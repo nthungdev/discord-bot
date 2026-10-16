@@ -12,7 +12,10 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { Config } from "../../../config";
-import { isVoiceCompanionEnabled } from "../../../config/types";
+import {
+  isVoiceCompanionEnabled,
+  type VoiceCompanionCapabilityConfig,
+} from "../../../config/types";
 import { getVoiceManager } from "../../../services/voice/voice-manager";
 import { DiscordCommand } from "../../constants";
 
@@ -157,11 +160,7 @@ export async function execute(
 
 async function handleJoin(
   interaction: ChatInputCommandInteraction,
-  companionConfig?: {
-    modelId?: string;
-    voiceName?: "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
-    systemInstruction?: string;
-  },
+  companionConfig?: VoiceCompanionCapabilityConfig,
 ): Promise<void> {
   const guild = interaction.guild;
   if (!guild) return;
@@ -186,6 +185,11 @@ async function handleJoin(
       modelId: companionConfig?.modelId,
       voiceName: companionConfig?.voiceName,
       systemInstruction: companionConfig?.systemInstruction,
+      participationMode: companionConfig?.participationMode,
+      energyThreshold: companionConfig?.energyThreshold,
+      bargeInSensitivity: companionConfig?.bargeInSensitivity,
+      inactivityTimeoutMinutes: companionConfig?.inactivityTimeoutMinutes,
+      emptyChannelGraceSeconds: companionConfig?.emptyChannelGraceSeconds,
     });
 
     await interaction.editReply({

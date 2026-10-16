@@ -2,6 +2,8 @@ import { EventEmitter } from "node:events";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiscordBotEngine } from "../../../src/capabilities/bot-engine";
+import { Config } from "../../../src/config";
+import type { BotGuildConfig } from "../../../src/config/types";
 import { execute as executeVoiceCommand } from "../../../src/discord/commands/voice/companion";
 import {
   decimateStereo48kToMono16k,
@@ -42,7 +44,7 @@ const mockAudioPlayer = {
 };
 
 const mockReceiver = {
-  speaking: new EventEmitter(),
+  speaking: Object.assign(new EventEmitter(), { users: new Map() }),
   subscribe: vi.fn(),
 };
 
@@ -57,6 +59,7 @@ vi.mock("@discordjs/voice", () => ({
   joinVoiceChannel: vi.fn(() => mockVoiceConnection),
   createAudioPlayer: vi.fn(() => mockAudioPlayer),
   createAudioResource: vi.fn(() => ({})),
+  entersState: vi.fn().mockResolvedValue(undefined),
   AudioPlayerStatus: {
     Idle: "idle",
     Playing: "playing",
@@ -84,9 +87,13 @@ describe("E2E: Voice Companion Capability & Audio Pipeline", () => {
     vi.clearAllMocks();
     setVoiceManager(null);
     process.env.GEMINI_API_KEY = "test-e2e-api-key";
+    vi.spyOn(Config.getInstance(), "getBotGuildConfig").mockReturnValue({
+      voiceCompanion: { enabled: true },
+    } as unknown as BotGuildConfig);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     process.env.GEMINI_API_KEY = originalKey;
   });
 

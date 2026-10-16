@@ -27,15 +27,35 @@ export interface GetGenAiConfig extends Partial<GenAiConfig> {
 const DEFAULT_AI_PROVIDER: GetGenAiConfig["provider"] = "google-genai";
 
 /**
+ * Resolves the API key for a specified AI provider, defaulting to Gemini.
+ * Leaves room to extend to other providers (e.g. OpenAI, Anthropic).
+ */
+export const resolveProviderApiKey = (
+  provider = "gemini",
+): string | undefined => {
+  switch (provider.toLowerCase()) {
+    case "gemini":
+    case "google-genai":
+      return process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+    case "openai":
+      return process.env.OPENAI_API_KEY;
+    case "anthropic":
+      return process.env.ANTHROPIC_API_KEY;
+    default:
+      return process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+  }
+};
+
+/**
  * @return GenAi with config values from Config
  */
 export const getGenAi = (config: GetGenAiConfig = {}) => {
   const remoteConfig = Config.getInstance();
-  const apiKey = config.apiKey;
   const provider =
     config.provider ||
     remoteConfig.getConfigValue(ConfigParameter.aiProvider) ||
     DEFAULT_AI_PROVIDER;
+  const apiKey = config.apiKey || resolveProviderApiKey(provider);
   const apiEndpoint =
     config.apiEndpoint ||
     remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);

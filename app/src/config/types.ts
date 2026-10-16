@@ -148,6 +148,7 @@ export interface VoiceCompanionCapabilityConfig {
   autoJoinChannelId?: string;
   inactivityTimeoutMinutes?: number;
   emptyChannelGraceSeconds?: number;
+  modelId?: "gemini-3.8-live";
   voiceName?: "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
   systemInstruction?: string;
   energyThreshold?: number;
@@ -161,10 +162,7 @@ export interface VoiceCompanionCapabilityConfig {
 export function isVoiceCompanionEnabled(
   guildConfig: BotGuildConfig | undefined,
 ): boolean {
-  if (guildConfig?.voiceCompanion?.enabled !== undefined) {
-    return guildConfig.voiceCompanion.enabled;
-  }
-  return true;
+  return guildConfig?.voiceCompanion?.enabled === true;
 }
 
 export interface BotGuildConfig {

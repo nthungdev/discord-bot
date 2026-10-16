@@ -161,4 +161,27 @@ describe("VoiceManager", () => {
     manager.handleVoiceStateUpdate(oldState, newState);
     expect(session.registerMember).toHaveBeenCalledWith(member);
   });
+
+  it("should deduplicate concurrent joinChannel calls for the same guild", async () => {
+    const [session1, session2] = await Promise.all([
+      manager.joinChannel(mockGuild, mockChannel),
+      manager.joinChannel(mockGuild, mockChannel),
+    ]);
+
+    expect(session1).toBe(session2);
+    expect(session1.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("should persist user opt-out across sessions and seed new sessions", async () => {
+    const ok = manager.optOutUser("guild-1", "user-alice", true);
+    expect(ok).toBe(true);
+    expect(manager.isUserOptedOut("guild-1", "user-alice")).toBe(true);
+
+    const session = await manager.joinChannel(mockGuild, mockChannel);
+    expect(session.setOptOut).toHaveBeenCalledWith("user-alice", true);
+
+    manager.optOutUser("guild-1", "user-alice", false);
+    expect(manager.isUserOptedOut("guild-1", "user-alice")).toBe(false);
+    expect(session.setOptOut).toHaveBeenCalledWith("user-alice", false);
+  });
 });

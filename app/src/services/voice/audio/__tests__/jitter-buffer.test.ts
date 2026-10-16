@@ -99,5 +99,27 @@ describe("OutboundJitterBuffer", () => {
 
     await endPromise;
     expect(jitter.readableEnded).toBe(true);
+    expect(jitter.isEnded()).toBe(true);
+  });
+
+  it("should report isEnded() and safely ignore audio pushed after turn finished and drained", () => {
+    const jitter = new OutboundJitterBuffer({ preBufferMs: 20 });
+    const chunk24k = Buffer.alloc(MODEL_FRAME_BYTES, 10);
+
+    jitter.pushModelAudio(chunk24k);
+    jitter.finishTurn();
+
+    // Consume frames until EOF
+    while (jitter.read() !== null) {
+      // drain
+    }
+
+    expect(jitter.isEnded()).toBe(true);
+
+    // Pushing audio after EOF should be safely ignored without throwing ERR_STREAM_PUSH_AFTER_EOF
+    expect(() => {
+      jitter.pushModelAudio(chunk24k);
+    }).not.toThrow();
+    expect(jitter.getBufferedFrameCount()).toBe(0);
   });
 });

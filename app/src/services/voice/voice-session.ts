@@ -12,6 +12,7 @@ import {
   createAudioPlayer,
   createAudioResource,
   EndBehaviorType,
+  entersState,
   joinVoiceChannel,
   NoSubscriberBehavior,
   StreamType,
@@ -71,6 +72,8 @@ export class VoiceSession extends EventEmitter {
   private activeSpeakerStreams = new Map<string, ActiveSpeakerStream>();
   private guild: Guild | null = null;
   private channel: BaseGuildVoiceChannel | null = null;
+  private speakingListener: ((userId: string) => void) | null = null;
+  private suppressModelAudio = false;
 
   private status: VoiceSessionStatus = "IDLE";
   private participationMode: VoiceParticipationMode = "ambient";
@@ -154,10 +157,19 @@ export class VoiceSession extends EventEmitter {
       this.setupConnectionEvents();
 
       // Connect GenAI bidirectional WebSocket session
+      let systemInstruction = this.config.systemInstruction || "";
+      if (this.participationMode === "addressed_only") {
+        const modeGuideline =
+          "You are in 'addressed_only' participation mode. You must ONLY speak or reply when participants explicitly address you by name or ask you a question directly. If participants in the voice channel are talking to each other, remain completely silent.";
+        systemInstruction = systemInstruction
+          ? `${systemInstruction}\n\n${modeGuideline}`
+          : modeGuideline;
+      }
+
       await this.liveSession.connect({
         modelId: this.config.modelId,
         voiceName: this.config.voiceName,
-        systemInstruction: this.config.systemInstruction,
+        systemInstruction: systemInstruction || undefined,
         toolContext: {
           botId: guild.client.user.id,
           client: guild.client,
@@ -173,6 +185,7 @@ export class VoiceSession extends EventEmitter {
       });
 
       this.status = "ACTIVE";
+      this.attachSpeakingListener();
       this.resetInactivityTimer();
       this.emit("ready");
     } catch (err: unknown) {
@@ -304,6 +317,7 @@ export class VoiceSession extends EventEmitter {
    */
   public triggerInstantBargeIn(speakerUserId?: string): void {
     const startTime = Date.now();
+    this.suppressModelAudio = true;
     this.audioPlayer.stop(true);
     if (this.activeJitterBuffer) {
       this.activeJitterBuffer.purge();
@@ -382,6 +396,9 @@ export class VoiceSession extends EventEmitter {
    */
   public setOptOut(userId: string, optOut: boolean): void {
     this.speakerTracker.setOptOut(userId, optOut);
+    if (optOut) {
+      this.cleanupSpeakerStream(userId);
+    }
   }
 
   /**
@@ -443,6 +460,17 @@ export class VoiceSession extends EventEmitter {
 
     void this.liveSession.close();
 
+    if (this.speakingListener && this.connection) {
+      const speaking = this.connection.receiver?.speaking;
+      if (typeof speaking?.off === "function") {
+        speaking.off("start", this.speakingListener);
+      } else if (typeof speaking?.removeListener === "function") {
+        speaking.removeListener("start", this.speakingListener);
+      }
+      this.speakingListener = null;
+    }
+    this.suppressModelAudio = false;
+
     if (this.connection) {
       try {
         this.connection.destroy();
@@ -469,11 +497,12 @@ export class VoiceSession extends EventEmitter {
 
   private setupLiveSessionEvents(): void {
     this.liveSession.on("audio", (pcm24kMono: Buffer) => {
-      if (this.status !== "ACTIVE") return;
+      if (this.status !== "ACTIVE" || this.suppressModelAudio) return;
 
       if (
         !this.activeJitterBuffer ||
         this.activeJitterBuffer.destroyed ||
+        this.activeJitterBuffer.isEnded() ||
         this.audioPlayer.state.status === AudioPlayerStatus.Idle
       ) {
         this.activeJitterBuffer = new OutboundJitterBuffer({
@@ -490,6 +519,7 @@ export class VoiceSession extends EventEmitter {
     });
 
     this.liveSession.on("turnComplete", () => {
+      this.suppressModelAudio = false;
       this.turnsCount++;
       if (this.activeJitterBuffer) {
         this.activeJitterBuffer.finishTurn();
@@ -497,6 +527,7 @@ export class VoiceSession extends EventEmitter {
     });
 
     this.liveSession.on("interrupted", () => {
+      this.suppressModelAudio = false;
       this.audioPlayer.stop(true);
       if (this.activeJitterBuffer) {
         this.activeJitterBuffer.purge();
@@ -509,8 +540,11 @@ export class VoiceSession extends EventEmitter {
       console.error("[VoiceSession] Streaming GenAI session error:", err);
     });
 
-    this.liveSession.on("close", () => {
-      console.info("[VoiceSession] Streaming GenAI session disconnected.");
+    this.liveSession.on("close", (code?: number, reason?: string) => {
+      console.info(
+        `[VoiceSession] Streaming GenAI session disconnected in guild ${this.guildId} (code: ${code}, reason: ${reason}). Cleaning up.`,
+      );
+      this.destroy();
     });
   }
 
@@ -524,15 +558,39 @@ export class VoiceSession extends EventEmitter {
     });
 
     this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
-      console.warn(
-        `[VoiceSession] VoiceConnection disconnected in guild ${this.guildId}. Cleaning up.`,
-      );
-      this.destroy();
+      try {
+        if (!this.connection) return;
+        await Promise.race([
+          entersState(this.connection, VoiceConnectionStatus.Signalling, 5000),
+          entersState(this.connection, VoiceConnectionStatus.Connecting, 5000),
+        ]);
+        console.info(
+          `[VoiceSession] VoiceConnection recovered from Disconnected state in guild ${this.guildId}.`,
+        );
+      } catch {
+        console.warn(
+          `[VoiceSession] VoiceConnection disconnected in guild ${this.guildId} and failed to recover within 5s. Cleaning up.`,
+        );
+        this.destroy();
+      }
     });
+  }
 
-    this.connection.receiver.speaking.on("start", (userId: string) => {
+  private attachSpeakingListener(): void {
+    if (!this.connection) return;
+
+    this.speakingListener = (userId: string) => {
       this.handleSpeakerStart(userId);
-    });
+    };
+    this.connection.receiver.speaking.on("start", this.speakingListener);
+
+    // Scan any users who were already speaking during initialization
+    const speakingUsers = this.connection.receiver?.speaking?.users;
+    if (speakingUsers && typeof speakingUsers.keys === "function") {
+      for (const userId of speakingUsers.keys()) {
+        this.handleSpeakerStart(userId);
+      }
+    }
   }
 
   private handleDecodedFrame(
@@ -541,7 +599,16 @@ export class VoiceSession extends EventEmitter {
     vad: VoiceActivityDetector,
     turnState: { isAttributedTurn: boolean },
   ): void {
-    if (this.status !== "ACTIVE") return;
+    if (
+      this.status !== "ACTIVE" ||
+      this.speakerTracker.isUserOptedOut(userId)
+    ) {
+      return;
+    }
+
+    if (this.participationMode === "push_to_talk") {
+      return;
+    }
 
     this.packetsReceived++;
     this.resetInactivityTimer();

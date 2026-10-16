@@ -217,12 +217,10 @@ Discord identifies each audio stream by user ID through voice gateway SSRC mappi
   ```json
   {
     "realtimeInput": {
-      "mediaChunks": [
-        {
-          "mimeType": "audio/pcm;rate=16000",
-          "data": "<base64-encoded-pcm-data>"
-        }
-      ]
+      "audio": {
+        "mimeType": "audio/pcm;rate=16000",
+        "data": "<base64-encoded-pcm-data>"
+      }
     }
   }
   ```
@@ -261,7 +259,9 @@ Discord identifies each audio stream by user ID through voice gateway SSRC mappi
 
 ## 5. Configuration schema and environment variables
 
-Following the patterns in [`VoiceBouncerCapabilityConfig`](../app/src/config/types.ts) and [`SmartReplyConfig`](../app/src/config/types.ts), configuration is enabled directly per-guild via `guildConfig.voiceCompanion.enabled` to prevent dual-source configuration conflicts.
+Following the patterns in [`VoiceBouncerCapabilityConfig`](../app/src/config/types.ts) and [`SmartReplyConfig`](../app/src/config/types.ts), configuration is enabled directly per-guild via `guildConfig.voiceCompanion.enabled` with strict opt-in (`isVoiceCompanionEnabled` returns `true` only when `enabled === true`).
+
+The default and exclusively supported voice model is `"gemini-3.8-live"`. The AI provider API key is configured primarily via `GEMINI_API_KEY` (with backwards-compatible fallback to `AI_API_KEY` and extensible architecture for additional providers like `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`).
 
 ```typescript
 // app/src/config/types.ts
@@ -272,36 +272,24 @@ export type VoiceParticipationMode =
   | "push_to_talk";   // Speaks only upon explicit slash command trigger
 
 export interface VoiceCompanionCapabilityConfig {
-  /** Enables voice companion features for this guild */
+  /** Enables voice companion features for this guild (Strict opt-in: defaults to false if omitted) */
   enabled?: boolean;
-  /** Active conversational participation mode (default: 'addressed_only') */
+  /** Active conversational participation mode (default: 'ambient') */
   participationMode?: VoiceParticipationMode;
-  /** Wake names / trigger phrases (e.g. ['bot', 'companion', 'trợ lý']) */
-  wakeNames?: string[];
-  /** Voice model identifier */
-  modelId?: string;
+  /** Voice model identifier (restricted to "gemini-3.8-live") */
+  modelId?: "gemini-3.8-live";
   /** Synthetic voice selection ('Aoede' | 'Charon' | 'Fenrir' | 'Kore' | 'Puck') */
-  voiceName?: "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck" | string;
-  /** Language override ('vi' or 'en-US') */
-  localeOverride?: "vi" | "en-US";
-  /** Custom persona instruction appended to system instruction */
-  personaInstruction?: string;
-  /** Allowed voice channel IDs (empty array allows all voice channels) */
-  allowedVoiceChannelIds?: string[];
-  /** Ignored voice channel IDs */
-  ignoredVoiceChannelIds?: string[];
-  /** Maximum continuous session duration before automatic departure in minutes (default: 60) */
-  maxSessionDurationMinutes?: number;
-  /** Inactivity timeout in seconds when channel is silent before leaving (default: 180) */
-  idleTimeoutSeconds?: number;
-  /** Energy VAD sensitivity threshold ('low' | 'medium' | 'high', default: 'medium') */
-  vadSensitivity?: "low" | "medium" | "high";
-  /** Enables client-side audio barge-in upon user interruption (default: true) */
-  allowBargeIn?: boolean;
-  /** Disables voice processing for specific user IDs (opt-out list) */
-  optOutUserIds?: string[];
-  /** Memory retention strategy across sessions */
-  memoryRetention?: "ephemeral" | "session_summary" | "firestore";
+  voiceName?: "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck";
+  /** System instruction prompt */
+  systemInstruction?: string;
+  /** Audio energy threshold for local VAD (default: 0.012) */
+  energyThreshold?: number;
+  /** Barge-in sensitivity threshold ('high' | 'normal' | 'low') */
+  bargeInSensitivity?: "high" | "normal" | "low";
+  /** Inactivity timeout in minutes when channel is silent before auto-leaving (default: 15) */
+  inactivityTimeoutMinutes?: number;
+  /** Grace duration in seconds before leaving empty voice channels (default: 60) */
+  emptyChannelGraceSeconds?: number;
 }
 
 // Added to BotGuildConfig in app/src/config/types.ts:

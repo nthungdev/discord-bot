@@ -6,8 +6,11 @@ namespace NodeJS {
     DISCORD_CLIENT_SECRET?: string;
     DISCORD_REDIRECT_URI?: string;
 
-    // AI Provider
-    AI_API_KEY?: string;
+    // AI Providers (Default: Gemini, extensible for other providers)
+    GEMINI_API_KEY?: string;
+    AI_API_KEY?: string; // Legacy fallback for GEMINI_API_KEY
+    OPENAI_API_KEY?: string;
+    ANTHROPIC_API_KEY?: string;
 
     // Security & Auth
     BEARER_TOKEN?: string;

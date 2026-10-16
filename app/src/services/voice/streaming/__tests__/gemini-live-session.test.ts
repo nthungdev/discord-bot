@@ -53,7 +53,7 @@ describe("GeminiLiveSession", () => {
 
     await session.connect({
       apiKey: "test-api-key",
-      modelId: "gemini-2.0-flash-exp",
+      modelId: "gemini-3.8-live",
       voiceName: "Aoede",
     });
 
@@ -63,7 +63,9 @@ describe("GeminiLiveSession", () => {
   it("should throw error if no API key is available", async () => {
     const session = new GeminiLiveSession();
     const originalKey = process.env.GEMINI_API_KEY;
+    const originalLegacyKey = process.env.AI_API_KEY;
     delete process.env.GEMINI_API_KEY;
+    delete process.env.AI_API_KEY;
 
     await expect(session.connect({})).rejects.toThrow(
       "Gemini API key is required to start Gemini Live voice session.",
@@ -71,6 +73,9 @@ describe("GeminiLiveSession", () => {
 
     if (originalKey) {
       process.env.GEMINI_API_KEY = originalKey;
+    }
+    if (originalLegacyKey) {
+      process.env.AI_API_KEY = originalLegacyKey;
     }
   });
 
@@ -135,12 +140,10 @@ describe("GeminiLiveSession", () => {
     session.sendAudioChunk(chunk16k);
 
     expect(mockLiveHandle.sendRealtimeInput).toHaveBeenCalledWith({
-      mediaChunks: [
-        {
-          data: chunk16k.toString("base64"),
-          mimeType: "audio/pcm;rate=16000",
-        },
-      ],
+      audio: {
+        data: chunk16k.toString("base64"),
+        mimeType: "audio/pcm;rate=16000",
+      },
     });
   });
 

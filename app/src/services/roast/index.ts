@@ -311,7 +311,6 @@ export class RoastService {
 
     try {
       const genAi = getGenAi({
-        apiKey: process.env.AI_API_KEY,
         guildId: request.guildId,
         botId: "chatBot",
         systemInstruction: fullSystemInstruction,

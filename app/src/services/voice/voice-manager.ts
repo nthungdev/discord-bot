@@ -10,9 +10,12 @@ import { VoiceSession } from "./voice-session";
 
 export class VoiceManager {
   private sessions = new Map<string, VoiceSession>();
+  private inFlightJoins = new Map<string, Promise<VoiceSession>>();
+  private guildOptOuts = new Map<string, Set<string>>();
 
   /**
    * Connects the voice companion to a guild voice channel.
+   * Serializes concurrent join requests to prevent orphaned connections.
    */
   public async joinChannel(
     guild: Guild,
@@ -28,28 +31,50 @@ export class VoiceManager {
       this.sessions.delete(guild.id);
     }
 
-    const config: VoiceCompanionSessionConfig = {
-      guildId: guild.id,
-      channelId: channel.id,
-      modelId: sessionConfig?.modelId,
-      voiceName: sessionConfig?.voiceName,
-      systemInstruction: sessionConfig?.systemInstruction,
-      participationMode: sessionConfig?.participationMode ?? "ambient",
-      energyThreshold: sessionConfig?.energyThreshold,
-      bargeInSensitivity: sessionConfig?.bargeInSensitivity,
-      inactivityTimeoutMinutes: sessionConfig?.inactivityTimeoutMinutes,
-      emptyChannelGraceSeconds: sessionConfig?.emptyChannelGraceSeconds,
-    };
+    const inFlight = this.inFlightJoins.get(guild.id);
+    if (inFlight) {
+      return inFlight;
+    }
 
-    const session = new VoiceSession(config);
+    const joinPromise = (async () => {
+      try {
+        const config: VoiceCompanionSessionConfig = {
+          guildId: guild.id,
+          channelId: channel.id,
+          modelId: sessionConfig?.modelId,
+          voiceName: sessionConfig?.voiceName,
+          systemInstruction: sessionConfig?.systemInstruction,
+          participationMode: sessionConfig?.participationMode ?? "ambient",
+          energyThreshold: sessionConfig?.energyThreshold,
+          bargeInSensitivity: sessionConfig?.bargeInSensitivity,
+          inactivityTimeoutMinutes: sessionConfig?.inactivityTimeoutMinutes,
+          emptyChannelGraceSeconds: sessionConfig?.emptyChannelGraceSeconds,
+        };
 
-    session.on("destroyed", () => {
-      this.sessions.delete(guild.id);
-    });
+        const session = new VoiceSession(config);
 
-    await session.start(guild, channel);
-    this.sessions.set(guild.id, session);
-    return session;
+        // Seed with existing guild opt-outs
+        const optOutUsers = this.guildOptOuts.get(guild.id);
+        if (optOutUsers) {
+          for (const userId of optOutUsers) {
+            session.setOptOut(userId, true);
+          }
+        }
+
+        session.on("destroyed", () => {
+          this.sessions.delete(guild.id);
+        });
+
+        await session.start(guild, channel);
+        this.sessions.set(guild.id, session);
+        return session;
+      } finally {
+        this.inFlightJoins.delete(guild.id);
+      }
+    })();
+
+    this.inFlightJoins.set(guild.id, joinPromise);
+    return joinPromise;
   }
 
   /**
@@ -95,12 +120,33 @@ export class VoiceManager {
 
   /**
    * Updates user voice opt-out setting in a guild.
+   * Persists opt-out preference across sessions.
    */
   public optOutUser(guildId: string, userId: string, optOut: boolean): boolean {
+    let optOutSet = this.guildOptOuts.get(guildId);
+    if (!optOutSet) {
+      optOutSet = new Set<string>();
+      this.guildOptOuts.set(guildId, optOutSet);
+    }
+
+    if (optOut) {
+      optOutSet.add(userId);
+    } else {
+      optOutSet.delete(userId);
+    }
+
     const session = this.sessions.get(guildId);
-    if (!session) return false;
-    session.setOptOut(userId, optOut);
+    if (session) {
+      session.setOptOut(userId, optOut);
+    }
     return true;
+  }
+
+  /**
+   * Checks whether a user is opted out in the specified guild.
+   */
+  public isUserOptedOut(guildId: string, userId: string): boolean {
+    return this.guildOptOuts.get(guildId)?.has(userId) ?? false;
   }
 
   /**
@@ -181,6 +227,7 @@ export class VoiceManager {
       session.destroy();
     }
     this.sessions.clear();
+    this.inFlightJoins.clear();
   }
 }
 
