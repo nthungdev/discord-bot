@@ -143,6 +143,30 @@ export function isValorantFeatureEnabled(
   return feature !== "rankRoleSync";
 }
 
+export interface VoiceCompanionCapabilityConfig {
+  enabled?: boolean;
+  autoJoinChannelId?: string;
+  inactivityTimeoutMinutes?: number;
+  emptyChannelGraceSeconds?: number;
+  voiceName?: "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
+  systemInstruction?: string;
+  energyThreshold?: number;
+  bargeInSensitivity?: "high" | "normal" | "low";
+  participationMode?: "ambient" | "addressed_only" | "push_to_talk";
+}
+
+/**
+ * Evaluates whether Voice Companion capability is active for a guild.
+ */
+export function isVoiceCompanionEnabled(
+  guildConfig: BotGuildConfig | undefined,
+): boolean {
+  if (guildConfig?.voiceCompanion?.enabled !== undefined) {
+    return guildConfig.voiceCompanion.enabled;
+  }
+  return true;
+}
+
 export interface BotGuildConfig {
   botName?: string;
   personalization?: string;
@@ -161,6 +185,7 @@ export interface BotGuildConfig {
   voiceBouncer?: VoiceBouncerCapabilityConfig;
   matchmaking?: MatchmakingCapabilityConfig;
   valorant?: ValorantCapabilityConfig;
+  voiceCompanion?: VoiceCompanionCapabilityConfig;
 }
 
 export interface BotGuildsConfig {

@@ -22,6 +22,7 @@ import { RoleCapability } from "./role-capability";
 import type { IBotCapability } from "./types";
 import { ValorantCapability } from "./valorant-capability";
 import { VoiceBouncerCapability } from "./voice-bouncer-capability";
+import { VoiceCompanionCapability } from "./voice-companion-capability";
 
 /**
  * Unified Discord Bot Engine
@@ -72,6 +73,7 @@ export class DiscordBotEngine {
     this.registerCapability(new VoiceBouncerCapability());
     this.registerCapability(new MatchmakingCapability());
     this.registerCapability(new ValorantCapability());
+    this.registerCapability(new VoiceCompanionCapability());
   }
 
   /**
@@ -203,6 +205,7 @@ export class DiscordBotEngine {
         let isVoiceBouncerEnabled = false;
         let isMatchmakingEnabled = false;
         let isValorantEnabled = true;
+        let isVoiceCompanionEnabled = false;
         try {
           const botsConfig = Config.getInstance().getConfigValue(
             ConfigParameter.bots,
@@ -218,6 +221,9 @@ export class DiscordBotEngine {
           isValorantEnabled = guildList.some(
             (g) => g.valorant?.enabled !== false,
           );
+          isVoiceCompanionEnabled = guildList.some(
+            (g) => g.voiceCompanion?.enabled === true,
+          );
         } catch {
           // Ignore uninitialized config in unit tests
         }
@@ -232,6 +238,8 @@ export class DiscordBotEngine {
             isEnabled = process.env.ENABLE_POLICE_CAPABILITY === "true";
           } else if (cap.id === "valorant") {
             isEnabled = isValorantEnabled;
+          } else if (cap.id === "voice-companion") {
+            isEnabled = isVoiceCompanionEnabled;
           }
           return {
             id: cap.id,

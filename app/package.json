@@ -34,10 +34,13 @@
   "packageManager": "pnpm@10.11.0",
   "dependencies": {
     "@directus/sdk": "^27.0.0",
+    "@discordjs/voice": "^0.19.2",
+    "@evan/opus": "^1.0.3",
     "@google-cloud/vertexai": "^1.2.0",
     "@google/genai": "^2.10.0",
     "@google/generative-ai": "^0.9.0",
     "@reduxjs/toolkit": "^2.2.3",
+    "@snazzah/davey": "^0.1.12",
     "axios": "^1.6.8",
     "axios-cache-interceptor": "^1.8.0",
     "body-parser": "^1.20.2",
@@ -46,7 +49,9 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "firebase-admin": "^12.1.1",
-    "google-auth-library": "^9.9.0"
+    "google-auth-library": "^9.9.0",
+    "opusscript": "^0.1.1",
+    "prism-media": "^1.3.5"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",

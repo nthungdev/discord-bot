@@ -21,6 +21,7 @@ namespace NodeJS {
     USE_CONFIG_FILE?: string;
     CONFIG_PATH?: string;
     GOOGLE_APPLICATION_CREDENTIALS?: string;
+    ENABLE_POLICE_CAPABILITY?: string;
 
     // Directus Control Plane
     DIRECTUS_URL?: string;

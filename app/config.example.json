@@ -65,6 +65,14 @@
             "targetShieldCooldownSeconds": 300,
             "callerCooldownSeconds": 60,
             "allowCounterRoast": true
+          },
+          "voiceCompanion": {
+            "enabled": true,
+            "voiceName": "Aoede",
+            "inactivityTimeoutMinutes": 15,
+            "emptyChannelGraceSeconds": 60,
+            "participationMode": "ambient",
+            "energyThreshold": 0.012
           }
         }
       }

@@ -12,4 +12,5 @@ export enum DiscordCommand {
   RoleOnboarding = "role-onboarding",
   Val = "val",
   Riot = "riot",
+  Voice = "voice",
 }

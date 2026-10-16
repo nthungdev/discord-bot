@@ -6,3 +6,4 @@ export * from "./role-capability";
 export * from "./types";
 export * from "./valorant-capability";
 export * from "./voice-bouncer-capability";
+export * from "./voice-companion-capability";
