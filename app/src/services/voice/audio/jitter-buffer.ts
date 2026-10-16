@@ -43,6 +43,13 @@ export class OutboundJitterBuffer extends Readable {
   }
 
   /**
+   * Reads the next 20ms Discord audio frame (3840 bytes) from the jitter buffer.
+   */
+  override read(size?: number): Buffer | null {
+    return super.read(size ?? DISCORD_FRAME_BYTES) as Buffer | null;
+  }
+
+  /**
    * Pushes raw 24kHz mono PCM audio received from the AI model into the jitter buffer.
    */
   public pushModelAudio(chunk24kMono: Buffer): void {
