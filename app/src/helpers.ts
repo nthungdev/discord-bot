@@ -15,9 +15,11 @@ export const validateEnvs = (): boolean => {
     missingEnvs.push("DISCORD_CLIENT_ID");
   }
 
-  // AI API Key
-  if (!process.env.AI_API_KEY?.trim()) {
-    missingEnvs.push("AI_API_KEY");
+  // AI Provider Key (Gemini is required default, extensible for others)
+  const geminiApiKey =
+    process.env.GEMINI_API_KEY?.trim() || process.env.AI_API_KEY?.trim();
+  if (!geminiApiKey) {
+    missingEnvs.push("GEMINI_API_KEY");
   }
 
   // API Secret Bearer Token

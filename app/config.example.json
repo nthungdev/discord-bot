@@ -65,6 +65,15 @@
             "targetShieldCooldownSeconds": 300,
             "callerCooldownSeconds": 60,
             "allowCounterRoast": true
+          },
+          "voiceCompanion": {
+            "enabled": true,
+            "modelId": "gemini-3.8-live",
+            "voiceName": "Aoede",
+            "inactivityTimeoutMinutes": 15,
+            "emptyChannelGraceSeconds": 60,
+            "participationMode": "ambient",
+            "energyThreshold": 0.012
           }
         }
       }

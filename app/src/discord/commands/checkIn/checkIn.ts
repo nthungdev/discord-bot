@@ -70,7 +70,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     };
 
     const genAi = getGenAi({
-      apiKey: process.env.AI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
       guildId: interaction.guildId,
       botId: "chatBot",
     });

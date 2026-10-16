@@ -147,7 +147,7 @@ export async function classifyAmbientIntent(
   const startTime = Date.now();
   try {
     const genAi = getGenAi({
-      apiKey: process.env.AI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
       guildId: context.message.guildId,
       modelId,
       maxOutputTokens,

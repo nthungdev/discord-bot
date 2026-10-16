@@ -444,7 +444,7 @@ async function executeChatBotGeneration(
   const maxOutputTokens = chatBotModelConfig?.maxOutputTokens;
 
   const genAi = getGenAi({
-    apiKey: process.env.AI_API_KEY,
+    apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
     guildId: message.guildId,
     systemInstruction,
     modelId,
