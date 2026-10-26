@@ -7,7 +7,7 @@ export interface DirectusGuildConfigRaw {
   default_locale?: string | null;
   max_roasts_per_day?: number | null;
   allowed_channel_ids?: string[] | null;
-  scms_voice_channel_id?: string | null;
+  matchmaking_lobby_channel_id?: string | null;
   valorant_enabled?: boolean | null;
   valorant_features?:
     | import("../../config/types").ValorantFeaturesConfig

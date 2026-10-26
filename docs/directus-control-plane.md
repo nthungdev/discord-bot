@@ -74,7 +74,7 @@ Configures guild-level runtime behaviors and feature policies.
 - `allowed_channel_ids` (JSON Array of strings): Channel Snowflakes where the feature is permitted. *(Enforced)*
 - `max_roasts_per_day` (Integer, Default: `10`): Rate limit per guild per calendar day. *(Reserved: stored in schema for upcoming daily quota enforcement)*
 - `enable_bouncergon` (Boolean, Default: `false`): Voice bouncer toggle. *(Reserved: stored in schema for upcoming matchmaking activation)*
-- `scms_voice_channel_id` (String, Optional): Voice channel for matchmaking. *(Reserved: stored in schema for upcoming voice routing)*
+- `matchmaking_lobby_channel_id` (String, Optional): Voice channel for matchmaking lobby. *(Reserved: stored in schema for upcoming voice routing)*
 
 ### `bot_roast_presets`
 Stores AI prompt templates and generation parameters.
