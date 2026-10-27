@@ -31,6 +31,7 @@ import {
   isSafeAttachmentPath,
   isSafeRemoteAttachmentUrl,
   killProcessTree,
+  LEGACY_GEMINI_MODEL_MAP,
   MAX_AGY_BUFFER_BYTES,
   MAX_REMOTE_ATTACHMENT_BYTES,
   MAX_TOOL_ITERATIONS,
@@ -270,6 +271,28 @@ describe("AntigravityGenAi Provider", () => {
       expect(parseModelAndEffort(undefined).model).toBe(
         DEFAULT_ANTIGRAVITY_MODEL,
       );
+    });
+
+    it("should map legacy or standard Gemini models to Antigravity models", () => {
+      const flash = parseModelAndEffort("gemini-3-flash-preview");
+      expect(flash.model).toBe("gemini-3.8-flash");
+      expect(flash.effort).toBe("low");
+
+      const classifier = parseModelAndEffort("gemini-2.5-flash");
+      expect(classifier.model).toBe("gemini-3.8-flash");
+      expect(classifier.effort).toBe("low");
+
+      const lite = parseModelAndEffort("gemini-3.5-flash-lite");
+      expect(lite.model).toBe("gemini-3.8-flash");
+      expect(lite.effort).toBe("low");
+
+      const pro = parseModelAndEffort("gemini-1.5-pro");
+      expect(pro.model).toBe("gemini-4-argon");
+      expect(pro.effort).toBe("medium");
+
+      const withEffort = parseModelAndEffort("gemini-2.5-flash-high");
+      expect(withEffort.model).toBe("gemini-3.8-flash");
+      expect(withEffort.effort).toBe("high");
     });
 
     it("should export correct default constants and allowed attachment paths", () => {

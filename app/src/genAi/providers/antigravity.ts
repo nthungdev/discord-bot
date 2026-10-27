@@ -67,6 +67,22 @@ export function redactSensitiveData(
 const REASONING_EFFORT_REGEX = /^(.*?)-(low|medium|high|xhigh|max)$/i;
 const TOOL_CALL_TAG_REGEX = /<tool_call>([\s\S]*?)<\/tool_call>/i;
 
+/**
+ * Mapping of legacy or standard Gemini API models to supported Google Antigravity CLI models.
+ */
+export const LEGACY_GEMINI_MODEL_MAP: Readonly<
+  Record<string, { model: string; defaultEffort?: string }>
+> = {
+  "gemini-2.5-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-3-flash-preview": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-3.5-flash-lite": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-3.5-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-3.6-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-1.5-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-1.5-pro": { model: "gemini-4-argon", defaultEffort: "medium" },
+  "gemini-2.0-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+};
+
 export const STANDARD_SYSTEM_ENV_VARS: ReadonlySet<string> = new Set([
   "PATH",
   "HOME",
@@ -205,17 +221,25 @@ export function parseModelAndEffort(
   const rawModel = (modelId || DEFAULT_ANTIGRAVITY_MODEL).trim();
   const match = rawModel.match(REASONING_EFFORT_REGEX);
 
+  let baseModel = rawModel;
+  let parsedEffort = configuredEffort;
+
   if (match) {
-    const [, baseModel, effortSuffix] = match;
+    baseModel = match[1];
+    parsedEffort = configuredEffort || match[2].toLowerCase();
+  }
+
+  const legacyMapping = LEGACY_GEMINI_MODEL_MAP[baseModel.toLowerCase()];
+  if (legacyMapping) {
     return {
-      model: baseModel,
-      effort: configuredEffort || effortSuffix.toLowerCase(),
+      model: legacyMapping.model,
+      effort: parsedEffort || legacyMapping.defaultEffort,
     };
   }
 
   return {
-    model: rawModel,
-    effort: configuredEffort,
+    model: baseModel,
+    effort: parsedEffort,
   };
 }
 
