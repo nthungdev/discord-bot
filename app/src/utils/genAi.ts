@@ -34,6 +34,9 @@ export const resolveProviderApiKey = (
   provider = "gemini",
 ): string | undefined => {
   switch (provider.toLowerCase()) {
+    case "antigravity":
+    case "agy":
+      return undefined;
     case "gemini":
     case "google-genai":
       return process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
@@ -46,46 +49,91 @@ export const resolveProviderApiKey = (
   }
 };
 
+function resolveSystemInstruction(
+  config: GetGenAiConfig,
+  remoteConfig: Config,
+): string | undefined {
+  if (config.systemInstruction) {
+    return config.systemInstruction;
+  }
+  if (!(config.guildId && config.botId)) {
+    return undefined;
+  }
+  const bots = remoteConfig.getConfigValue(ConfigParameter.bots);
+  return bots[config.botId]?.guilds?.[config.guildId]?.systemInstruction;
+}
+
+interface ResolvedAntigravityOptions {
+  antigravityCommand?: string;
+  antigravityConfigDir?: string;
+  antigravityEffort?: string;
+  antigravityTimeoutMs?: number;
+}
+
+function resolveAntigravityOptions(
+  config: GetGenAiConfig,
+): ResolvedAntigravityOptions {
+  const timeoutEnv = process.env.ANTIGRAVITY_TIMEOUT_MS;
+  const antigravityTimeoutMs =
+    config.antigravityTimeoutMs ??
+    (timeoutEnv ? Number(timeoutEnv) : undefined);
+
+  return {
+    antigravityCommand:
+      config.antigravityCommand ??
+      process.env.ANTIGRAVITY_COMMAND ??
+      process.env.AGY_CLI_PATH ??
+      process.env.ANTIGRAVITY_CLI_PATH,
+    antigravityConfigDir:
+      config.antigravityConfigDir ?? process.env.ANTIGRAVITY_CONFIG_DIR,
+    antigravityEffort:
+      config.antigravityEffort ?? process.env.ANTIGRAVITY_EFFORT,
+    antigravityTimeoutMs,
+  };
+}
+
 /**
  * @return GenAi with config values from Config
  */
-export const getGenAi = (config: GetGenAiConfig = {}) => {
+export const getGenAi = (config: GetGenAiConfig = {}): GenAi => {
   const remoteConfig = Config.getInstance();
   const provider =
-    config.provider ||
-    remoteConfig.getConfigValue(ConfigParameter.aiProvider) ||
+    config.provider ??
+    remoteConfig.getConfigValue(ConfigParameter.aiProvider) ??
     DEFAULT_AI_PROVIDER;
-  const apiKey = config.apiKey || resolveProviderApiKey(provider);
+
+  const apiKey =
+    config.apiKey ??
+    (provider === "antigravity" ? undefined : resolveProviderApiKey(provider));
+
   const apiEndpoint =
-    config.apiEndpoint ||
+    config.apiEndpoint ??
     remoteConfig.getConfigValue(ConfigParameter.aiApiEndpoint);
   const locationId =
-    config.locationId ||
+    config.locationId ??
     remoteConfig.getConfigValue(ConfigParameter.aiLocationId);
   const projectId =
-    config.projectId ||
+    config.projectId ??
     remoteConfig.getConfigValue(ConfigParameter.aiProjectId);
   const modelId =
-    config.modelId || remoteConfig.getConfigValue(ConfigParameter.aiModelId);
+    config.modelId ?? remoteConfig.getConfigValue(ConfigParameter.aiModelId);
   const maxOutputTokens =
-    config.maxOutputTokens ||
+    config.maxOutputTokens ??
     remoteConfig.getConfigValue(ConfigParameter.aiMaxOutputTokens);
   const safetySettings =
-    config.safetySettings ||
+    config.safetySettings ??
     remoteConfig.getConfigValue(ConfigParameter.aiSafetySettings)
       .safetySettings;
-  let systemInstruction = config.systemInstruction;
-  if (!systemInstruction && config.guildId && config.botId) {
-    const bots = remoteConfig.getConfigValue(ConfigParameter.bots);
-    systemInstruction =
-      bots[config.botId]?.guilds?.[config.guildId]?.systemInstruction;
-  }
+
+  const systemInstruction = resolveSystemInstruction(config, remoteConfig);
 
   const members = config.guildId
     ? remoteConfig.getConfigValue(ConfigParameter.guildMembers)[config.guildId]
     : [];
   const membersInstruction =
-    config.membersInstruction || formatMembersInstruction(members);
+    config.membersInstruction ?? formatMembersInstruction(members);
+
+  const agyOptions = resolveAntigravityOptions(config);
 
   const genAiConfig: GenAiConfig = {
     apiKey,
@@ -98,11 +146,10 @@ export const getGenAi = (config: GetGenAiConfig = {}) => {
     safetySettings,
     membersInstruction,
     systemInstruction,
+    ...agyOptions,
   };
 
-  const genAi: GenAi = createGenAi(genAiConfig);
-
-  return genAi;
+  return createGenAi(genAiConfig);
 };
 
 export const generateChatMessageWithGenAi = async (

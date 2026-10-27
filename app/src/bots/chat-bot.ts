@@ -442,13 +442,18 @@ async function executeChatBotGeneration(
     guildConfig?.smartReply?.chatBotModel ?? guildConfig?.chatBotModel;
   const modelId = chatBotModelConfig?.modelId;
   const maxOutputTokens = chatBotModelConfig?.maxOutputTokens;
+  const provider = chatBotModelConfig?.provider;
 
   const genAi = getGenAi({
-    apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
+    apiKey:
+      provider === "antigravity"
+        ? undefined
+        : process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
     guildId: message.guildId,
     systemInstruction,
     modelId,
     maxOutputTokens,
+    provider,
   });
   await genAi.init();
   const { content } = await generateChatMessageWithGenAi(

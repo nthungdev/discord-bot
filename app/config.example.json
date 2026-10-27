@@ -21,7 +21,8 @@
           "personalization": "You are <Chat Bot Name>, an intelligent Discord assistant.",
           "personalizationMode": "overwrite_identity",
           "chatBotModel": {
-            "modelId": "gemini-3.5-flash",
+            "provider": "antigravity",
+            "modelId": "gemini-3.8-flash-high",
             "temperature": 0.7,
             "maxOutputTokens": 8192
           },

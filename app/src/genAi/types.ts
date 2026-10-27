@@ -13,6 +13,16 @@ export type SupportedChatBotModel =
   | "gemini-3-flash-preview"
   | "gemini-3.5-flash"
   | "gemini-3.6-flash"
+  | "gemini-3.8-flash-high"
+  | "gemini-3.8-flash-medium"
+  | "gemini-3.8-flash-low"
+  | "gemini-3.8-flash"
+  | "gemini-4-argon-high"
+  | "gemini-4-argon-medium"
+  | "gemini-4-argon-low"
+  | "claude-sonnet-5-5-high"
+  | "claude-opus-5-5-high"
+  | "gpt-oss-120b-medium"
   | (string & {});
 
 export type SupportedGenAiModel =
@@ -21,11 +31,21 @@ export type SupportedGenAiModel =
   | "gemini-3-flash-preview"
   | "gemini-3.5-flash"
   | "gemini-3.6-flash"
+  | "gemini-3.8-flash-high"
+  | "gemini-3.8-flash-medium"
+  | "gemini-3.8-flash-low"
+  | "gemini-3.8-flash"
+  | "gemini-4-argon-high"
+  | "gemini-4-argon-medium"
+  | "gemini-4-argon-low"
+  | "claude-sonnet-5-5-high"
+  | "claude-opus-5-5-high"
+  | "gpt-oss-120b-medium"
   | (string & {});
 
 export interface ModelConfig {
-  /** AI Provider backend ('google-genai' | 'vertex') */
-  provider?: "google-genai" | "vertex";
+  /** AI Provider backend ('google-genai' | 'vertex' | 'antigravity') */
+  provider?: "google-genai" | "vertex" | "antigravity";
   /** Model identifier from the SupportedGenAiModel registry */
   modelId: SupportedGenAiModel;
   /** Sampling temperature (0.0 for deterministic classification, 0.7 for creative chat) */
@@ -38,7 +58,7 @@ export interface ModelConfig {
 
 export interface GenAiConfig {
   apiKey?: string;
-  provider: "google-genai" | "vertex";
+  provider: "google-genai" | "vertex" | "antigravity";
   apiEndpoint: string;
   projectId: string;
   locationId: string;
@@ -50,6 +70,10 @@ export interface GenAiConfig {
     category: string;
     threshold: string;
   }[];
+  antigravityCommand?: string;
+  antigravityConfigDir?: string;
+  antigravityEffort?: string;
+  antigravityTimeoutMs?: number;
 }
 
 export interface GenAi {
