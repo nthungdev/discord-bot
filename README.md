@@ -1,6 +1,6 @@
 # Discord Bot Platform & System Management Portal
 
-A modular, multi-feature Discord bot platform and web management portal written in TypeScript using [Discord.js](https://discord.js.org/), powered by Google GenAI / Vertex AI (Gemini), and managed via a React 19 + Vite admin web application.
+A modular, multi-feature Discord bot platform and web management portal written in TypeScript using [Discord.js](https://discord.js.org/), powered by Google GenAI / Vertex AI (Gemini) or Google Antigravity (Google One AI Pro subscription), and managed via a React 19 + Vite admin web application.
 
 ---
 
@@ -57,8 +57,10 @@ discord-bot/
 ### Prerequisites
 - **Node.js**: `v22.0.0` or higher
 - **pnpm**: `v10.0.0` or higher (`npm install -g pnpm`)
-- **Google Cloud / Firebase Project**: With Gemini API enabled and a `service-account.json` credential.
 - **Discord Application**: Client ID, Client Secret, and Bot Tokens from the [Discord Developer Portal](https://discord.com/developers/applications).
+- **AI Engine (Choose either)**:
+  - **Option A (Google One AI Pro Subscription via Antigravity - Recommended)**: Zero API cost utilizing your Google One subscription quota via the Google Antigravity CLI (`agy`). No `GEMINI_API_KEY` or `service-account.json` required.
+  - **Option B (Direct Gemini API / Google Cloud Vertex AI)**: With Gemini API enabled, `GEMINI_API_KEY`, or a `service-account.json` credential.
 
 ---
 
@@ -84,14 +86,38 @@ cp app/.env.example app/.env.development
 
 ---
 
-### Step 3: Service Account & Config Setup
+### Step 3: AI Provider & Config Setup
 
-1. Place your Google Cloud Service Account JSON file at `app/service-account.json`.
-2. Copy `app/config.example.json` to `app/config.json`:
-
+1. Copy `app/config.example.json` to `app/config.json`:
 ```bash
 cp app/config.example.json app/config.json
 ```
+
+2. Select your AI Engine in `app/config.json`:
+
+#### Option A: Google One AI Pro Subscription (via Antigravity) — Zero Token Cost
+- Authenticate the `agy` CLI once on your machine:
+  ```bash
+  agy
+  ```
+- In `app/config.json`, set:
+  ```json
+  {
+    "aiProvider": "antigravity",
+    "aiModelId": "gemini-3.8-flash-low"
+  }
+  ```
+  *(Supported models: `gemini-3.8-flash-low`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-high`, `gemini-4-argon-low`, `claude-sonnet-5-5-low`, etc. No `GEMINI_API_KEY` or `service-account.json` required!)*
+
+#### Option B: Direct Gemini API / Google Cloud Vertex AI
+- Place your Google Cloud Service Account JSON file at `app/service-account.json` (or set `GEMINI_API_KEY` in `app/.env.development`).
+- In `app/config.json`, set:
+  ```json
+  {
+    "aiProvider": "google-genai",
+    "aiModelId": "gemini-3.6-flash"
+  }
+  ```
 
 ---
 
@@ -176,6 +202,9 @@ pnpm --prefix app docker-dev
 # Run production container (serves built web assets from web/dist)
 pnpm --prefix app docker-prod
 ```
+
+> [!TIP]
+> **Running Antigravity in Docker Containers**: Mount your authenticated `~/.gemini` credentials directory into the container (`volumes: [ "~/.gemini:/root/.gemini:ro" ]`) so the bot can access your Google One AI Pro session with zero token costs.
 
 ### Directus Control Plane (Local Development)
 

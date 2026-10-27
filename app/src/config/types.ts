@@ -212,7 +212,7 @@ export type AiApiEndpointConfig = string;
 export type AiProjectIdConfig = string;
 export type AiModelIdConfig = string;
 export type AiLocationIdConfig = string;
-export type AiProviderConfig = "google-genai" | "vertex";
+export type AiProviderConfig = "google-genai" | "vertex" | "antigravity";
 
 export type AiMaxOutputTokens = number;
 export type AiMaxConversationHistoryConfig = number;

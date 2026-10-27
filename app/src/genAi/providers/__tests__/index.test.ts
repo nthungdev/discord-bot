@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GenAiConfig } from "../../types";
+import { AntigravityGenAi } from ".././antigravity";
 import { MyGoogleGenAI } from ".././google-genai";
 import { createGenAi } from ".././index";
 import { VertexGenAi } from ".././vertex";
@@ -23,6 +24,11 @@ describe("createGenAi factory", () => {
   it("should create VertexGenAi instance when provider is vertex", () => {
     const provider = createGenAi({ ...baseConfig, provider: "vertex" });
     expect(provider).toBeInstanceOf(VertexGenAi);
+  });
+
+  it("should create AntigravityGenAi instance when provider is antigravity", () => {
+    const provider = createGenAi({ ...baseConfig, provider: "antigravity" });
+    expect(provider).toBeInstanceOf(AntigravityGenAi);
   });
 
   it("should throw error for unsupported provider", () => {
