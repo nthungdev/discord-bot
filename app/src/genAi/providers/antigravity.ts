@@ -13,8 +13,8 @@ import type {
 import type { GenAi, GenAiConfig } from "../types";
 
 export const DEFAULT_ANTIGRAVITY_MODEL = "gemini-3.8-flash";
-export const DEFAULT_ANTIGRAVITY_TIMEOUT_MS = 120_000;
-export const DEFAULT_TOOL_ITERATION_TIMEOUT_MS = 30_000;
+export const DEFAULT_ANTIGRAVITY_TIMEOUT_MS = 180_000;
+export const DEFAULT_TOOL_ITERATION_TIMEOUT_MS = 90_000;
 export const MAX_AGY_BUFFER_BYTES = 10 * 1024 * 1024; // 10MB DoS buffer guard
 export const MAX_REMOTE_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10MB remote attachment size limit
 export const MAX_TOOL_ITERATIONS = 7;
@@ -1068,13 +1068,17 @@ export class AntigravityGenAi implements GenAi {
       const timeoutMs =
         this.config.antigravityTimeoutMs || DEFAULT_ANTIGRAVITY_TIMEOUT_MS;
 
+      const iterationTimeoutMs =
+        Number(process.env.ANTIGRAVITY_ITERATION_TIMEOUT_MS) ||
+        DEFAULT_TOOL_ITERATION_TIMEOUT_MS;
+
       const executeOptions: ExecuteAgyOptions = {
         command: this.resolvedCommand,
         model,
         effort,
         promptText,
         configDir: this.config.antigravityConfigDir,
-        timeoutMs: DEFAULT_TOOL_ITERATION_TIMEOUT_MS,
+        timeoutMs: iterationTimeoutMs,
         totalMaxBudgetMs: timeoutMs,
       };
 

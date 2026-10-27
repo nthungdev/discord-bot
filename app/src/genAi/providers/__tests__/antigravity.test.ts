@@ -296,8 +296,8 @@ describe("AntigravityGenAi Provider", () => {
     });
 
     it("should export correct default constants and allowed attachment paths", () => {
-      expect(DEFAULT_ANTIGRAVITY_TIMEOUT_MS).toBe(120_000);
-      expect(DEFAULT_TOOL_ITERATION_TIMEOUT_MS).toBe(30_000);
+      expect(DEFAULT_ANTIGRAVITY_TIMEOUT_MS).toBe(180_000);
+      expect(DEFAULT_TOOL_ITERATION_TIMEOUT_MS).toBe(90_000);
       expect(DEFAULT_ALLOWED_ATTACHMENT_DIRS).toContain(os.tmpdir());
       expect(STANDARD_SYSTEM_ENV_VARS.has("PATH")).toBe(true);
       expect(STANDARD_SYSTEM_ENV_VARS.has("HOME")).toBe(true);
