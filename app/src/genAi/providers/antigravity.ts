@@ -138,7 +138,7 @@ export function killProcessTree(proc: ChildProcess): void {
 
   const forceKillTimer = setTimeout(() => {
     try {
-      if (!proc.killed) {
+      if (proc.exitCode === null && proc.signalCode === null) {
         proc.kill("SIGKILL");
       }
     } catch {
@@ -502,9 +502,66 @@ export function isSafeAttachmentPath(
   }
 }
 
+const PRIVATE_IPV4_REGEX =
+  /^(127\.|169\.254\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.)/;
+
+/**
+ * Validates that a remote attachment URL does not target loopback, link-local,
+ * cloud metadata (169.254.169.254), or RFC1918 private IP ranges (SSRF defense-in-depth).
+ */
+export function isSafeRemoteAttachmentUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase().trim();
+
+    if (
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal") ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1" ||
+      hostname === "[::1]"
+    ) {
+      return false;
+    }
+
+    if (PRIVATE_IPV4_REGEX.test(hostname)) {
+      return false;
+    }
+
+    const normalized = hostname.replace(/^\[|\]$/g, "");
+    if (
+      normalized.startsWith("fe80:") ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("::ffff:127.") ||
+      normalized.startsWith("::ffff:169.254.") ||
+      normalized.startsWith("::ffff:10.") ||
+      normalized.startsWith("::ffff:192.168.")
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function saveRemoteAttachment(
   file: AiPromptFile,
 ): Promise<PreparedAttachment> {
+  if (!isSafeRemoteAttachmentUrl(file.uri)) {
+    throw new Error(
+      `Remote attachment URL rejected for SSRF safety: ${file.uri}`,
+    );
+  }
+
   const ext = getExtensionFromMime(file.mimeType);
   const tempPath = path.join(
     os.tmpdir(),
@@ -602,14 +659,18 @@ export async function prepareAttachments(
   }
 
   const results: PreparedAttachment[] = [];
-  for (const file of files) {
-    const prepared = await processSingleAttachment(file, allowedDirs);
-    if (prepared) {
-      results.push(prepared);
+  try {
+    for (const file of files) {
+      const prepared = await processSingleAttachment(file, allowedDirs);
+      if (prepared) {
+        results.push(prepared);
+      }
     }
+    return results;
+  } catch (err) {
+    await cleanupTemporaryAttachments(results);
+    throw err;
   }
-
-  return results;
 }
 
 /**
@@ -789,10 +850,13 @@ export async function executeSingleTool(
       }, timeoutMs);
     });
 
-    output = await Promise.race([
+    const executionPromise = Promise.resolve(
       tool.execute(call.arguments, prompt.toolContext),
-      timeoutPromise,
-    ]);
+    );
+    // Prevent unhandled rejection if timeoutPromise wins the race
+    executionPromise.catch(() => {});
+
+    output = await Promise.race([executionPromise, timeoutPromise]);
     console.info(
       `[AntigravityGenAi] Tool '${call.name}' completed successfully`,
     );

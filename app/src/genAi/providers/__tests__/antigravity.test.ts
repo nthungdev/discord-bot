@@ -29,6 +29,7 @@ import {
   formatAttachmentDescriptions,
   formatHistory,
   isSafeAttachmentPath,
+  isSafeRemoteAttachmentUrl,
   killProcessTree,
   MAX_AGY_BUFFER_BYTES,
   MAX_REMOTE_ATTACHMENT_BYTES,
@@ -72,6 +73,8 @@ class MockChildProcess extends EventEmitter {
     end: vi.fn(),
   });
   killed = false;
+  exitCode: number | null = null;
+  signalCode: string | null = null;
   kill = vi.fn((signal?: string) => {
     if (signal === "SIGTERM" || signal === "SIGKILL") {
       this.killed = true;
@@ -714,6 +717,8 @@ describe("AntigravityGenAi Provider", () => {
       vi.useFakeTimers();
       const mockProc = new MockChildProcess();
       mockProc.killed = false;
+      mockProc.exitCode = null;
+      mockProc.signalCode = null;
       mockProc.kill = vi.fn().mockReturnValue(true);
 
       killProcessTree(mockProc as unknown as ReturnType<typeof spawn>);
@@ -721,6 +726,22 @@ describe("AntigravityGenAi Provider", () => {
 
       vi.advanceTimersByTime(2000);
       expect(mockProc.kill).toHaveBeenCalledWith("SIGKILL");
+
+      vi.useRealTimers();
+    });
+
+    it("should not send SIGKILL if process exits before timer fires", () => {
+      vi.useFakeTimers();
+      const mockProc = new MockChildProcess();
+      mockProc.killed = true;
+      mockProc.exitCode = 0;
+      mockProc.kill = vi.fn().mockReturnValue(true);
+
+      killProcessTree(mockProc as unknown as ReturnType<typeof spawn>);
+      expect(mockProc.kill).toHaveBeenCalledWith("SIGTERM");
+
+      vi.advanceTimersByTime(2000);
+      expect(mockProc.kill).not.toHaveBeenCalledWith("SIGKILL");
 
       vi.useRealTimers();
     });
@@ -941,6 +962,76 @@ describe("AntigravityGenAi Provider", () => {
         if (fs.existsSync(targetFile)) fs.unlinkSync(targetFile);
         if (fs.existsSync(allowedDir)) fs.rmdirSync(allowedDir);
       }
+    });
+
+    it("should clean up already downloaded temporary files if a subsequent attachment download fails mid-loop", async () => {
+      let createdTempPath = "";
+      const originalWriteFile = fs.promises.writeFile;
+      const writeFileSpy = vi
+        .spyOn(fs.promises, "writeFile")
+        .mockImplementation(async (targetPath, data) => {
+          createdTempPath = targetPath as string;
+          return originalWriteFile(targetPath, data);
+        });
+
+      vi.mocked(axios.get)
+        .mockResolvedValueOnce({ data: Buffer.from("first-image") })
+        .mockRejectedValueOnce(new Error("Second image download failed"));
+
+      await expect(
+        prepareAttachments([
+          { uri: "https://example.com/first.png", mimeType: "image/png" },
+          { uri: "https://example.com/second.png", mimeType: "image/png" },
+        ]),
+      ).rejects.toThrow("Second image download failed");
+
+      writeFileSpy.mockRestore();
+
+      // Verify that the first downloaded file was cleaned up on error
+      if (createdTempPath) {
+        expect(fs.existsSync(createdTempPath)).toBe(false);
+      }
+    });
+
+    it("should validate remote attachment URLs for SSRF safety", () => {
+      expect(
+        isSafeRemoteAttachmentUrl(
+          "https://cdn.discordapp.com/attachments/123/photo.png",
+        ),
+      ).toBe(true);
+      expect(isSafeRemoteAttachmentUrl("http://example.com/pic.jpg")).toBe(
+        true,
+      );
+      expect(isSafeRemoteAttachmentUrl("http://localhost:3001/private")).toBe(
+        false,
+      );
+      expect(isSafeRemoteAttachmentUrl("http://127.0.0.1:8080/")).toBe(false);
+      expect(
+        isSafeRemoteAttachmentUrl("http://169.254.169.254/latest/meta-data"),
+      ).toBe(false);
+      expect(isSafeRemoteAttachmentUrl("http://10.0.0.1/admin")).toBe(false);
+      expect(isSafeRemoteAttachmentUrl("http://192.168.1.1/router")).toBe(
+        false,
+      );
+      expect(isSafeRemoteAttachmentUrl("http://172.16.0.1/internal")).toBe(
+        false,
+      );
+      expect(isSafeRemoteAttachmentUrl("http://[::1]/")).toBe(false);
+      expect(isSafeRemoteAttachmentUrl("ftp://example.com/photo.png")).toBe(
+        false,
+      );
+      expect(isSafeRemoteAttachmentUrl("not-a-valid-url")).toBe(false);
+    });
+
+    it("should reject SSRF unsafe remote URLs when preparing attachments", async () => {
+      await expect(
+        prepareAttachments([
+          {
+            uri: "http://169.254.169.254/latest/meta-data",
+            mimeType: "image/png",
+          },
+        ]),
+      ).rejects.toThrow(/SSRF safety/);
     });
   });
 
@@ -1262,6 +1353,40 @@ describe("AntigravityGenAi Provider", () => {
 
       expect(resultTag).toContain('<tool_result name="hanging_tool">');
       expect(resultTag).toContain("timed out after 50ms");
+    });
+
+    it("should prevent unhandled rejection if tool execution rejects after timeout barrier", async () => {
+      let lateReject: (err: Error) => void = () => {};
+      const delayedFailingTool: ToolDefinition = {
+        name: "delayed_failing_tool",
+        description: "Fails after timeout",
+        parameters: { type: "OBJECT", properties: {} },
+        execute: vi.fn(
+          () =>
+            new Promise((_, reject) => {
+              lateReject = reject;
+            }),
+        ),
+      };
+
+      const prompt: AiPrompt = {
+        text: "test",
+        tools: [delayedFailingTool],
+        toolContext: mockContext,
+      };
+
+      const resultTag = await executeSingleTool(
+        { name: "delayed_failing_tool", arguments: {} },
+        prompt,
+        20, // 20ms timeout
+      );
+
+      expect(resultTag).toContain("timed out after 20ms");
+
+      // Trigger late rejection - should not crash process or trigger unhandled rejection
+      expect(() =>
+        lateReject(new Error("Late asynchronous failure")),
+      ).not.toThrow();
     });
   });
 
