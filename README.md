@@ -204,7 +204,7 @@ pnpm --prefix app docker-prod
 ```
 
 > [!TIP]
-> **Running Antigravity in Docker / Synology NAS**: Mount your authenticated `~/.gemini` credentials directory into the container (`volumes: [ "~/.gemini:/root/.gemini:ro" ]`) so the bot can access your Google One AI Pro session with zero token costs.
+> **Running Antigravity in Docker Containers**: Mount your authenticated `~/.gemini` credentials directory into the container (`volumes: [ "~/.gemini:/root/.gemini:ro" ]`) so the bot can access your Google One AI Pro session with zero token costs.
 
 ### Directus Control Plane (Local Development)
 

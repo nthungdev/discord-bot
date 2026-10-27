@@ -226,7 +226,7 @@ curl -X POST http://localhost:3001/api/v1/guilds/<GUILD_ID>/deploy-commands \
   -H "Authorization: Bearer <BEARER_TOKEN>"
 ```
 
-#### Option C: In Production / Remote Docker Container (e.g. Synology NAS)
+#### Option C: In Production / Remote Docker Container
 Execute the deployment function directly inside the running container:
 ```bash
 ssh <hostname> "sudo docker exec <container_name> node -e \"const { deployGuildCommands } = require('./build/src/discord/deployCommands.js'); deployGuildCommands(process.env.DISCORD_TOKEN, process.env.DISCORD_CLIENT_ID, '<GUILD_ID>').then(() => console.log('Deployed!')).catch(console.error);\""
