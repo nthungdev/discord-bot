@@ -198,6 +198,97 @@ export function isWhitelistedReplyChannel(
 }
 
 /**
+ * Evaluates positive direct interactions (bot thread, explicit mention, direct reply).
+ */
+function evaluateDirectInteractions(
+  context: AddresseeEvaluationContext,
+): AddresseeResult | null {
+  const { message, botUserId, refMessage } = context;
+
+  if (isBotOwnedThread(message, botUserId)) {
+    return {
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "bot_thread",
+      confidence: 1.0,
+    };
+  }
+
+  if (isExplicitBotMention(message, botUserId)) {
+    return {
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "explicit_mention",
+      confidence: 1.0,
+    };
+  }
+
+  if (isDirectReplyToBot(refMessage, botUserId)) {
+    return {
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "direct_reply",
+      confidence: 1.0,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Evaluates ambient positive triggers (vocative, active session, whitelisted channel).
+ */
+function evaluateAmbientTriggers(
+  context: AddresseeEvaluationContext,
+): AddresseeResult | null {
+  const {
+    message,
+    botName,
+    guildConfig,
+    activeSessionTimestamp,
+    now = Date.now(),
+  } = context;
+
+  const isSmartReplyDisabled =
+    guildConfig?.smartReply?.enabled === false ||
+    guildConfig?.smartReply?.mode === "disabled";
+
+  if (!isSmartReplyDisabled && isVocativeAddressing(message.content, botName)) {
+    return {
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "vocative_name",
+      confidence: 1.0,
+    };
+  }
+
+  const sessionTtl =
+    guildConfig?.smartReply?.sessionTtlSeconds ?? DEFAULT_SESSION_TTL_SECONDS;
+  if (
+    !isSmartReplyDisabled &&
+    isActiveUserSession(activeSessionTimestamp, sessionTtl, now)
+  ) {
+    return {
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "active_session",
+      confidence: 0.9,
+    };
+  }
+
+  if (isWhitelistedReplyChannel(message, guildConfig)) {
+    return {
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "reply_channel_whitelist",
+      confidence: 1.0,
+    };
+  }
+
+  return null;
+}
+
+/**
  * Evaluates all Tier 1 deterministic addressee heuristics.
  * Returns an AddresseeResult if a definitive determination is made, or null if ambiguous.
  */
@@ -207,10 +298,8 @@ export function evaluateTier1Heuristics(
   const {
     message,
     botUserId,
-    botName,
     guildConfig,
     refMessage,
-    activeSessionTimestamp,
     channelSilencedUntil,
     now = Date.now(),
   } = context;
@@ -257,34 +346,10 @@ export function evaluateTier1Heuristics(
     };
   }
 
-  // 5. Positive Triggers: Dedicated bot thread
-  if (isBotOwnedThread(message, botUserId)) {
-    return {
-      decision: "respond",
-      tier: "tier1_deterministic",
-      reason: "bot_thread",
-      confidence: 1.0,
-    };
-  }
-
-  // 6. Positive Trigger: Explicit mention
-  if (isExplicitMention) {
-    return {
-      decision: "respond",
-      tier: "tier1_deterministic",
-      reason: "explicit_mention",
-      confidence: 1.0,
-    };
-  }
-
-  // 7. Positive Trigger: Direct reply to bot message
-  if (isDirectReplyToBot(refMessage, botUserId)) {
-    return {
-      decision: "respond",
-      tier: "tier1_deterministic",
-      reason: "direct_reply",
-      confidence: 1.0,
-    };
+  // 5-7. Positive Triggers: Direct interactions
+  const directResult = evaluateDirectInteractions(context);
+  if (directResult) {
+    return directResult;
   }
 
   // 8. Addressed to another user -> drop
@@ -297,38 +362,6 @@ export function evaluateTier1Heuristics(
     };
   }
 
-  // 9. Positive Trigger: Vocative addressing (e.g. "Hey bot", "ChatBot ...")
-  if (isVocativeAddressing(message.content, botName)) {
-    return {
-      decision: "respond",
-      tier: "tier1_deterministic",
-      reason: "vocative_name",
-      confidence: 1.0,
-    };
-  }
-
-  // 10. Positive Trigger: Active user session within TTL
-  const sessionTtl =
-    guildConfig?.smartReply?.sessionTtlSeconds ?? DEFAULT_SESSION_TTL_SECONDS;
-  if (isActiveUserSession(activeSessionTimestamp, sessionTtl, now)) {
-    return {
-      decision: "respond",
-      tier: "tier1_deterministic",
-      reason: "active_session",
-      confidence: 0.9,
-    };
-  }
-
-  // 11. Positive Trigger: Whitelisted reply channel
-  if (isWhitelistedReplyChannel(message, guildConfig)) {
-    return {
-      decision: "respond",
-      tier: "tier1_deterministic",
-      reason: "reply_channel_whitelist",
-      confidence: 1.0,
-    };
-  }
-
-  // 12. No Tier 1 rule matched -> ambiguous
-  return null;
+  // 9-11. Ambient Triggers (vocative, active session, whitelist)
+  return evaluateAmbientTriggers(context);
 }

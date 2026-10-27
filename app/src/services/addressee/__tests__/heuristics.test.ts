@@ -181,4 +181,94 @@ describe("Addressee Tier 1 Deterministic Heuristics", () => {
       confidence: 1.0,
     });
   });
+
+  it("should suppress vocative addressing and active session when smartReply is disabled", () => {
+    const vocativeMsg = createMockMessage({
+      content: "hey bot explain typescript",
+    });
+    const resultDisabled = evaluateTier1Heuristics({
+      message: vocativeMsg,
+      botUserId,
+      botName: "Jarvis",
+      guildConfig: {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+        smartReply: {
+          enabled: false,
+          mode: "disabled",
+        },
+      },
+    });
+
+    expect(resultDisabled).toBeNull();
+
+    const resultModeDisabled = evaluateTier1Heuristics({
+      message: vocativeMsg,
+      botUserId,
+      botName: "Jarvis",
+      guildConfig: {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+        smartReply: {
+          enabled: true,
+          mode: "disabled",
+        },
+      },
+    });
+
+    expect(resultModeDisabled).toBeNull();
+
+    const activeSessionMsg = createMockMessage({
+      content: "looks good",
+    });
+    const resultActiveSession = evaluateTier1Heuristics({
+      message: activeSessionMsg,
+      botUserId,
+      activeSessionTimestamp: 5000,
+      now: 10000,
+      guildConfig: {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+        smartReply: {
+          enabled: false,
+          mode: "ambient_intent",
+        },
+      },
+    });
+
+    expect(resultActiveSession).toBeNull();
+
+    const mentionMsg = createMockMessage({
+      content: "<@bot-123> help me",
+      mentions: {
+        users: {
+          has: (id: string) => id === botUserId,
+          toJSON: () => [{ id: botUserId }],
+        },
+      },
+    });
+    const resultMention = evaluateTier1Heuristics({
+      message: mentionMsg,
+      botUserId,
+      guildConfig: {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+        smartReply: {
+          enabled: false,
+          mode: "disabled",
+        },
+      },
+    });
+
+    expect(resultMention).toEqual({
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "explicit_mention",
+      confidence: 1.0,
+    });
+  });
 });
