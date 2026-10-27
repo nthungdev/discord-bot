@@ -11,6 +11,19 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
+# Install curl, ca-certificates, and Google Antigravity CLI (agy)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && curl -fsSL https://antigravity.google/cli/install.sh | bash \
+    && if [ -f /root/.local/bin/agy ]; then cp /root/.local/bin/agy /usr/local/bin/agy; fi \
+    && chmod 755 /usr/local/bin/agy \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify agy installation
+RUN /usr/local/bin/agy --version
+
 COPY . /app
 WORKDIR /app
 
