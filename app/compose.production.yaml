@@ -10,6 +10,7 @@ services:
       PORT: ${PORT:-3001}
       AUTO_DEPLOY_COMMAND_GUILDS: ${AUTO_DEPLOY_COMMAND_GUILDS:-}
       ANTIGRAVITY_CONFIG_DIR: ${ANTIGRAVITY_CONFIG_DIR:-/root/.gemini/antigravity-cli}
+      USE_CONFIG_FILE: ${USE_CONFIG_FILE:-true}
     env_file:
       - ./.env.production
     volumes:

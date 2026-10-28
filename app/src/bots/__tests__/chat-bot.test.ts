@@ -79,6 +79,7 @@ describe("ChatBot", () => {
               author: { username: "alice", displayName: "AliceDev" },
               member: { nickname: "AliceDev" },
               cleanContent: "Here is an error log",
+              attachments: new Map([["att-1", { name: "error.log" }]]),
             },
             {
               createdAt: new Date("2026-09-11T10:14:15Z"),
@@ -102,7 +103,9 @@ describe("ChatBot", () => {
     expect(snapshot).toContain(
       "--- Recent Channel Activity (for context reference only) ---",
     );
-    expect(snapshot).toContain('@alice (AliceDev): "Here is an error log"');
+    expect(snapshot).toContain(
+      '@alice (AliceDev): "Here is an error log" [Attachments: error.log]',
+    );
     expect(snapshot).toContain('@bob (BobTester): "Can you help fix that?"');
     expect(snapshot).toContain("--- End Recent Channel Activity ---");
   });

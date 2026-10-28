@@ -33,7 +33,16 @@ describe("Discord Message Tools", () => {
     cleanContent: "Check this out",
     content: "Check this out",
     createdAt: new Date("2024-01-01T10:05:00Z"),
-    attachments: new Map([["att-1", {}]]),
+    attachments: new Map([
+      [
+        "att-1",
+        {
+          url: "https://example.com/image.png",
+          name: "image.png",
+          contentType: "image/png",
+        },
+      ],
+    ]),
     react: vi.fn().mockResolvedValue(undefined),
   };
 
@@ -83,6 +92,13 @@ describe("Discord Message Tools", () => {
       );
       expect(result.count).toBe(1);
       expect(result.messages[0].id).toBe("msg-2");
+      expect(result.messages[0].attachments).toEqual([
+        {
+          url: "https://example.com/image.png",
+          name: "image.png",
+          contentType: "image/png",
+        },
+      ]);
     });
   });
 
