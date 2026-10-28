@@ -109,6 +109,13 @@ export const discordGetRecentMessagesTool: ToolDefinition<
       content: m.cleanContent || m.content || "",
       createdAt: m.createdAt?.toISOString() ?? new Date().toISOString(),
       attachmentCount: m.attachments?.size ?? 0,
+      attachments: m.attachments
+        ? Array.from(m.attachments.values()).map((a) => ({
+            url: a.url,
+            name: a.name,
+            contentType: a.contentType,
+          }))
+        : [],
     }));
 
     return {

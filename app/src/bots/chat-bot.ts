@@ -287,7 +287,13 @@ export async function fetchAmbientChannelSnapshot(
         const time = m.createdAt.toISOString().substring(11, 19);
         const name =
           m.member?.nickname ?? m.author.displayName ?? m.author.username;
-        return `[${time}] @${m.author.username} (${name}): "${m.cleanContent}"`;
+        const attachmentInfo =
+          m.attachments && m.attachments.size > 0
+            ? ` [Attachments: ${Array.from(m.attachments.values())
+                .map((a) => a.name)
+                .join(", ")}]`
+            : "";
+        return `[${time}] @${m.author.username} (${name}): "${m.cleanContent}"${attachmentInfo}`;
       })
       .join("\n");
     return `--- Recent Channel Activity (for context reference only) ---\n${formatted}\n--- End Recent Channel Activity ---`;
@@ -362,6 +368,32 @@ export async function dispatchBotReply(
 }
 
 /**
+ * Scans recent channel messages for fallback image attachments when none are attached in current turn.
+ */
+async function findRecentChannelAttachments(
+  channel: Message<boolean>["channel"],
+  limit = 5,
+): Promise<Array<{ uri: string; mimeType: string }>> {
+  if (!channel.isTextBased()) {
+    return [];
+  }
+  try {
+    const recent = await channel.messages.fetch({ limit });
+    for (const msg of recent.values()) {
+      if (msg.attachments && msg.attachments.size > 0) {
+        const mapped = mapAttachments(msg.attachments);
+        if (mapped.length > 0) {
+          return mapped;
+        }
+      }
+    }
+  } catch {
+    // Ignore channel fetch error
+  }
+  return [];
+}
+
+/**
  * Assembles the full prompt, attachments, history, and tools for the chat turn.
  */
 async function preparePromptAndTools(
@@ -381,6 +413,13 @@ async function preparePromptAndTools(
     ...messages.flatMap((m) => m.attachments),
     ...messages.flatMap((m) => m.reference?.attachments ?? []),
   ];
+
+  if (files.length === 0) {
+    const fallbackAttachments = await findRecentChannelAttachments(
+      message.channel,
+    );
+    files.push(...fallbackAttachments);
+  }
 
   const history = await getMemoryService().getHistory(botId, message.channelId);
 
