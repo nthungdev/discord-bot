@@ -23,6 +23,11 @@ export const discordGetRecentMessagesTool: ToolDefinition<
       content: string;
       createdAt: string;
       attachmentCount: number;
+      attachments: {
+        url: string;
+        name: string;
+        contentType: string | null;
+      }[];
     }[];
     count: number;
   }
