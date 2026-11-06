@@ -1,6 +1,10 @@
-# Discord Bot Platform & System Management Portal
+# Discord Bot Platform
 
-A modular, multi-feature Discord bot platform and web management portal written in TypeScript using [Discord.js](https://discord.js.org/), powered by Google GenAI / Vertex AI (Gemini) or Google Antigravity (Google One AI Pro subscription), and managed via a React 19 + Vite admin web application.
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white) ![Discord.js](https://img.shields.io/badge/Discord.js-5865F2?logo=discord&logoColor=white) ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+
+A self-hosted platform for running multiple Discord bots from one server: a Gemini-powered chat assistant that knows when it is being addressed, a bilingual (English/Vietnamese) moderation bot, and a React admin portal to start, stop, configure, and monitor bots live.
+
+<p align="center"><img src="docs/images/chatbot.png" width="560" alt="Chatbot conversation in Discord" /></p>
 
 ---
 
@@ -206,59 +210,17 @@ pnpm --prefix app docker-prod
 > [!TIP]
 > **Running Antigravity in Docker Containers**: Mount your authenticated `~/.gemini` credentials directory into the container (`volumes: [ "~/.gemini:/root/.gemini:ro" ]`) so the bot can access your Google One AI Pro session with zero token costs.
 
-### Directus Control Plane (Local Development)
+### Directus control plane (optional)
 
-The application supports [Directus](https://directus.io/) as a headless CMS control plane for dynamic guild runtime settings, AI Roast system presets, user privacy opt-outs, and audit telemetry logs.
+Guild settings, roast presets, user opt-outs, and audit logs can be stored in [Directus](https://directus.io/) instead of local memory:
 
-#### 1. Configure Environment Variables
-- **Container Stack**: Copy `.env.directus.example` to `.env` in the repository root (or customize ports and credentials if needed):
-  ```bash
-  cp .env.directus.example .env
-  ```
-- **Bot Application**: In `app/.env.development`, define a secure `DIRECTUS_BOT_TOKEN` (required) and optional `INTERNAL_WEBHOOK_SECRET`. If you customize ports or admin credentials in root `.env`, `directus:setup` will automatically pick them up (or you can explicitly set `DIRECTUS_URL`, `DIRECTUS_ADMIN_EMAIL`, and `DIRECTUS_ADMIN_PASSWORD` in `app/.env.development`):
-  ```bash
-  DIRECTUS_BOT_TOKEN=my-secure-directus-bot-token
-  INTERNAL_WEBHOOK_SECRET=my-webhook-cache-secret
-  ```
-
-
-#### 2. Start PostgreSQL & Directus Containers
 ```bash
+cp .env.directus.example .env
 docker compose -f compose.directus-dev.yaml up -d
-```
-*Verify containers are running and healthy:*
-```bash
-docker compose -f compose.directus-dev.yaml ps
+pnpm --prefix app directus:setup     # provisions collections, RBAC, service token, webhook
 ```
 
-#### 3. Bootstrap Schema, Roles & Service User
-Once the containers are healthy, provision the collections (`bot_guild_configs`, `bot_roast_presets`, `bot_user_profiles`, `bot_roast_logs`, `bot_match_logs`), RBAC policies, service user token, and cache invalidation webhook:
-```bash
-pnpm --prefix app directus:setup
-```
-
-#### 4. Access Admin Console
-Open `http://localhost:8055` in your browser.
-- **Email**: `admin@local.dev` (or value of `DIRECTUS_ADMIN_EMAIL`)
-- **Password**: `adminpassword` (or value of `DIRECTUS_ADMIN_PASSWORD`)
-
-#### 5. Enable Directus in the Bot Runtime
-To use Directus for user profiles and roast opt-out persistence, set `MEMORY_STORE_TYPE` in `app/.env.development`:
-```bash
-MEMORY_STORE_TYPE=directus
-```
-
-#### Teardown & Reset
-- Stop containers:
-  ```bash
-  docker compose -f compose.directus-dev.yaml down
-  ```
-- Reset local database and upload volumes:
-  ```bash
-  docker compose -f compose.directus-dev.yaml down -v
-  ```
-
-For detailed schema documentation, webhook security, and troubleshooting, see the [Directus Control Plane Guide](docs/directus-control-plane.md).
+Then set `MEMORY_STORE_TYPE=directus` in `app/.env.development`. Full setup, schema, and teardown steps: [Directus Control Plane Guide](docs/directus-control-plane.md).
 
 ---
 
@@ -272,6 +234,11 @@ For detailed schema documentation, webhook security, and troubleshooting, see th
 - [Persistent Conversation Memory Design](docs/persistent-memory-design.md)
 - [Voice Bouncer & Matchmaking Capabilities Design](docs/voice-and-matchmaking-design.md)
 - [AI Roast Feature PRD](docs/roast-feature-prd.md)
+- [Self-Service Role Assignment: Design](docs/role-assignment-design.md) · [PRD](docs/role-assignment-prd.md)
+- [Voice Companion Design](docs/voice-companion-design.md)
+- [Teamfight Tactics Capability Suite: Design](docs/tft-design.md) · [PRD](docs/tft-prd.md)
+- [Valorant Capability Suite: Design](docs/valorant-design.md) · [PRD](docs/valorant-prd.md)
+- [OpenClaw Hybrid Agentic Co-Processor: Design](docs/openclaw-hybrid-coprocessor-design.md) · [PRD](docs/openclaw-hybrid-coprocessor-prd.md)
 - [AI Agent Guidelines](AGENTS.md)
 
 
