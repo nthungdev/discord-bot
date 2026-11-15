@@ -76,9 +76,15 @@ jobs:
   test:
     name: Test & Coverage
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -104,38 +110,36 @@ jobs:
             cp app/config.example.json app/config.json
           fi
 
+      - name: Download base branch coverage
+        id: base-coverage
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --branch "$BASE_REF" \
+            --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run_id" ]; then
+            echo "No successful $BASE_REF run found; skipping coverage comparison."
+            exit 0
+          fi
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name coverage-report --dir app/coverage-base
+          if [ -f app/coverage-base/coverage-summary.json ]; then
+            echo "summary-path=coverage-base/coverage-summary.json" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run tests with coverage
         run: pnpm --prefix app test:coverage
 
-      - name: Generate Coverage Summary
+      - name: Report coverage
         if: always()
-        run: |
-          node -e '
-          const fs = require("fs");
-          const summaryPath = "app/coverage/coverage-summary.json";
-          if (fs.existsSync(summaryPath)) {
-            const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-            const total = summary.total;
-            const formatPct = (pct) => `${pct.toFixed(2)}%`;
-            const md = [
-              "## 📊 Test Coverage Summary",
-              "",
-              "| Category | Covered / Total | Percentage |",
-              "| :--- | :--- | :--- |",
-              `| **Lines** | ${total.lines.covered} / ${total.lines.total} | ${formatPct(total.lines.pct)} |`,
-              `| **Statements** | ${total.statements.covered} / ${total.statements.total} | ${formatPct(total.statements.pct)} |`,
-              `| **Functions** | ${total.functions.covered} / ${total.functions.total} | ${formatPct(total.functions.pct)} |`,
-              `| **Branches** | ${total.branches.covered} / ${total.branches.total} | ${formatPct(total.branches.pct)} |`,
-              ""
-            ].join("\n");
-            if (process.env.GITHUB_STEP_SUMMARY) {
-              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
-            }
-            console.log(md);
-          } else {
-            console.log("No coverage summary file found at " + summaryPath);
-          }
-          '
+        uses: davelosert/vitest-coverage-report-action@8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece # v2.13.1
+        with:
+          working-directory: app
+          json-summary-compare-path: ${{ steps.base-coverage.outputs.summary-path }}
+          file-coverage-mode: changes
+          comment-on: ${{ github.event.pull_request.head.repo.fork && 'none' || 'pr' }}
 
       - name: Upload coverage reports
         if: always()
