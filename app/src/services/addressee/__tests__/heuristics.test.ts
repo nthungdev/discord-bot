@@ -178,6 +178,15 @@ describe("Addressee Tier 1 Deterministic Heuristics", () => {
     expect(isVocativeAddressing("Jarvis, help", "Rồng")).toBe(false);
   });
 
+  it("should require a separator between greeting and name", () => {
+    expect(isVocativeAddressing("hijarvis what's up", "Jarvis")).toBe(false);
+    expect(isVocativeAddressing("okbot do it")).toBe(false);
+    expect(isVocativeAddressing("hey, Jarvis help", "Jarvis")).toBe(true);
+    expect(isVocativeAddressing("hi   jarvis", "Jarvis")).toBe(true);
+    expect(isVocativeAddressing("Hiro ơi", "Hiro", ["ro"])).toBe(true);
+    expect(isVocativeAddressing("Okami help", "Okami")).toBe(true);
+  });
+
   it("should ignore names shorter than MIN_VOCATIVE_NAME_LENGTH", () => {
     expect(MIN_VOCATIVE_NAME_LENGTH).toBe(3);
     expect(isVocativeAddressing("em ơi làm bài này đi", "Em")).toBe(false);

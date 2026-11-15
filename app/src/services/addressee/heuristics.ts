@@ -179,9 +179,10 @@ export function isVocativeAddressing(
   }
 
   const namePattern = names.join("|");
+  // The greeting needs a separator so "hijarvis" is not read as "hi" + "jarvis".
   // Unicode-aware boundary: `\b` is ASCII-only and fails on names ending in letters like "ồ".
   const vocativeRegex = new RegExp(
-    `^(?:hey|hi|hello|ok|yo)?\\s*(?:${namePattern})(?![\\p{L}\\p{N}_])`,
+    `^(?:(?:hey|hi|hello|ok|yo)[\\s,]+)?(?:${namePattern})(?![\\p{L}\\p{N}_])`,
     "iu",
   );
   return vocativeRegex.test(content.trim());
