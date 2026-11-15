@@ -214,4 +214,43 @@ describe("parseClassifierOutput", () => {
     expect(parseClassifierOutput("")).toBeNull();
     expect(parseClassifierOutput("not json")).toBeNull();
   });
+
+  it("should pass classifierModel temperature and topP to getGenAi", async () => {
+    const getGenAiSpy = vi.spyOn(genAiUtils, "getGenAi").mockReturnValue({
+      init: vi.fn().mockResolvedValue(undefined),
+      generate: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
+          isAddressedToBot: false,
+          confidence: 0.1,
+          targetAudience: "other",
+          reason: "chatter",
+        }),
+      }),
+    } as unknown as ReturnType<typeof genAiUtils.getGenAi>);
+
+    await classifyAmbientIntent({
+      message: createMockMessage({ content: "hello" }),
+      botUserId: "bot-123",
+      guildConfig: {
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: false,
+        smartReply: {
+          classifierModel: {
+            modelId: "gemini-3.5-flash-lite",
+            temperature: 0,
+            topP: 0.5,
+          },
+        },
+      },
+    });
+
+    expect(getGenAiSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelId: "gemini-3.5-flash-lite",
+        temperature: 0,
+        topP: 0.5,
+      }),
+    );
+  });
 });

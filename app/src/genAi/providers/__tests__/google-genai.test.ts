@@ -97,4 +97,38 @@ describe("MyGoogleGenAI", () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(response.content).toBe("The server owner is alice.");
   });
+
+  it("should send temperature and topP in the chat config when set", async () => {
+    mockSendMessage.mockResolvedValueOnce({ text: "ok" });
+    const provider = new MyGoogleGenAI({
+      ...config,
+      temperature: 0.9,
+      topP: 0.8,
+    });
+    await provider.init();
+    await provider.generate({ text: "Hello" });
+
+    expect(mockCreateChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          maxOutputTokens: 1000,
+          temperature: 0.9,
+          topP: 0.8,
+        }),
+      }),
+    );
+  });
+
+  it("should omit temperature and topP from the chat config when unset", async () => {
+    mockSendMessage.mockResolvedValueOnce({ text: "ok" });
+    const provider = new MyGoogleGenAI(config);
+    await provider.init();
+    await provider.generate({ text: "Hello" });
+
+    const chatConfig = (
+      mockCreateChat.mock.calls[0] as unknown as [{ config: object }]
+    )[0].config;
+    expect(chatConfig).not.toHaveProperty("temperature");
+    expect(chatConfig).not.toHaveProperty("topP");
+  });
 });

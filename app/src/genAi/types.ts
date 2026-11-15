@@ -64,6 +64,8 @@ export interface GenAiConfig {
   locationId: string;
   modelId: string;
   maxOutputTokens: number;
+  temperature?: number;
+  topP?: number;
   systemInstruction?: string;
   membersInstruction?: string;
   safetySettings?: {

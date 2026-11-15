@@ -162,4 +162,22 @@ describe("genAi utils", () => {
       expect(result.content).toBe("Hello <@user-111>! Nice to meet you.");
     });
   });
+
+  describe("getGenAi sampling params", () => {
+    it("should pass temperature and topP to GenAiConfig", () => {
+      const genAi = getGenAi({ apiKey: "k", temperature: 0.9, topP: 0.8 });
+      const internalConfig = (genAi as unknown as { config: GenAiConfig })
+        .config;
+      expect(internalConfig.temperature).toBe(0.9);
+      expect(internalConfig.topP).toBe(0.8);
+    });
+
+    it("should leave temperature and topP undefined when unset", () => {
+      const genAi = getGenAi({ apiKey: "k" });
+      const internalConfig = (genAi as unknown as { config: GenAiConfig })
+        .config;
+      expect(internalConfig.temperature).toBeUndefined();
+      expect(internalConfig.topP).toBeUndefined();
+    });
+  });
 });

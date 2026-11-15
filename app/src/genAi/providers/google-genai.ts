@@ -6,6 +6,7 @@ import {
   type Tool,
 } from "@google/genai";
 import type { AiPrompt, AiPromptResponse } from "../../types";
+import { buildSamplingConfig } from "../helpers";
 import type { GenAi, GenAiConfig } from "../types";
 
 const MAX_TOOL_ITERATIONS = 7;
@@ -173,6 +174,7 @@ export class MyGoogleGenAI implements GenAi {
       config: {
         systemInstruction: this.getSystemInstruction(),
         maxOutputTokens: this.config.maxOutputTokens,
+        ...buildSamplingConfig(this.config),
         ...(toolsConfig.length > 0
           ? {
               tools: toolsConfig,
