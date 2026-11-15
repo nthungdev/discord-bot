@@ -434,6 +434,28 @@ Guidelines for Group Channels:
 };
 ```
 
+#### Live Bot Name Resolution & Persona Placeholders
+
+The bot name is resolved per message by `getGuildBotIdentity` (`app/src/bots/bot-identity.ts`), so a nickname change by server admins applies on the next message without a restart. The same identity feeds the system instruction, Tier 1 vocative detection, and the Tier 2 classifier prompt.
+
+| Source (in priority order) | Value |
+| :--- | :--- |
+| 1. Live guild nickname | `guild.members.me.nickname` (updated by discord.js on `guildMemberUpdate`) |
+| 2. Config | `botName` |
+| 3. Client account | `client.user.username` |
+
+* **Aliases**: the other distinct names among the three sources (case-insensitive, excluding the primary name). When any exist, the builder appends `People may also call you: X, Y.` to the identity line in `overwrite_identity` and `extend` modes.
+* **`lockName: true`**: config `botName` becomes the primary name; the live nickname becomes an alias.
+* **Placeholders**: `{{botName}}` and `{{aliases}}` (comma-separated list, empty when none) are rendered in `personalization` in every mode, and in the legacy raw `systemInstruction` used when `botName` is unset. `overwrite_all` and the legacy path get placeholder substitution only; no lines are appended.
+
+```json
+{
+  "botName": "Jarvis",
+  "lockName": false,
+  "personalization": "You are {{botName}}, a sarcastic butler. Users greet you with \"{{botName}} ơi\"."
+}
+```
+
 ---
 
 ## 9. Privacy, Data Retention & Channel Policies
@@ -603,7 +625,8 @@ export interface BotGuildConfig {
 | Option Name | Type | Recommended Default | Valid Range / Options | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | **`botName`** | `string` | *(Required)* | Non-empty string | **Mandatory** bot identity name (e.g. `"ChatBot"`, `"Jarvis"`). |
-| `personalization` | `string` | `undefined` | Any sentence | Custom persona string replacing Line 1 of the system instruction. |
+| `lockName` | `boolean` | `false` | `true`, `false` | Keep `botName` as the primary name; the live guild nickname becomes an alias. |
+| `personalization` | `string` | `undefined` | Any sentence | Custom persona string replacing Line 1 of the system instruction. Supports `{{botName}}` and `{{aliases}}`. |
 | `chatBotModel` | `ModelConfig` | `{ modelId: "gemini-3.5-flash" }` | `ModelConfig` | Selectable LLM configuration for ChatBot response generation. |
 | `smartReply.classifierModel` | `ModelConfig` | `{ modelId: "gemini-3.5-flash-lite" }` | `ModelConfig` | **Selectable LLM configuration for Tier 2 ambient classification**. |
 | `enabled` | `boolean` | **`true`** | `true`, `false` | Master toggle for smart reply features. |
@@ -653,7 +676,7 @@ The smart reply system is delivered in the following progressive phases:
 * Implement `AddresseeService` with Tier 1 deterministic heuristics:
   * Explicit mentions & replies to bot.
   * Dedicated thread handling (`thread.ownerId === bot.id`).
-  * Bot name/alias vocatives (`/^(hey\s+)?(${botName}|bot)/i` based on configured `botName`).
+  * Bot name/alias vocatives (`/^(hey\s+)?(${botName}|${aliases}|bot)/iu` based on the live resolved bot name and aliases).
   * Active session context tracker (`sessionTtlSeconds`).
   * Channel topic opt-out (`[no-bot]`) and silence cooldown checks.
   * Negative targeting filter (replies to other users, mentions of other users).
