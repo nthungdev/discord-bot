@@ -16,6 +16,94 @@ describe("Tier 2 Ambient Intent Classifier", () => {
     expect(instruction).toContain("isAddressedToBot");
   });
 
+  it("should keep plain-name output and omit alias clause without aliases", () => {
+    const instruction = buildClassifierSystemInstruction("Jarvis");
+    expect(instruction).toContain('AI Discord bot named "Jarvis".\n');
+    expect(instruction).not.toContain("also called");
+    expect(buildClassifierSystemInstruction("Jarvis", [])).toBe(instruction);
+    expect(buildClassifierSystemInstruction()).toContain('named "ChatBot".');
+  });
+
+  it("should list aliases as JSON-quoted names", () => {
+    const instruction = buildClassifierSystemInstruction("Rồng", [
+      "Jarvis",
+      "jarvis-bot",
+    ]);
+    expect(instruction).toContain(
+      'AI Discord bot named "Rồng" (also called: "Jarvis", "jarvis-bot").\n',
+    );
+  });
+
+  it("should escape quotes and newlines in names and aliases", () => {
+    const instruction = buildClassifierSystemInstruction('Evil" bot', [
+      'x"y',
+      "line\nbreak",
+    ]);
+    expect(instruction).toContain(
+      'named "Evil\\" bot" (also called: "x\\"y", "line\\nbreak").\n',
+    );
+    expect(instruction).not.toContain('named "Evil" bot"');
+  });
+
+  describe("classifyAmbientIntent system instruction", () => {
+    const captureSystemInstruction = () => {
+      const mockGenAi = {
+        init: vi.fn().mockResolvedValue(undefined),
+        generate: vi.fn().mockResolvedValue({
+          content: JSON.stringify({
+            isAddressedToBot: false,
+            confidence: 0.1,
+            targetAudience: "everyone",
+            reason: "chatter",
+          }),
+        }),
+      };
+      const spy = vi
+        .spyOn(genAiUtils, "getGenAi")
+        .mockReturnValue(
+          mockGenAi as unknown as ReturnType<typeof genAiUtils.getGenAi>,
+        );
+      return () => spy.mock.calls.at(-1)?.[0]?.systemInstruction;
+    };
+
+    const guildConfig = {
+      botName: "Jarvis",
+      replyChannelIds: [],
+      ignoredChannelIds: [],
+      respondToMentions: false,
+    };
+
+    it("should prefer context.botName over guildConfig.botName and include aliases", async () => {
+      const getSystemInstruction = captureSystemInstruction();
+      await classifyAmbientIntent({
+        message: createMockMessage({ content: "anyone around?" }),
+        botUserId,
+        botName: "Rồng",
+        botAliases: ["Jarvis"],
+        guildConfig,
+      });
+      expect(getSystemInstruction()).toContain(
+        'named "Rồng" (also called: "Jarvis").',
+      );
+    });
+
+    it("should fall back to guildConfig.botName then ChatBot", async () => {
+      const getSystemInstruction = captureSystemInstruction();
+      await classifyAmbientIntent({
+        message: createMockMessage({ content: "anyone around?" }),
+        botUserId,
+        guildConfig,
+      });
+      expect(getSystemInstruction()).toContain('named "Jarvis".');
+
+      await classifyAmbientIntent({
+        message: createMockMessage({ content: "anyone around?" }),
+        botUserId,
+      });
+      expect(getSystemInstruction()).toContain('named "ChatBot".');
+    });
+  });
+
   it("should return respond decision when LLM classifies message as intended for bot with high confidence", async () => {
     const mockGenAi = {
       init: vi.fn().mockResolvedValue(undefined),

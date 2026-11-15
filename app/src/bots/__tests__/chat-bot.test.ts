@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMockMessage } from "../../../tests/fixtures/discord";
+import {
+  createMockGuild,
+  createMockMessage,
+} from "../../../tests/fixtures/discord";
 import { chatbotActions, store } from "../../store";
 import * as genAiUtils from "../../utils/genAi";
 import ChatBot, { executeChatBotGeneration } from ".././chat-bot";
@@ -47,6 +50,10 @@ describe("ChatBot", () => {
 
   beforeEach(() => {
     store.dispatch(chatbotActions.clearAll());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("should instantiate ChatBot with given config", () => {
@@ -282,6 +289,92 @@ describe("ChatBot", () => {
 
       expect(mockReply).toHaveBeenCalledWith("Here is your answer, Alice.");
       expect(mockSend).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleNewMessage addressee identity", () => {
+    const createPersonaMessage = (nickname: string | null) =>
+      createMockMessage({
+        content: "what's up",
+        cleanContent: "what's up",
+        guild: createMockGuild({
+          members: {
+            cache: new Map(),
+            fetch: vi.fn(),
+            me: { nickname, displayName: nickname ?? "jarvis-bot" },
+          },
+          client: { user: { username: "jarvis-bot" } },
+        }),
+      });
+
+    const spyResolveAddressee = async () => {
+      const { getAddresseeService } = await import("../../services/addressee");
+      return vi
+        .spyOn(getAddresseeService(), "resolveAddressee")
+        .mockResolvedValue({
+          decision: "ignore",
+          tier: "tier1_deterministic",
+          reason: "addressed_to_other",
+          confidence: 1,
+        });
+    };
+
+    it("should pass the live nickname as botName and config botName as alias", async () => {
+      const resolveSpy = await spyResolveAddressee();
+      const bot = new ChatBot(botConfig);
+
+      await bot.handleNewMessage(createPersonaMessage("Rồng"), {
+        botName: "Jarvis",
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+      });
+
+      expect(resolveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          botName: "Rồng",
+          botAliases: ["Jarvis", "jarvis-bot"],
+        }),
+      );
+    });
+
+    it("should keep config botName primary when lockName is set", async () => {
+      const resolveSpy = await spyResolveAddressee();
+      const bot = new ChatBot(botConfig);
+
+      await bot.handleNewMessage(createPersonaMessage("Rồng"), {
+        botName: "Jarvis",
+        lockName: true,
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+      });
+
+      expect(resolveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          botName: "Jarvis",
+          botAliases: ["Rồng", "jarvis-bot"],
+        }),
+      );
+    });
+
+    it("should use config botName when the bot has no nickname", async () => {
+      const resolveSpy = await spyResolveAddressee();
+      const bot = new ChatBot(botConfig);
+
+      await bot.handleNewMessage(createPersonaMessage(null), {
+        botName: "Jarvis",
+        replyChannelIds: [],
+        ignoredChannelIds: [],
+        respondToMentions: true,
+      });
+
+      expect(resolveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          botName: "Jarvis",
+          botAliases: ["jarvis-bot"],
+        }),
+      );
     });
   });
 

@@ -76,6 +76,32 @@ describe("BaseBot", () => {
     });
   });
 
+  it("should map botName, lockName and personalizationMode from guild config", () => {
+    const bot = new TestBot({
+      ...config,
+      botConfig: {
+        guilds: {
+          "guild-persona": {
+            botName: "Jarvis",
+            lockName: true,
+            personalization: "You are {{botName}}.",
+            personalizationMode: "extend",
+            replyChannelIds: [],
+            ignoredChannelIds: [],
+            respondToMentions: true,
+          },
+        },
+      },
+    });
+
+    expect(bot.testGetGuildConfig("guild-persona")).toMatchObject({
+      botName: "Jarvis",
+      lockName: true,
+      personalization: "You are {{botName}}.",
+      personalizationMode: "extend",
+    });
+  });
+
   it("should return undefined for unconfigured guild", () => {
     const bot = new TestBot(config);
     expect(bot.testGetGuildConfig("unconfigured")).toBeUndefined();

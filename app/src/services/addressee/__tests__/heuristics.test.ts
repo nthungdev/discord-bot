@@ -164,6 +164,86 @@ describe("Addressee Tier 1 Deterministic Heuristics", () => {
     expect(isVocativeAddressing("Is this a good day?")).toBe(false);
   });
 
+  it("should detect vocative addressing by alias", () => {
+    const aliases = ["Jarvis", "jarvis-bot"];
+    expect(isVocativeAddressing("Jarvis, help", "Rồng", aliases)).toBe(true);
+    expect(isVocativeAddressing("hey jarvis-bot ping", "Rồng", aliases)).toBe(
+      true,
+    );
+    expect(isVocativeAddressing("Rồng ơi", "Rồng", aliases)).toBe(true);
+    expect(isVocativeAddressing("Ask Jarvis later", "Rồng", aliases)).toBe(
+      false,
+    );
+    expect(isVocativeAddressing("Jarvis, help", "Rồng")).toBe(false);
+  });
+
+  it("should skip blank aliases and bot names", () => {
+    expect(isVocativeAddressing("anything here", "  ", ["", "   "])).toBe(
+      false,
+    );
+    expect(isVocativeAddressing("bot hi", undefined, [" "])).toBe(true);
+  });
+
+  it("should require a unicode-aware word boundary after the name", () => {
+    expect(isVocativeAddressing("Rồng, giúp tôi", "Rồng")).toBe(true);
+    expect(isVocativeAddressing("rỒNG giúp tôi", "Rồng")).toBe(true);
+    expect(isVocativeAddressing("Rồngà giúp", "Rồng")).toBe(false);
+    expect(isVocativeAddressing("Jarvis2 help", "Jarvis")).toBe(false);
+    expect(isVocativeAddressing("Jarvis_x help", "Jarvis")).toBe(false);
+    expect(isVocativeAddressing("Jarvisé help", "Jarvis")).toBe(false);
+    expect(isVocativeAddressing("bots are cool")).toBe(false);
+    expect(isVocativeAddressing("Jarvis")).toBe(false);
+    expect(isVocativeAddressing("  Jarvis  ", "Jarvis")).toBe(true);
+  });
+
+  it.each([
+    "Mr. Robot",
+    "Dr, Who",
+    "C#",
+    "R2-D2",
+    "Bot (beta)",
+    "$money$",
+    "a+b*c?",
+    "[x]{1}|^y",
+    "back\\slash",
+    "a/b",
+    "🐉 Dragon",
+    "Dragon 🐉",
+    "Rồng Vàng",
+  ])("should not throw and should match special-char name %s", (name) => {
+    expect(() => isVocativeAddressing(`${name} hello`, name)).not.toThrow();
+    expect(isVocativeAddressing(`${name} hello`, name)).toBe(true);
+    expect(isVocativeAddressing(`hey ${name}, hello`, "Other", [name])).toBe(
+      true,
+    );
+  });
+
+  it("should treat regex metacharacters in names literally", () => {
+    expect(isVocativeAddressing("Mrx Robot hi", "Mr. Robot")).toBe(false);
+    expect(isVocativeAddressing("aab hi", "a+b")).toBe(false);
+    expect(isVocativeAddressing("x hi", "x|.*")).toBe(false);
+  });
+
+  it("should pass botAliases through evaluateTier1Heuristics", () => {
+    const msg = createMockMessage({ content: "Jarvis, explain typescript" });
+    expect(
+      evaluateTier1Heuristics({
+        message: msg,
+        botUserId,
+        botName: "Rồng",
+        botAliases: ["Jarvis"],
+      }),
+    ).toEqual({
+      decision: "respond",
+      tier: "tier1_deterministic",
+      reason: "vocative_name",
+      confidence: 1.0,
+    });
+    expect(
+      evaluateTier1Heuristics({ message: msg, botUserId, botName: "Rồng" }),
+    ).toBeNull();
+  });
+
   it("should evaluate tier 1 heuristics pipeline completely", () => {
     const baseMsg = createMockMessage({
       content: "hey bot explain typescript",
