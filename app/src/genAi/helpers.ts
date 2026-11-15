@@ -35,8 +35,79 @@ export const POLICE_BOT_PERMANENT_GUIDELINES = `Guidelines for Moderation & Poli
 4. Tone & Style: Be sarcastic, authoritative, and sharp. Never apologize for enforcing rules. Use Discord formatting and at most one emoji at the end when appropriate.
 5. Impartiality: Enforce rules decisively without engaging in endless debates.`;
 
+export const BOT_NAME_PLACEHOLDER_PATTERN = /\{\{\s*botName\s*\}\}/g;
+export const BOT_ALIASES_PLACEHOLDER_PATTERN = /\{\{\s*aliases\s*\}\}/g;
+
+export interface PersonaPlaceholderValues {
+  botName: string;
+  aliases?: readonly string[];
+}
+
+/**
+ * Substitutes `{{botName}}` and `{{aliases}}` in a persona/system instruction template.
+ * `{{aliases}}` renders a comma-separated list, or an empty string when there are none.
+ */
+export function renderPersonaPlaceholders(
+  template: string,
+  { botName, aliases = [] }: PersonaPlaceholderValues,
+): string {
+  const aliasList = aliases.join(", ");
+  // Function replacers keep `$&`/`$1` sequences in Discord nicknames literal.
+  return template
+    .replace(BOT_NAME_PLACEHOLDER_PATTERN, () => botName)
+    .replace(BOT_ALIASES_PLACEHOLDER_PATTERN, () => aliasList);
+}
+
+/**
+ * Builds the "People may also call you" line, or an empty string when there are no aliases.
+ */
+export function buildBotAliasLine(aliases: readonly string[] = []): string {
+  if (aliases.length === 0) {
+    return "";
+  }
+  return `People may also call you: ${aliases.join(", ")}.`;
+}
+
+interface SystemInstructionTemplate {
+  defaultIntro: string;
+  guidelines: string;
+}
+
+interface BotSystemInstructionParams {
+  botName: string;
+  aliases?: readonly string[];
+  personalization?: string;
+  mode?: PersonalizationMode;
+}
+
+function withAliasLine(intro: string, aliases: readonly string[]): string {
+  const aliasLine = buildBotAliasLine(aliases);
+  return aliasLine ? `${intro}\n${aliasLine}` : intro;
+}
+
+function assembleSystemInstruction(
+  { botName, aliases = [], personalization, mode }: BotSystemInstructionParams,
+  { defaultIntro, guidelines }: SystemInstructionTemplate,
+): string {
+  const trimmed = personalization
+    ? renderPersonaPlaceholders(personalization, { botName, aliases }).trim()
+    : undefined;
+
+  if (mode === "overwrite_all" && trimmed) {
+    return trimmed;
+  }
+
+  if (mode === "extend" && trimmed) {
+    return `${withAliasLine(defaultIntro, aliases)}\n\n${guidelines}\n\nAdditional Server Directives:\n${trimmed}`;
+  }
+
+  const intro = trimmed || defaultIntro;
+  return `${withAliasLine(intro, aliases)}\n\n${guidelines}`;
+}
+
 export interface ChatBotSystemInstructionParams {
   botName: string;
+  aliases?: readonly string[];
   personalization?: string;
   mode?: PersonalizationMode;
 }
@@ -46,30 +117,27 @@ export interface ChatBotSystemInstructionParams {
  * - 'overwrite_identity' (default): Replaces the opening identity line with personalization while retaining core conversation guidelines.
  * - 'extend': Keeps default identity and core guidelines, appending personalization as additional rules.
  * - 'overwrite_all': Fully replaces the system instruction with personalization.
+ * `{{botName}}`/`{{aliases}}` placeholders are rendered in every mode; the alias line is
+ * appended to the identity line except in 'overwrite_all'.
  */
 export function buildChatBotSystemInstruction({
   botName,
+  aliases = [],
   personalization,
   mode = "overwrite_identity",
 }: ChatBotSystemInstructionParams): string {
-  const trimmed = personalization?.trim();
-
-  if (mode === "overwrite_all" && trimmed) {
-    return trimmed;
-  }
-
-  const defaultIntro = `You are ${botName}, an intelligent Discord assistant in this server.`;
-
-  if (mode === "extend" && trimmed) {
-    return `${defaultIntro}\n\n${CHAT_BOT_PERMANENT_GUIDELINES}\n\nAdditional Server Directives:\n${trimmed}`;
-  }
-
-  const intro = trimmed || defaultIntro;
-  return `${intro}\n\n${CHAT_BOT_PERMANENT_GUIDELINES}`;
+  return assembleSystemInstruction(
+    { botName, aliases, personalization, mode },
+    {
+      defaultIntro: `You are ${botName}, an intelligent Discord assistant in this server.`,
+      guidelines: CHAT_BOT_PERMANENT_GUIDELINES,
+    },
+  );
 }
 
 export interface PoliceBotSystemInstructionParams {
   botName: string;
+  aliases?: readonly string[];
   personalization?: string;
   mode?: PersonalizationMode;
 }
@@ -79,24 +147,56 @@ export interface PoliceBotSystemInstructionParams {
  * - 'overwrite_identity' (default): Replaces the opening identity line with personalization while retaining core moderation guidelines.
  * - 'extend': Keeps default identity and core guidelines, appending personalization as additional rules.
  * - 'overwrite_all': Fully replaces the system instruction with personalization.
+ * `{{botName}}`/`{{aliases}}` placeholders are rendered in every mode; the alias line is
+ * appended to the identity line except in 'overwrite_all'.
  */
 export function buildPoliceBotSystemInstruction({
   botName,
+  aliases = [],
   personalization,
   mode = "overwrite_identity",
 }: PoliceBotSystemInstructionParams): string {
-  const trimmed = personalization?.trim();
+  return assembleSystemInstruction(
+    { botName, aliases, personalization, mode },
+    {
+      defaultIntro: `You are ${botName}, a moderation police bot dedicated to enforcing server rules.`,
+      guidelines: POLICE_BOT_PERMANENT_GUIDELINES,
+    },
+  );
+}
 
-  if (mode === "overwrite_all" && trimmed) {
-    return trimmed;
+export interface GuildPersonaConfig {
+  botName?: string;
+  personalization?: string;
+  personalizationMode?: PersonalizationMode;
+  systemInstruction?: string;
+}
+
+/**
+ * Resolves a guild's system instruction for a bot kind using the live bot identity.
+ * With `botName` configured, the persona builder runs; otherwise the legacy raw
+ * `systemInstruction` is returned with placeholders rendered (no lines appended).
+ */
+export function resolveGuildSystemInstruction(
+  kind: "chatBot" | "policeBot",
+  guildConfig: GuildPersonaConfig | undefined,
+  identity: PersonaPlaceholderValues,
+): string | undefined {
+  if (!guildConfig?.botName) {
+    return guildConfig?.systemInstruction
+      ? renderPersonaPlaceholders(guildConfig.systemInstruction, identity)
+      : guildConfig?.systemInstruction;
   }
 
-  const defaultIntro = `You are ${botName}, a moderation police bot dedicated to enforcing server rules.`;
-
-  if (mode === "extend" && trimmed) {
-    return `${defaultIntro}\n\n${POLICE_BOT_PERMANENT_GUIDELINES}\n\nAdditional Server Directives:\n${trimmed}`;
-  }
-
-  const intro = trimmed || defaultIntro;
-  return `${intro}\n\n${POLICE_BOT_PERMANENT_GUIDELINES}`;
+  const build =
+    kind === "policeBot"
+      ? buildPoliceBotSystemInstruction
+      : buildChatBotSystemInstruction;
+  return build({
+    botName: identity.botName,
+    aliases: identity.aliases,
+    personalization:
+      guildConfig.personalization ?? guildConfig.systemInstruction,
+    mode: guildConfig.personalizationMode,
+  });
 }

@@ -18,7 +18,8 @@
       "guilds": {
         "YOUR_GUILD_ID": {
           "botName": "<Chat Bot Name>",
-          "personalization": "You are <Chat Bot Name>, an intelligent Discord assistant.",
+          "lockName": false,
+          "personalization": "You are {{botName}}, an intelligent Discord assistant.",
           "personalizationMode": "overwrite_identity",
           "chatBotModel": {
             "provider": "antigravity",
@@ -83,7 +84,8 @@
       "guilds": {
         "YOUR_GUILD_ID": {
           "botName": "<Police Bot Name>",
-          "personalization": "You are <Police Bot Name>, a moderation police bot. You enforce server rules with sarcasm and wit.",
+          "lockName": false,
+          "personalization": "You are {{botName}}, a moderation police bot. You enforce server rules with sarcasm and wit.",
           "personalizationMode": "overwrite_identity",
           "chatBotModel": {
             "modelId": "gemini-3.5-flash",

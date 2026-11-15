@@ -167,6 +167,8 @@ export function isVoiceCompanionEnabled(
 
 export interface BotGuildConfig {
   botName?: string;
+  /** When true, `botName` stays the primary name and the live guild nickname becomes an alias. */
+  lockName?: boolean;
   personalization?: string;
   personalizationMode?: "overwrite_identity" | "extend" | "overwrite_all";
   chatBotModel?: ModelConfig;

@@ -10,7 +10,8 @@ export const BOT_COMMAND_PREFIXES = ["!", "/", "$", "~"] as const;
  * Escapes regex special characters in dynamic strings like bot names.
  */
 function escapeRegex(text: string): string {
-  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+  // Only syntax characters: identity escapes like `\,` or `\ ` are SyntaxErrors under the `u` flag.
+  return text.replace(/[\\^$.*+?()[\]{}|/]/g, "\\$&");
 }
 
 /**
@@ -155,21 +156,26 @@ export function isDirectReplyToBot(
 }
 
 /**
- * Checks if message begins with vocative addressing like "Hey bot" or configured bot name.
+ * Checks if message begins with vocative addressing like "Hey bot", the bot name, or an alias.
  */
 export function isVocativeAddressing(
   content: string,
   botName?: string,
+  aliases: readonly string[] = [],
 ): boolean {
   const names = ["bot"];
-  if (botName && botName.trim().length > 0) {
-    names.push(escapeRegex(botName.trim()));
+  for (const name of [botName, ...aliases]) {
+    const trimmed = name?.trim();
+    if (trimmed) {
+      names.push(escapeRegex(trimmed));
+    }
   }
 
   const namePattern = names.join("|");
+  // Unicode-aware boundary: `\b` is ASCII-only and fails on names ending in letters like "ồ".
   const vocativeRegex = new RegExp(
-    `^(?:hey|hi|hello|ok|yo)?\\s*(?:${namePattern})\\b`,
-    "i",
+    `^(?:hey|hi|hello|ok|yo)?\\s*(?:${namePattern})(?![\\p{L}\\p{N}_])`,
+    "iu",
   );
   return vocativeRegex.test(content.trim());
 }
@@ -244,6 +250,7 @@ function evaluateAmbientTriggers(
   const {
     message,
     botName,
+    botAliases,
     guildConfig,
     activeSessionTimestamp,
     now = Date.now(),
@@ -253,7 +260,10 @@ function evaluateAmbientTriggers(
     guildConfig?.smartReply?.enabled === false ||
     guildConfig?.smartReply?.mode === "disabled";
 
-  if (!isSmartReplyDisabled && isVocativeAddressing(message.content, botName)) {
+  if (
+    !isSmartReplyDisabled &&
+    isVocativeAddressing(message.content, botName, botAliases)
+  ) {
     return {
       decision: "respond",
       tier: "tier1_deterministic",
