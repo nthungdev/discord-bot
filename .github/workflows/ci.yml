@@ -76,9 +76,15 @@ jobs:
   test:
     name: Test & Coverage
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -104,38 +110,46 @@ jobs:
             cp app/config.example.json app/config.json
           fi
 
+      # Baseline: the PR's base commit on pull_request, the previous commit on push.
+      - name: Download baseline coverage
+        id: base-coverage
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          find_run() {
+            gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --branch "$BASE_BRANCH" \
+              --event push "$@" --limit 1 --json databaseId --jq '.[0].databaseId // empty'
+          }
+          download() {
+            [ -n "$1" ] && gh run download "$1" --repo "$GITHUB_REPOSITORY" --name coverage-report --dir app/coverage-base
+          }
+          if download "$(find_run --commit "$BASE_SHA")"; then
+            echo "Comparing against $BASE_BRANCH@$BASE_SHA."
+          elif download "$(find_run --status success)"; then
+            echo "::warning::No coverage for $BASE_BRANCH@$BASE_SHA; comparing against the latest successful $BASE_BRANCH run instead."
+          else
+            echo "No $BASE_BRANCH coverage found; skipping comparison."
+            exit 0
+          fi
+          if [ -f app/coverage-base/coverage-summary.json ]; then
+            echo "summary-path=coverage-base/coverage-summary.json" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run tests with coverage
         run: pnpm --prefix app test:coverage
 
-      - name: Generate Coverage Summary
+      - name: Report coverage
         if: always()
-        run: |
-          node -e '
-          const fs = require("fs");
-          const summaryPath = "app/coverage/coverage-summary.json";
-          if (fs.existsSync(summaryPath)) {
-            const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-            const total = summary.total;
-            const formatPct = (pct) => `${pct.toFixed(2)}%`;
-            const md = [
-              "## 📊 Test Coverage Summary",
-              "",
-              "| Category | Covered / Total | Percentage |",
-              "| :--- | :--- | :--- |",
-              `| **Lines** | ${total.lines.covered} / ${total.lines.total} | ${formatPct(total.lines.pct)} |`,
-              `| **Statements** | ${total.statements.covered} / ${total.statements.total} | ${formatPct(total.statements.pct)} |`,
-              `| **Functions** | ${total.functions.covered} / ${total.functions.total} | ${formatPct(total.functions.pct)} |`,
-              `| **Branches** | ${total.branches.covered} / ${total.branches.total} | ${formatPct(total.branches.pct)} |`,
-              ""
-            ].join("\n");
-            if (process.env.GITHUB_STEP_SUMMARY) {
-              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
-            }
-            console.log(md);
-          } else {
-            console.log("No coverage summary file found at " + summaryPath);
-          }
-          '
+        uses: davelosert/vitest-coverage-report-action@8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece # v2.13.1
+        with:
+          working-directory: app
+          json-summary-compare-path: ${{ steps.base-coverage.outputs.summary-path }}
+          file-coverage-mode: changes
+          comment-on: ${{ github.event.pull_request.head.repo.fork && 'none' || 'pr' }}
 
       - name: Upload coverage reports
         if: always()
