@@ -15,6 +15,7 @@ import {
   isDirectReplyToBot,
   isExplicitBotMention,
   isVocativeAddressing,
+  MIN_VOCATIVE_NAME_LENGTH,
   startsWithCommandPrefix,
 } from "../heuristics";
 
@@ -177,6 +178,16 @@ describe("Addressee Tier 1 Deterministic Heuristics", () => {
     expect(isVocativeAddressing("Jarvis, help", "Rồng")).toBe(false);
   });
 
+  it("should ignore names shorter than MIN_VOCATIVE_NAME_LENGTH", () => {
+    expect(MIN_VOCATIVE_NAME_LENGTH).toBe(3);
+    expect(isVocativeAddressing("em ơi làm bài này đi", "Em")).toBe(false);
+    expect(isVocativeAddressing("Ai đó?", "Jarvis", ["Ai"])).toBe(false);
+    expect(isVocativeAddressing("🐉 ơi", "🐉")).toBe(false);
+    expect(isVocativeAddressing("Gon ơi", "Gon")).toBe(true);
+    expect(isVocativeAddressing("Rồng ơi", "Em", ["Rồng"])).toBe(true);
+    expect(isVocativeAddressing("bot hi", "Em")).toBe(true);
+  });
+
   it("should skip blank aliases and bot names", () => {
     expect(isVocativeAddressing("anything here", "  ", ["", "   "])).toBe(
       false,
@@ -199,7 +210,7 @@ describe("Addressee Tier 1 Deterministic Heuristics", () => {
   it.each([
     "Mr. Robot",
     "Dr, Who",
-    "C#",
+    "C#Bot",
     "R2-D2",
     "Bot (beta)",
     "$money$",

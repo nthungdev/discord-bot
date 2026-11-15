@@ -5,6 +5,12 @@ import type { AddresseeEvaluationContext, AddresseeResult } from "./types";
 export const DEFAULT_SESSION_TTL_SECONDS = 45;
 export const DEFAULT_OPT_OUT_TOPIC_TAG = "[no-bot]";
 export const BOT_COMMAND_PREFIXES = ["!", "/", "$", "~"] as const;
+/**
+ * Minimum name length (in code points) for Tier 1 vocative matching. Shorter
+ * nicknames like "Em" are common words that would force replies, so they are
+ * left to the Tier 2 classifier.
+ */
+export const MIN_VOCATIVE_NAME_LENGTH = 3;
 
 /**
  * Escapes regex special characters in dynamic strings like bot names.
@@ -157,6 +163,7 @@ export function isDirectReplyToBot(
 
 /**
  * Checks if message begins with vocative addressing like "Hey bot", the bot name, or an alias.
+ * Names shorter than MIN_VOCATIVE_NAME_LENGTH are ignored.
  */
 export function isVocativeAddressing(
   content: string,
@@ -166,7 +173,7 @@ export function isVocativeAddressing(
   const names = ["bot"];
   for (const name of [botName, ...aliases]) {
     const trimmed = name?.trim();
-    if (trimmed) {
+    if (trimmed && [...trimmed].length >= MIN_VOCATIVE_NAME_LENGTH) {
       names.push(escapeRegex(trimmed));
     }
   }
