@@ -33,7 +33,10 @@ export interface AddresseeResult {
 export interface AddresseeEvaluationContext {
   message: Message<boolean>;
   botUserId: string;
+  /** Resolved primary bot name (live nickname by default). */
   botName?: string;
+  /** Other names the bot may be called by. */
+  botAliases?: readonly string[];
   guildConfig?: BotGuildConfig;
   refMessage?: Message<boolean> | null;
   activeSessionTimestamp?: number;

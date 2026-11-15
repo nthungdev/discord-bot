@@ -11,7 +11,7 @@ import {
 } from "discord.js";
 import type { BotGuildConfig } from "../config/types";
 import { parseCommands } from "../discord/helpers";
-import { buildChatBotSystemInstruction } from "../genAi/helpers";
+import { resolveGuildSystemInstruction } from "../genAi/helpers";
 import { getAddresseeService } from "../services/addressee";
 import { getMemoryService } from "../services/memory";
 import { getRoastService, isRoastButtonInteraction } from "../services/roast";
@@ -29,6 +29,7 @@ import type {
 import { splitEndingEmojis } from "../utils/emoji";
 import { generateChatMessageWithGenAi, getGenAi } from "../utils/genAi";
 import BaseBot, { type BaseBotConfig } from "./base-bot";
+import { getGuildBotIdentity } from "./bot-identity";
 
 export const DEFAULT_DEBOUNCE_DELAY_MS = 3500;
 export const DEFAULT_MAX_DEBOUNCE_DELAY_MS = 8000;
@@ -468,14 +469,12 @@ export async function executeChatBotGeneration(
   prompt: AiPrompt,
   guildConfig?: BotGuildConfig,
 ): Promise<string> {
-  const systemInstruction = guildConfig?.botName
-    ? buildChatBotSystemInstruction({
-        botName: guildConfig.botName,
-        personalization:
-          guildConfig.personalization ?? guildConfig.systemInstruction,
-        mode: guildConfig.personalizationMode,
-      })
-    : guildConfig?.systemInstruction;
+  const identity = getGuildBotIdentity(message.guild, guildConfig);
+  const systemInstruction = resolveGuildSystemInstruction(
+    "chatBot",
+    guildConfig,
+    { botName: identity.name, aliases: identity.aliases },
+  );
 
   const chatBotModelConfig =
     guildConfig?.smartReply?.chatBotModel ?? guildConfig?.chatBotModel;
@@ -883,10 +882,12 @@ export default class ChatBot extends BaseBot {
     const activeSessionTimestamp =
       store.getState().chatbot.activeUserSessions[channelId]?.[userId];
 
+    const botIdentity = getGuildBotIdentity(message.guild, guildConfig);
     const addresseeDecision = await getAddresseeService().resolveAddressee({
       message,
       botUserId: this.client.user?.id ?? "",
-      botName: guildConfig?.botName,
+      botName: botIdentity.name,
+      botAliases: botIdentity.aliases,
       guildConfig,
       refMessage,
       activeSessionTimestamp,

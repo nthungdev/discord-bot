@@ -9,7 +9,7 @@ import {
   userMention,
 } from "discord.js";
 import type { BotGuildConfig } from "../../config/types";
-import { buildPoliceBotSystemInstruction } from "../../genAi/helpers";
+import { resolveGuildSystemInstruction } from "../../genAi/helpers";
 import { getMemoryService } from "../../services/memory";
 import { policeBotActions, store } from "../../store";
 import { getToolRegistry } from "../../tools/registry";
@@ -18,6 +18,7 @@ import type { AiPrompt, DiscordMessage, UserActorInfo } from "../../types";
 import { splitEndingEmojis } from "../../utils/emoji";
 import { generateChatMessageWithGenAi, getGenAi } from "../../utils/genAi";
 import BaseBot, { type BaseBotConfig } from "./../base-bot";
+import { getGuildBotIdentity } from "./../bot-identity";
 import { detectRacistViolations } from "./detector";
 import type { Violation } from "./types";
 import {
@@ -142,14 +143,12 @@ async function executePoliceGeneration(
   prompt: AiPrompt,
   guildConfig?: BotGuildConfig,
 ): Promise<{ content: string; data?: unknown }> {
-  const systemInstruction = guildConfig?.botName
-    ? buildPoliceBotSystemInstruction({
-        botName: guildConfig.botName,
-        personalization:
-          guildConfig.personalization ?? guildConfig.systemInstruction,
-        mode: guildConfig.personalizationMode,
-      })
-    : guildConfig?.systemInstruction;
+  const identity = getGuildBotIdentity(message.guild, guildConfig);
+  const systemInstruction = resolveGuildSystemInstruction(
+    "policeBot",
+    guildConfig,
+    { botName: identity.name, aliases: identity.aliases },
+  );
 
   const genAi = getGenAi({
     apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
@@ -494,14 +493,12 @@ ${censoredMessage
     console.log(promptText);
 
     const guildConfig = this.getGuildConfig(guild.id);
-    const systemInstruction = guildConfig?.botName
-      ? buildPoliceBotSystemInstruction({
-          botName: guildConfig.botName,
-          personalization:
-            guildConfig.personalization ?? guildConfig.systemInstruction,
-          mode: guildConfig.personalizationMode,
-        })
-      : guildConfig?.systemInstruction;
+    const identity = getGuildBotIdentity(guild, guildConfig);
+    const systemInstruction = resolveGuildSystemInstruction(
+      "policeBot",
+      guildConfig,
+      { botName: identity.name, aliases: identity.aliases },
+    );
 
     const genAi = getGenAi({
       apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,

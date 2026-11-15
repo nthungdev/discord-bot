@@ -20,8 +20,15 @@ export interface AmbientClassificationResponse {
  */
 export function buildClassifierSystemInstruction(
   botName: string = "ChatBot",
+  aliases: readonly string[] = [],
 ): string {
-  return `You are an intent classification engine for an AI Discord bot named "${botName}".
+  // JSON quoting keeps admin-controlled nicknames from breaking out of the quoted name.
+  const quotedName = JSON.stringify(botName);
+  const aliasClause =
+    aliases.length > 0
+      ? ` (also called: ${aliases.map((alias) => JSON.stringify(alias)).join(", ")})`
+      : "";
+  return `You are an intent classification engine for an AI Discord bot named ${quotedName}${aliasClause}.
 Your task is to analyze the given Discord message and determine if it is intended for the bot, or if it is part of a conversation between human members.
 
 Evaluation Rules:
@@ -133,7 +140,7 @@ export function parseClassifierOutput(
 export async function classifyAmbientIntent(
   context: AddresseeEvaluationContext,
 ): Promise<AddresseeResult> {
-  const botName = context.guildConfig?.botName ?? context.botName ?? "ChatBot";
+  const botName = context.botName ?? context.guildConfig?.botName ?? "ChatBot";
   const classifierConfig = context.guildConfig?.smartReply?.classifierModel;
   const confidenceThreshold =
     context.guildConfig?.smartReply?.ambientConfidenceThreshold ??
@@ -142,7 +149,10 @@ export async function classifyAmbientIntent(
   const modelId = classifierConfig?.modelId ?? DEFAULT_CLASSIFIER_MODEL;
   const maxOutputTokens =
     classifierConfig?.maxOutputTokens ?? DEFAULT_CLASSIFIER_MAX_OUTPUT_TOKENS;
-  const systemInstruction = buildClassifierSystemInstruction(botName);
+  const systemInstruction = buildClassifierSystemInstruction(
+    botName,
+    context.botAliases,
+  );
 
   const startTime = Date.now();
   try {

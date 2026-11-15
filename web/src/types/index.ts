@@ -98,6 +98,7 @@ export interface GuildChannelSummary {
 
 export interface BotGuildConfig {
   botName?: string;
+  lockName?: boolean;
   personalization?: string;
   personalizationMode?: "overwrite_identity" | "extend" | "overwrite_all";
   replyChannelIds: string[];
