@@ -14,7 +14,7 @@ import {
 import type { AiPrompt, AiPromptResponse } from "../../types";
 import { imageToBase64 } from "../../utils";
 import { getCredentials } from "../../utils/google";
-import { IGNORED_CONTENT } from "../helpers";
+import { buildSamplingConfig, IGNORED_CONTENT } from "../helpers";
 import type { GenAi, GenAiConfig } from "../types";
 
 const MAX_TOOL_ITERATIONS = 7;
@@ -45,6 +45,7 @@ function resolveVertexModel(
     systemInstruction,
     generationConfig: {
       maxOutputTokens: config.maxOutputTokens,
+      ...buildSamplingConfig(config),
     },
     safetySettings: config.safetySettings as SafetySetting[],
     tools: [{ functionDeclarations }],
@@ -258,6 +259,7 @@ export class VertexGenAi implements GenAi {
       systemInstruction,
       generationConfig: {
         maxOutputTokens: this.config.maxOutputTokens,
+        ...buildSamplingConfig(this.config),
       },
       safetySettings: this.config.safetySettings as SafetySetting[],
     });

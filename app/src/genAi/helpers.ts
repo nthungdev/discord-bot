@@ -1,3 +1,17 @@
+import type { GenAiConfig } from "./types";
+
+/** Sampling params to spread into a provider request; omits unset keys so the model default applies. */
+export const buildSamplingConfig = ({
+  temperature,
+  topP,
+}: Pick<GenAiConfig, "temperature" | "topP">): {
+  temperature?: number;
+  topP?: number;
+} => ({
+  ...(temperature === undefined ? {} : { temperature }),
+  ...(topP === undefined ? {} : { topP }),
+});
+
 export const IGNORED_CONTENT = `I'm not able to help with that, as I'm only a language model.`;
 
 export const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/gif"];

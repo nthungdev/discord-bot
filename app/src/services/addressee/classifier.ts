@@ -151,6 +151,8 @@ export async function classifyAmbientIntent(
       guildId: context.message.guildId,
       modelId,
       maxOutputTokens,
+      temperature: classifierConfig?.temperature,
+      topP: classifierConfig?.topP,
       systemInstruction,
     });
     await genAi.init();

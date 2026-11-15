@@ -141,4 +141,61 @@ describe("VertexGenAi", () => {
     expect(mockChat.sendMessage).toHaveBeenCalledTimes(2);
     expect(response.content).toBe("Found 5 channels in this server.");
   });
+
+  it("should send temperature and topP in generationConfig when set", async () => {
+    const provider = new VertexGenAi({
+      ...config,
+      temperature: 0.9,
+      topP: 0.8,
+    });
+    await provider.init();
+
+    expect(mockGetGenerativeModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationConfig: {
+          maxOutputTokens: 1000,
+          temperature: 0.9,
+          topP: 0.8,
+        },
+      }),
+    );
+  });
+
+  it("should send temperature in the tool-calling model generationConfig", async () => {
+    mockChat.sendMessage.mockResolvedValueOnce({
+      response: {
+        candidates: [
+          { finishReason: "STOP", content: { parts: [{ text: "done" }] } },
+        ],
+      },
+    });
+    const tool: ToolDefinition = {
+      name: "noop",
+      description: "noop",
+      parameters: { type: "object", properties: {} },
+      execute: vi.fn(),
+    } as unknown as ToolDefinition;
+
+    const provider = new VertexGenAi({ ...config, temperature: 0.3 });
+    await provider.init();
+    mockGetGenerativeModel.mockClear();
+    await provider.generate({ text: "Hello", tools: [tool] });
+
+    expect(mockGetGenerativeModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.3 },
+      }),
+    );
+  });
+
+  it("should omit temperature and topP from generationConfig when unset", async () => {
+    const provider = new VertexGenAi(config);
+    await provider.init();
+
+    expect(mockGetGenerativeModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationConfig: { maxOutputTokens: 1000 },
+      }),
+    );
+  });
 });

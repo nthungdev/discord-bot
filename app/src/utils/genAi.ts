@@ -144,6 +144,8 @@ export const getGenAi = (config: GetGenAiConfig = {}): GenAi => {
     modelId,
     projectId,
     safetySettings,
+    temperature: config.temperature,
+    topP: config.topP,
     membersInstruction,
     systemInstruction,
     ...agyOptions,

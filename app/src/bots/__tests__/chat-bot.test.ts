@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createMockMessage } from "../../../tests/fixtures/discord";
 import { chatbotActions, store } from "../../store";
-import ChatBot from ".././chat-bot";
+import * as genAiUtils from "../../utils/genAi";
+import ChatBot, { executeChatBotGeneration } from ".././chat-bot";
 
 vi.mock("discord.js", async () => {
   const actual =
@@ -331,6 +333,88 @@ describe("ChatBot", () => {
         >[0],
       );
       expect(executeSpy).toHaveBeenCalledWith(mockContextMenuInteraction);
+    });
+  });
+
+  describe("executeChatBotGeneration sampling params", () => {
+    const stubGeneration = () => {
+      const getGenAiSpy = vi.spyOn(genAiUtils, "getGenAi").mockReturnValue({
+        init: vi.fn().mockResolvedValue(undefined),
+        generate: vi.fn(),
+      } as unknown as ReturnType<typeof genAiUtils.getGenAi>);
+      vi.spyOn(genAiUtils, "generateChatMessageWithGenAi").mockResolvedValue({
+        content: "reply",
+        data: null,
+      } as Awaited<ReturnType<typeof genAiUtils.generateChatMessageWithGenAi>>);
+      return getGenAiSpy;
+    };
+    const baseGuildConfig = {
+      replyChannelIds: [],
+      ignoredChannelIds: [],
+      respondToMentions: true,
+    };
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should pass chatBotModel temperature and topP to getGenAi", async () => {
+      const getGenAiSpy = stubGeneration();
+      await executeChatBotGeneration(
+        createMockMessage(),
+        { text: "hi" },
+        {
+          ...baseGuildConfig,
+          chatBotModel: {
+            modelId: "gemini-3.5-flash",
+            temperature: 0.9,
+            topP: 0.8,
+          },
+        },
+      );
+
+      expect(getGenAiSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modelId: "gemini-3.5-flash",
+          temperature: 0.9,
+          topP: 0.8,
+        }),
+      );
+    });
+
+    it("should prefer smartReply.chatBotModel temperature over chatBotModel", async () => {
+      const getGenAiSpy = stubGeneration();
+      await executeChatBotGeneration(
+        createMockMessage(),
+        { text: "hi" },
+        {
+          ...baseGuildConfig,
+          chatBotModel: { modelId: "gemini-3.5-flash", temperature: 0.9 },
+          smartReply: {
+            chatBotModel: { modelId: "gemini-3.6-flash", temperature: 0.2 },
+          },
+        },
+      );
+
+      expect(getGenAiSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modelId: "gemini-3.6-flash",
+          temperature: 0.2,
+        }),
+      );
+    });
+
+    it("should pass undefined temperature and topP when not configured", async () => {
+      const getGenAiSpy = stubGeneration();
+      await executeChatBotGeneration(
+        createMockMessage(),
+        { text: "hi" },
+        baseGuildConfig,
+      );
+
+      const args = getGenAiSpy.mock.calls[0]?.[0];
+      expect(args?.temperature).toBeUndefined();
+      expect(args?.topP).toBeUndefined();
     });
   });
 });

@@ -463,7 +463,7 @@ async function preparePromptAndTools(
 /**
  * Initializes GenAI with guild configuration and generates chatbot response.
  */
-async function executeChatBotGeneration(
+export async function executeChatBotGeneration(
   message: Message<boolean>,
   prompt: AiPrompt,
   guildConfig?: BotGuildConfig,
@@ -482,6 +482,8 @@ async function executeChatBotGeneration(
   const modelId = chatBotModelConfig?.modelId;
   const maxOutputTokens = chatBotModelConfig?.maxOutputTokens;
   const provider = chatBotModelConfig?.provider;
+  const temperature = chatBotModelConfig?.temperature;
+  const topP = chatBotModelConfig?.topP;
 
   const genAi = getGenAi({
     apiKey:
@@ -493,6 +495,8 @@ async function executeChatBotGeneration(
     modelId,
     maxOutputTokens,
     provider,
+    temperature,
+    topP,
   });
   await genAi.init();
   const { content } = await generateChatMessageWithGenAi(
