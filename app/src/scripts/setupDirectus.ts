@@ -1797,13 +1797,24 @@ interface DirectusPermissionRecord {
   action: string;
 }
 
+const MANAGED_COLLECTION_NAMES = new Set(
+  COLLECTIONS.map((col) => col.collection),
+);
+
+function getAllowedPolicyActions(collection: string): readonly string[] {
+  if (collection in POLICY_ACTIONS_BY_COLLECTION) {
+    return POLICY_ACTIONS_BY_COLLECTION[collection];
+  }
+  return MANAGED_COLLECTION_NAMES.has(collection) ? ["read"] : [];
+}
+
 async function revokeDisallowedPermissions(
   client: AxiosInstance,
   existingPerms: DirectusPermissionRecord[],
 ): Promise<Set<string>> {
   const validPermSet = new Set<string>();
   for (const perm of existingPerms) {
-    const allowedActions = POLICY_ACTIONS_BY_COLLECTION[perm.collection] ?? [];
+    const allowedActions = getAllowedPolicyActions(perm.collection);
     if (allowedActions.includes(perm.action)) {
       validPermSet.add(`${perm.collection}:${perm.action}`);
     } else if (perm.id !== undefined) {
@@ -1850,7 +1861,7 @@ export async function ensurePolicy(client: AxiosInstance): Promise<string> {
   const validPermSet = await revokeDisallowedPermissions(client, existingPerms);
 
   for (const col of COLLECTIONS) {
-    const actions = POLICY_ACTIONS_BY_COLLECTION[col.collection] ?? ["read"];
+    const actions = getAllowedPolicyActions(col.collection);
     for (const action of actions) {
       const key = `${col.collection}:${action}`;
       if (!validPermSet.has(key)) {
