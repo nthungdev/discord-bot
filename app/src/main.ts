@@ -13,7 +13,10 @@ import { roastLogRepository } from "./infrastructure/repositories";
 import server from "./server";
 import { getBotManager } from "./services/bot-manager";
 import { registerDefaultTools } from "./tools";
-import { initFirebaseIfNeeded } from "./utils/firebase";
+import {
+  initFirebaseIfNeeded,
+  shouldInitializeFirebase,
+} from "./utils/firebase";
 
 const { PORT, NODE_ENV } = process.env;
 const port: number | string = PORT || 3001;
@@ -32,10 +35,16 @@ const main = async () => {
   // Pre-init Firebase only when Remote Config is the active config source
   const initialConfigSource = resolveConfigSource();
   if (initialConfigSource === "remote-config") {
-    initFirebaseIfNeeded({
+    const preInitOptions = {
       configSource: initialConfigSource,
       memoryStoreType: process.env.MEMORY_STORE_TYPE,
-    });
+    };
+    if (!initFirebaseIfNeeded(preInitOptions)) {
+      console.error(
+        "[Firebase] Startup aborted: CONFIG_SOURCE=remote-config requires Firebase Admin, but initialization failed (missing or invalid service-account.json).",
+      );
+      process.exit(1);
+    }
   }
 
   // Init Config (Directus, Firebase Remote Config, or local config.json)
@@ -48,11 +57,22 @@ const main = async () => {
     process.env.MEMORY_STORE_TYPE ||
     remoteConfig.getConfigValue(ConfigParameter.memoryStoreType);
   const aiProvider = remoteConfig.getConfigValue(ConfigParameter.aiProvider);
-  initFirebaseIfNeeded({
+  const firebaseOptions = {
     configSource,
     memoryStoreType,
     aiProvider,
-  });
+  };
+  if (
+    shouldInitializeFirebase(firebaseOptions) &&
+    !initFirebaseIfNeeded(firebaseOptions)
+  ) {
+    console.error(
+      `[Firebase] Startup aborted: Firebase Admin is required (configSource=${configSource}, memoryStoreType=${memoryStoreType ?? "unset"}, aiProvider=${aiProvider ?? "unset"}), but initialization failed (missing or invalid service-account.json).`,
+    );
+    process.exit(1);
+  } else if (!shouldInitializeFirebase(firebaseOptions)) {
+    initFirebaseIfNeeded(firebaseOptions);
+  }
 
   // Initialize BotManager (seeds default bots from env and auto-starts enabled instances)
   const botManager = getBotManager();

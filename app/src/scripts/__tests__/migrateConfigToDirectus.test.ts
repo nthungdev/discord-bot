@@ -207,25 +207,46 @@ describe("resolveDirectusAdminConfig", () => {
     );
   });
 
-  it("should require explicit admin email and password when NODE_ENV is production", () => {
-    expect(() =>
-      resolveDirectusAdminConfig({
-        NODE_ENV: "production",
-        DIRECTUS_URL: "https://directus.example.com/",
-      }),
-    ).toThrow(
-      "DIRECTUS_ADMIN_EMAIL and DIRECTUS_ADMIN_PASSWORD must be explicitly configured when NODE_ENV=production.",
-    );
+  it("should require explicit admin email and password when NODE_ENV is production or DIRECTUS_URL is non-local", () => {
+    const expectedMessage =
+      "DIRECTUS_ADMIN_EMAIL and DIRECTUS_ADMIN_PASSWORD must be explicitly configured when NODE_ENV=production or targeting a non-local DIRECTUS_URL.";
 
     expect(() =>
       resolveDirectusAdminConfig({
         NODE_ENV: "production",
         DIRECTUS_URL: "https://directus.example.com/",
+      }),
+    ).toThrow(expectedMessage);
+
+    expect(() =>
+      resolveDirectusAdminConfig({
+        NODE_ENV: "production",
+        DIRECTUS_URL: "http://localhost:8055",
+      }),
+    ).toThrow(expectedMessage);
+
+    expect(() =>
+      resolveDirectusAdminConfig({
+        DIRECTUS_URL: "https://directus.example.com/",
+      }),
+    ).toThrow(expectedMessage);
+
+    expect(() =>
+      resolveDirectusAdminConfig({
+        DIRECTUS_URL: "https://directus.example.com/",
         DIRECTUS_ADMIN_EMAIL: "ops@example.com",
       }),
-    ).toThrow(
-      "DIRECTUS_ADMIN_EMAIL and DIRECTUS_ADMIN_PASSWORD must be explicitly configured when NODE_ENV=production.",
-    );
+    ).toThrow(expectedMessage);
+
+    expect(
+      resolveDirectusAdminConfig({
+        DIRECTUS_URL: "http://localhost:8055/",
+      }),
+    ).toEqual({
+      directusUrl: "http://localhost:8055",
+      adminEmail: "admin@local.dev",
+      adminPassword: "adminpassword",
+    });
 
     expect(
       resolveDirectusAdminConfig({
@@ -339,7 +360,7 @@ describe("migrateConfigToDirectus", () => {
     client.get.mockImplementation(async (url: string) => {
       if (url === "/items/bot_system_config") {
         return {
-          data: { data: [{ id: "sys-1", ai_provider: "google-genai" }] },
+          data: { data: [{ id: "sys-1", ai_provider: "antigravity" }] },
         };
       }
       if (url === "/items/bot_guild_configs?limit=-1") {
@@ -781,6 +802,54 @@ describe("migrateConfigToDirectus", () => {
         bot_id: "chatBot",
         guild_id: "guild-1",
         bot_name: "EncodedBot",
+      }),
+    );
+  });
+
+  it("should migrate bot_system_config when existing singleton only contains Directus schema defaults", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation(async (url: string) => {
+      if (url === "/items/bot_system_config") {
+        return {
+          data: {
+            data: {
+              id: "sys-default",
+              ai_provider: "google-genai",
+              ai_model_id: "gemini-3.6-flash",
+              ai_api_endpoint: "us-central1-aiplatform.googleapis.com",
+              ai_location_id: "us-central1",
+              ai_max_output_tokens: 8192,
+              ai_max_conversation_history: 60,
+              memory_store_type: "firestore",
+              ai_project_id: null,
+              ai_safety_settings: null,
+              check_in_leaderboard: null,
+            },
+          },
+        };
+      }
+      if (url === "/items/bot_guild_configs?limit=-1") {
+        return { data: { data: [] } };
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    const summary = await migrateConfigToDirectus({
+      client: client as unknown as AxiosInstance,
+      appConfig: createSampleAppConfig({
+        bots: {
+          chatBot: { guilds: {} },
+          policeBot: { guilds: {} },
+        },
+      }),
+    });
+
+    expect(summary.systemConfig).toBe("updated");
+    expect(client.patch).toHaveBeenCalledWith(
+      "/items/bot_system_config",
+      expect.objectContaining({
+        ai_provider: "antigravity",
+        memory_store_type: "directus",
       }),
     );
   });

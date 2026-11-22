@@ -22,6 +22,26 @@ const CONFIG_FLAG_PREFIX = "--config=";
 const SHORT_CONFIG_FLAG_PREFIX = "-c=";
 const DIRECTUS_REQUEST_TIMEOUT_MS = 15_000;
 const DIRECTUS_MAX_REDIRECTS = 0;
+const LOCAL_DIRECTUS_HOSTNAMES = new Set([
+  "localhost",
+  "127.0.0.1",
+  "::1",
+  "[::1]",
+]);
+/**
+ * Schema defaults provisioned by `setupDirectus.ts` for `bot_system_config`.
+ * A singleton containing only these defaults (and null/empty for all other fields)
+ * is treated as unconfigured so the initial migration applies `config.json`.
+ */
+const SYSTEM_CONFIG_SCHEMA_DEFAULTS: Readonly<Record<string, unknown>> = {
+  ai_provider: "google-genai",
+  ai_model_id: "gemini-3.6-flash",
+  ai_api_endpoint: "us-central1-aiplatform.googleapis.com",
+  ai_location_id: "us-central1",
+  ai_max_output_tokens: 8192,
+  ai_max_conversation_history: 60,
+  memory_store_type: "firestore",
+};
 
 if (process.env.NODE_ENV !== "test") {
   loadDotenv({
@@ -136,6 +156,11 @@ function validateDirectusUrl(rawUrl: string): string {
   return rawUrl.replace(/\/+$/, "");
 }
 
+function isLocalDirectusUrl(directusUrl: string): boolean {
+  const { hostname } = new URL(directusUrl);
+  return LOCAL_DIRECTUS_HOSTNAMES.has(hostname.toLowerCase());
+}
+
 /**
  * Resolves Directus Admin API connection details from environment variables.
  */
@@ -152,9 +177,13 @@ export function resolveDirectusAdminConfig(
   const rawAdminPassword =
     env.DIRECTUS_ADMIN_PASSWORD?.trim() || env.ADMIN_PASSWORD?.trim() || "";
 
-  if (env.NODE_ENV === "production" && !(rawAdminEmail && rawAdminPassword)) {
+  const isLocal = isLocalDirectusUrl(directusUrl);
+  if (
+    (env.NODE_ENV === "production" || !isLocal) &&
+    !(rawAdminEmail && rawAdminPassword)
+  ) {
     throw new Error(
-      "DIRECTUS_ADMIN_EMAIL and DIRECTUS_ADMIN_PASSWORD must be explicitly configured when NODE_ENV=production.",
+      "DIRECTUS_ADMIN_EMAIL and DIRECTUS_ADMIN_PASSWORD must be explicitly configured when NODE_ENV=production or targeting a non-local DIRECTUS_URL.",
     );
   }
 
@@ -300,12 +329,16 @@ function hasConfiguredSystemValues(
     return false;
   }
   for (const [key, value] of Object.entries(existing)) {
-    if (key === "id") {
+    if (key === "id" || value === null || value === undefined) {
       continue;
     }
-    if (value !== null && value !== undefined) {
-      return true;
+    if (
+      Object.hasOwn(SYSTEM_CONFIG_SCHEMA_DEFAULTS, key) &&
+      value === SYSTEM_CONFIG_SCHEMA_DEFAULTS[key]
+    ) {
+      continue;
     }
+    return true;
   }
   return false;
 }
