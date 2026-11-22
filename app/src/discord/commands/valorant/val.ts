@@ -3,10 +3,9 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
-import { Config, ConfigParameter } from "../../../config";
+import { Config } from "../../../config";
 import type {
   BotGuildConfig,
-  BotsConfig,
   ValorantFeaturesConfig,
 } from "../../../config/types";
 import { isValorantFeatureEnabled } from "../../../config/types";
@@ -415,28 +414,64 @@ async function handleLinkSubcommand(
   }
 }
 
-/**
- * Handles `/val config` administrative subcommand.
- */
-async function handleConfigSubcommand(
+const ALLOWED_VALORANT_FEATURES: ReadonlySet<string> = new Set<
+  keyof ValorantFeaturesConfig | "all"
+>([
+  "compare",
+  "statsSummary",
+  "liveScouting",
+  "tiltProtection",
+  "rankRoleSync",
+  "autoRecap",
+  "all",
+]);
+
+function isAllowedValorantFeature(
+  value: string,
+): value is keyof ValorantFeaturesConfig | "all" {
+  return ALLOWED_VALORANT_FEATURES.has(value);
+}
+
+function channelBelongsToGuild(
+  channel: ReturnType<ChatInputCommandInteraction["options"]["getChannel"]>,
+  guildId: string,
+): boolean {
+  if (!channel) {
+    return true;
+  }
+  if ("guildId" in channel && channel.guildId) {
+    return channel.guildId === guildId;
+  }
+  return true;
+}
+
+interface ValidatedConfigInputs {
+  feature: keyof ValorantFeaturesConfig | "all";
+  enabled: boolean;
+  channel: ReturnType<ChatInputCommandInteraction["options"]["getChannel"]>;
+  guildId: string;
+}
+
+async function validateConfigInputs(
   interaction: ChatInputCommandInteraction,
-  guildConfig?: BotGuildConfig,
-): Promise<void> {
-  const memberPerms = interaction.memberPermissions;
-  if (!memberPerms?.has(PermissionFlagsBits.ManageGuild)) {
+): Promise<ValidatedConfigInputs | null> {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
     await interaction.reply({
       content:
         "❌ You need the **Manage Server** permission to configure Valorant features.",
       ephemeral: true,
     });
-    return;
+    return null;
   }
 
-  const feature = interaction.options.getString("feature", true) as
-    | keyof ValorantFeaturesConfig
-    | "all";
-  const enabled = interaction.options.getBoolean("enabled", true);
-  const channel = interaction.options.getChannel("channel");
+  const rawFeature = interaction.options.getString("feature", true);
+  if (!isAllowedValorantFeature(rawFeature)) {
+    await interaction.reply({
+      content: `❌ Unsupported Valorant feature: \`${rawFeature}\`.`,
+      ephemeral: true,
+    });
+    return null;
+  }
 
   const guildId = interaction.guildId;
   if (!guildId) {
@@ -444,57 +479,95 @@ async function handleConfigSubcommand(
       content: "This command can only be used inside a server.",
       ephemeral: true,
     });
+    return null;
+  }
+
+  const channel = interaction.options.getChannel("channel");
+  if (!channelBelongsToGuild(channel, guildId)) {
+    await interaction.reply({
+      content: "❌ The selected channel does not belong to this server.",
+      ephemeral: true,
+    });
+    return null;
+  }
+
+  return {
+    feature: rawFeature,
+    enabled: interaction.options.getBoolean("enabled", true),
+    channel,
+    guildId,
+  };
+}
+
+function buildUpdatedGuildConfig(
+  baseConfig: BotGuildConfig,
+  inputs: ValidatedConfigInputs,
+): BotGuildConfig {
+  const cloned = structuredClone(baseConfig);
+  const nextValorant = {
+    enabled: cloned.valorant?.enabled ?? true,
+    features: { ...cloned.valorant?.features },
+  };
+
+  if (inputs.feature === "all") {
+    nextValorant.enabled = inputs.enabled;
+  } else {
+    nextValorant.features[inputs.feature] = {
+      ...(nextValorant.features[inputs.feature] as object),
+      enabled: inputs.enabled,
+      ...(inputs.channel ? { channelId: inputs.channel.id } : {}),
+    };
+  }
+  cloned.valorant = nextValorant;
+  return cloned;
+}
+
+/**
+ * Handles `/val config` administrative subcommand.
+ */
+async function handleConfigSubcommand(
+  interaction: ChatInputCommandInteraction,
+  guildConfig?: BotGuildConfig,
+): Promise<void> {
+  const inputs = await validateConfigInputs(interaction);
+  if (!inputs) {
     return;
   }
 
-  // Clone authoritative configuration to avoid mutating read-only state
-  const currentGuildConfig: BotGuildConfig = structuredClone(
-    Config.getInstance().getBotGuildConfig("chatBot", guildId) ??
-      guildConfig ?? {
-        replyChannelIds: [],
-        ignoredChannelIds: [],
-        respondToMentions: false,
-      },
-  );
+  await interaction.deferReply({ ephemeral: true });
 
-  if (!currentGuildConfig.valorant) {
-    currentGuildConfig.valorant = { enabled: true, features: {} };
-  }
-  if (!currentGuildConfig.valorant.features) {
-    currentGuildConfig.valorant.features = {};
-  }
-
-  if (feature === "all") {
-    currentGuildConfig.valorant.enabled = enabled;
-  } else {
-    currentGuildConfig.valorant.features[feature] = {
-      ...(currentGuildConfig.valorant.features[feature] as object),
-      enabled,
-      ...(channel ? { channelId: channel.id } : {}),
+  const baseConfig: BotGuildConfig = Config.getInstance().getBotGuildConfig(
+    "chatBot",
+    inputs.guildId,
+  ) ??
+    guildConfig ?? {
+      replyChannelIds: [],
+      ignoredChannelIds: [],
+      respondToMentions: false,
     };
-  }
 
-  // Update in-memory configuration
-  Config.getInstance().updateBotGuildConfig(guildId, currentGuildConfig);
+  const updatedGuildConfig = buildUpdatedGuildConfig(baseConfig, inputs);
+  Config.getInstance().updateBotGuildConfig(inputs.guildId, updatedGuildConfig);
 
-  // Persist to Directus so configuration survives restarts
+  const channelSuffix = inputs.channel ? ` in <#${inputs.channel.id}>` : "";
+  const statusLabel = inputs.enabled ? "ENABLED" : "DISABLED";
+
   try {
-    await guildConfigRepository.updateValorantConfig?.(
-      guildId,
-      currentGuildConfig.valorant.enabled ?? true,
-      currentGuildConfig.valorant.features,
-    );
+    await guildConfigRepository.patchBotGuildConfig("chatBot", inputs.guildId, {
+      valorant: updatedGuildConfig.valorant,
+    });
+    await interaction.editReply({
+      content: `✅ Successfully set Valorant feature **${inputs.feature}** to **${statusLabel}**${channelSuffix}.`,
+    });
   } catch (err) {
     console.warn(
-      `[ValCommand] Failed to persist Valorant config to Directus for guild ${guildId}:`,
-      err,
+      `[ValCommand] Failed to persist Valorant config to Directus for guild ${inputs.guildId}:`,
+      err instanceof Error ? err.message : String(err),
     );
+    await interaction.editReply({
+      content: `⚠️ Updated Valorant feature **${inputs.feature}** to **${statusLabel}**${channelSuffix} in memory, but failed to persist to Directus. Changes may not survive a restart.`,
+    });
   }
-
-  await interaction.reply({
-    content: `✅ Successfully set Valorant feature **${feature}** to **${enabled ? "ENABLED" : "DISABLED"}**${channel ? ` in <#${channel.id}>` : ""}.`,
-    ephemeral: true,
-  });
 }
 
 /**
@@ -509,37 +582,9 @@ export async function execute(
   let guildConfig: BotGuildConfig | undefined;
   if (guildId) {
     try {
-      const botsConfig = Config.getInstance().getConfigValue(
-        ConfigParameter.bots,
-      ) as BotsConfig;
-      guildConfig = botsConfig?.chatBot?.guilds?.[guildId];
+      guildConfig = Config.getInstance().getBotGuildConfig("chatBot", guildId);
     } catch {
       // Ignore if config not fully loaded
-    }
-
-    try {
-      const directusConfig = await guildConfigRepository.getConfig(guildId);
-      if (directusConfig) {
-        guildConfig = {
-          replyChannelIds: guildConfig?.replyChannelIds ?? [],
-          ignoredChannelIds: guildConfig?.ignoredChannelIds ?? [],
-          respondToMentions: guildConfig?.respondToMentions ?? false,
-          ...guildConfig,
-          valorant: {
-            ...guildConfig?.valorant,
-            enabled:
-              directusConfig.valorantEnabled !== undefined
-                ? directusConfig.valorantEnabled
-                : (guildConfig?.valorant?.enabled ?? true),
-            features: {
-              ...guildConfig?.valorant?.features,
-              ...directusConfig.valorantFeatures,
-            },
-          },
-        };
-      }
-    } catch {
-      // Ignore Directus errors
     }
   }
 

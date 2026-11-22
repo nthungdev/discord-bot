@@ -181,7 +181,14 @@ describe("/val slash command", () => {
     });
   });
 
-  it("should update guild config on /val config with ManageGuild permission", async () => {
+  it("should update guild config and persist via patchBotGuildConfig on /val config with ManageGuild permission", async () => {
+    const { guildConfigRepository } = await import(
+      "../../../../infrastructure/repositories"
+    );
+    const patchSpy = vi
+      .spyOn(guildConfigRepository, "patchBotGuildConfig")
+      .mockResolvedValue(undefined);
+
     const mockInteraction = {
       guildId: "guild-1",
       memberPermissions: {
@@ -193,13 +200,84 @@ describe("/val slash command", () => {
         getBoolean: vi.fn().mockReturnValue(false),
         getChannel: vi.fn().mockReturnValue(null),
       },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
       reply: vi.fn().mockResolvedValue(undefined),
     } as unknown as ChatInputCommandInteraction;
 
     await execute(mockInteraction);
 
-    expect(mockInteraction.reply).toHaveBeenCalledWith({
+    expect(mockInteraction.deferReply).toHaveBeenCalledWith({
+      ephemeral: true,
+    });
+    expect(patchSpy).toHaveBeenCalledWith("chatBot", "guild-1", {
+      valorant: expect.objectContaining({
+        features: expect.objectContaining({
+          compare: { enabled: false },
+        }),
+      }),
+    });
+    expect(mockInteraction.editReply).toHaveBeenCalledWith({
       content: expect.stringContaining("Successfully set Valorant feature"),
+    });
+  });
+
+  it("should report warning honestly via editReply when Directus persistence fails on /val config", async () => {
+    const { guildConfigRepository } = await import(
+      "../../../../infrastructure/repositories"
+    );
+    vi.spyOn(guildConfigRepository, "patchBotGuildConfig").mockRejectedValue(
+      new Error("Directus timeout"),
+    );
+
+    const mockInteraction = {
+      guildId: "guild-1",
+      memberPermissions: {
+        has: vi.fn().mockReturnValue(true),
+      },
+      options: {
+        getSubcommand: vi.fn().mockReturnValue("config"),
+        getString: vi.fn().mockReturnValue("compare"),
+        getBoolean: vi.fn().mockReturnValue(false),
+        getChannel: vi.fn().mockReturnValue(null),
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockInteraction.editReply).toHaveBeenCalledWith({
+      content: expect.stringContaining("failed to persist to Directus"),
+    });
+  });
+
+  it("should reject /val config if selected channel belongs to a different guild", async () => {
+    const mockInteraction = {
+      guildId: "guild-1",
+      memberPermissions: {
+        has: vi.fn().mockReturnValue(true),
+      },
+      options: {
+        getSubcommand: vi.fn().mockReturnValue("config"),
+        getString: vi.fn().mockReturnValue("autoRecap"),
+        getBoolean: vi.fn().mockReturnValue(true),
+        getChannel: vi.fn().mockReturnValue({
+          id: "ch-other",
+          guildId: "guild-other",
+        }),
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+      reply: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ChatInputCommandInteraction;
+
+    await execute(mockInteraction);
+
+    expect(mockInteraction.deferReply).not.toHaveBeenCalled();
+    expect(mockInteraction.reply).toHaveBeenCalledWith({
+      content: expect.stringContaining("does not belong to this server"),
       ephemeral: true,
     });
   });

@@ -55,6 +55,7 @@ export interface RoastFeatureConfig {
   maxIntensity?: "mild" | "medium" | "savage";
   allowedChannelIds?: string[];
   ignoredChannelIds?: string[];
+  maxPerDay?: number;
   targetShieldCooldownSeconds?: number;
   callerCooldownSeconds?: number;
   allowCounterRoast?: boolean;
@@ -218,4 +219,4 @@ export type AiProviderConfig = "google-genai" | "vertex" | "antigravity";
 
 export type AiMaxOutputTokens = number;
 export type AiMaxConversationHistoryConfig = number;
-export type MemoryStoreTypeConfig = "local" | "firestore";
+export type MemoryStoreTypeConfig = "directus" | "local" | "firestore";
