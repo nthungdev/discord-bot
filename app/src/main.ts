@@ -7,14 +7,13 @@ config({
       : ".env.development",
 });
 
-import * as admin from "firebase-admin";
-import serviceAccountKey from "../service-account.json";
-import { Config } from "./config";
+import { Config, ConfigParameter, resolveConfigSource } from "./config";
 import { validateEnvs } from "./helpers";
 import { roastLogRepository } from "./infrastructure/repositories";
 import server from "./server";
 import { getBotManager } from "./services/bot-manager";
 import { registerDefaultTools } from "./tools";
+import { initFirebaseIfNeeded } from "./utils/firebase";
 
 const { PORT, NODE_ENV } = process.env;
 const port: number | string = PORT || 3001;
@@ -30,16 +29,30 @@ const main = async () => {
   // Register default tools into registry
   registerDefaultTools();
 
-  // Init Firebase
-  admin.initializeApp({
-    credential: admin.credential.cert(
-      serviceAccountKey as admin.ServiceAccount,
-    ),
-  });
+  // Pre-init Firebase only when Remote Config is the active config source
+  const initialConfigSource = resolveConfigSource();
+  if (initialConfigSource === "remote-config") {
+    initFirebaseIfNeeded({
+      configSource: initialConfigSource,
+      memoryStoreType: process.env.MEMORY_STORE_TYPE,
+    });
+  }
 
-  // Init Remote Config
+  // Init Config (Directus, Firebase Remote Config, or local config.json)
   const remoteConfig = Config.getInstance();
   await remoteConfig.init();
+
+  // Initialize Firebase after config resolution if Firestore or Vertex AI is configured
+  const configSource = remoteConfig.getConfigSource();
+  const memoryStoreType =
+    process.env.MEMORY_STORE_TYPE ||
+    remoteConfig.getConfigValue(ConfigParameter.memoryStoreType);
+  const aiProvider = remoteConfig.getConfigValue(ConfigParameter.aiProvider);
+  initFirebaseIfNeeded({
+    configSource,
+    memoryStoreType,
+    aiProvider,
+  });
 
   // Initialize BotManager (seeds default bots from env and auto-starts enabled instances)
   const botManager = getBotManager();
