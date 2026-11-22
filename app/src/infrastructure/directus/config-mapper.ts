@@ -27,6 +27,46 @@ const LOCALE_VI = "vi";
 const VALID_MEMORY_STORE_TYPES = new Set(["directus", "local", "firestore"]);
 const VALID_AI_PROVIDERS = new Set(["google-genai", "vertex", "antigravity"]);
 const VALID_ROAST_INTENSITIES = new Set(["mild", "medium", "savage"]);
+const VALID_PERSONALIZATION_MODES = new Set([
+  "overwrite_identity",
+  "extend",
+  "overwrite_all",
+]);
+const VALID_SMART_REPLY_MODES = new Set([
+  "disabled",
+  "mentions_and_vocative",
+  "ambient_intent",
+]);
+const VALID_SMART_REPLY_STRATEGIES = new Set([
+  "independent",
+  "coalesced",
+  "hybrid",
+]);
+const VALID_SEND_TYPING_BEHAVIORS = new Set([
+  "immediate_for_all",
+  "deferred_for_ambient",
+  "disabled",
+]);
+const VALID_VOICE_BOUNCER_ACTIONS = new Set(["disconnect", "move"]);
+const VALID_VALORANT_STATS_PERIODS = new Set([
+  "recent_20",
+  "current_act",
+  "all_time",
+]);
+const VALID_VOICE_COMPANION_MODEL_IDS = new Set(["gemini-3.8-live"]);
+const VALID_VOICE_COMPANION_VOICE_NAMES = new Set([
+  "Puck",
+  "Charon",
+  "Kore",
+  "Fenrir",
+  "Aoede",
+]);
+const VALID_VOICE_COMPANION_BARGE_IN = new Set(["high", "normal", "low"]);
+const VALID_VOICE_COMPANION_PARTICIPATION = new Set([
+  "ambient",
+  "addressed_only",
+  "push_to_talk",
+]);
 
 export const FORBIDDEN_RECORD_KEYS = new Set([
   "__proto__",
@@ -57,6 +97,10 @@ function setSafeProperty<T extends object>(
     enumerable: true,
     configurable: true,
   });
+}
+
+function pickBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function pickString(value: unknown): string | undefined {
@@ -92,16 +136,6 @@ function pickEnum<T extends string>(
   return typeof value === "string" && allowed.has(value)
     ? (value as T)
     : undefined;
-}
-
-function assignIfNotNull<T extends object, K extends keyof T>(
-  target: T,
-  key: K,
-  value: T[K] | null | undefined,
-): void {
-  if (value != null) {
-    target[key] = value;
-  }
 }
 
 function assignDefined<T extends object, K extends keyof T>(
@@ -179,14 +213,17 @@ function parseModelConfig(value: unknown): ModelConfig | undefined {
   ) {
     model.provider = value.provider;
   }
-  if (typeof value.temperature === "number") {
-    model.temperature = value.temperature;
+  const temperature = pickFiniteNumber(value.temperature);
+  if (temperature !== undefined) {
+    model.temperature = temperature;
   }
-  if (typeof value.maxOutputTokens === "number") {
-    model.maxOutputTokens = value.maxOutputTokens;
+  const maxOutputTokens = pickFiniteNumber(value.maxOutputTokens);
+  if (maxOutputTokens !== undefined) {
+    model.maxOutputTokens = maxOutputTokens;
   }
-  if (typeof value.topP === "number") {
-    model.topP = value.topP;
+  const topP = pickFiniteNumber(value.topP);
+  if (topP !== undefined) {
+    model.topP = topP;
   }
   return model;
 }
@@ -281,18 +318,27 @@ function parseGuildMembersArray(
 function extractCompareConfig(
   raw: DirectusGuildConfigRaw,
 ): ValorantFeaturesConfig["compare"] | undefined {
-  if (raw.valorant_compare_enabled == null) {
+  const enabled = pickBoolean(raw.valorant_compare_enabled);
+  if (enabled === undefined) {
     return undefined;
   }
-  return { enabled: raw.valorant_compare_enabled };
+  return { enabled };
 }
 
 function extractStatsSummaryConfig(
   raw: DirectusGuildConfigRaw,
 ): ValorantFeaturesConfig["statsSummary"] | undefined {
   const result: NonNullable<ValorantFeaturesConfig["statsSummary"]> = {};
-  assignIfNotNull(result, "enabled", raw.valorant_stats_enabled);
-  assignIfNotNull(result, "defaultPeriod", raw.valorant_stats_default_period);
+  assignDefined(result, "enabled", pickBoolean(raw.valorant_stats_enabled));
+  assignDefined(
+    result,
+    "defaultPeriod",
+    pickEnum<
+      NonNullable<
+        NonNullable<ValorantFeaturesConfig["statsSummary"]>["defaultPeriod"]
+      >
+    >(raw.valorant_stats_default_period, VALID_VALORANT_STATS_PERIODS),
+  );
   return nonEmptyOrUndefined(result);
 }
 
@@ -300,17 +346,25 @@ function extractAutoRecapConfig(
   raw: DirectusGuildConfigRaw,
 ): ValorantFeaturesConfig["autoRecap"] | undefined {
   const result: NonNullable<ValorantFeaturesConfig["autoRecap"]> = {};
-  assignIfNotNull(result, "enabled", raw.valorant_auto_recap_enabled);
-  assignIfNotNull(result, "channelId", raw.valorant_auto_recap_channel_id);
-  assignIfNotNull(
+  assignDefined(
+    result,
+    "enabled",
+    pickBoolean(raw.valorant_auto_recap_enabled),
+  );
+  assignDefined(
+    result,
+    "channelId",
+    pickString(raw.valorant_auto_recap_channel_id),
+  );
+  assignDefined(
     result,
     "minTierAlert",
-    raw.valorant_auto_recap_min_tier_alert,
+    pickFiniteNumber(raw.valorant_auto_recap_min_tier_alert),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "sportscasterBanter",
-    raw.valorant_auto_recap_sportscaster_banter,
+    pickBoolean(raw.valorant_auto_recap_sportscaster_banter),
   );
   return nonEmptyOrUndefined(result);
 }
@@ -319,12 +373,20 @@ function extractLiveScoutingConfig(
   raw: DirectusGuildConfigRaw,
 ): ValorantFeaturesConfig["liveScouting"] | undefined {
   const result: NonNullable<ValorantFeaturesConfig["liveScouting"]> = {};
-  assignIfNotNull(result, "enabled", raw.valorant_live_scouting_enabled);
-  assignIfNotNull(result, "channelId", raw.valorant_live_scouting_channel_id);
-  assignIfNotNull(
+  assignDefined(
+    result,
+    "enabled",
+    pickBoolean(raw.valorant_live_scouting_enabled),
+  );
+  assignDefined(
+    result,
+    "channelId",
+    pickString(raw.valorant_live_scouting_channel_id),
+  );
+  assignDefined(
     result,
     "alertOnGameStart",
-    raw.valorant_live_scouting_alert_on_game_start,
+    pickBoolean(raw.valorant_live_scouting_alert_on_game_start),
   );
   return nonEmptyOrUndefined(result);
 }
@@ -333,8 +395,12 @@ function extractRankRoleSyncConfig(
   raw: DirectusGuildConfigRaw,
 ): ValorantFeaturesConfig["rankRoleSync"] | undefined {
   const result: NonNullable<ValorantFeaturesConfig["rankRoleSync"]> = {};
-  assignIfNotNull(result, "enabled", raw.valorant_rank_role_sync_enabled);
-  assignIfNotNull(
+  assignDefined(
+    result,
+    "enabled",
+    pickBoolean(raw.valorant_rank_role_sync_enabled),
+  );
+  assignDefined(
     result,
     "roleMappings",
     parseStringRecord(raw.valorant_rank_role_mappings),
@@ -346,23 +412,23 @@ function extractTiltProtectionConfig(
   raw: DirectusGuildConfigRaw,
 ): ValorantFeaturesConfig["tiltProtection"] | undefined {
   const result: NonNullable<ValorantFeaturesConfig["tiltProtection"]> = {};
-  assignIfNotNull(result, "enabled", raw.valorant_tilt_enabled);
-  assignIfNotNull(
+  assignDefined(result, "enabled", pickBoolean(raw.valorant_tilt_enabled));
+  assignDefined(
     result,
     "consecutiveLossesThreshold",
-    raw.valorant_tilt_consecutive_losses_threshold,
+    pickFiniteNumber(raw.valorant_tilt_consecutive_losses_threshold),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "nightOwlHourStart",
-    raw.valorant_tilt_night_owl_hour_start,
+    pickFiniteNumber(raw.valorant_tilt_night_owl_hour_start),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "nightOwlHourEnd",
-    raw.valorant_tilt_night_owl_hour_end,
+    pickFiniteNumber(raw.valorant_tilt_night_owl_hour_end),
   );
-  assignIfNotNull(result, "dmAlert", raw.valorant_tilt_dm_alert);
+  assignDefined(result, "dmAlert", pickBoolean(raw.valorant_tilt_dm_alert));
   return nonEmptyOrUndefined(result);
 }
 
@@ -480,8 +546,8 @@ function extractToolsConfig(
   row: DirectusGuildConfigRaw,
 ): BotGuildToolsConfig | undefined {
   const result: BotGuildToolsConfig = {};
-  assignIfNotNull(result, "googleSearch", row.tools_google_search);
-  assignIfNotNull(result, "discord", row.tools_discord);
+  assignDefined(result, "googleSearch", pickBoolean(row.tools_google_search));
+  assignDefined(result, "discord", pickBoolean(row.tools_discord));
   return nonEmptyOrUndefined(result);
 }
 
@@ -489,72 +555,101 @@ function extractSmartReplyConfig(
   row: DirectusGuildConfigRaw,
 ): SmartReplyConfig | undefined {
   const result: SmartReplyConfig = {};
-  assignIfNotNull(result, "enabled", row.smart_reply_enabled);
-  assignIfNotNull(result, "mode", row.smart_reply_mode);
-  assignIfNotNull(
+  assignDefined(result, "enabled", pickBoolean(row.smart_reply_enabled));
+  assignDefined(
+    result,
+    "mode",
+    pickEnum<NonNullable<SmartReplyConfig["mode"]>>(
+      row.smart_reply_mode,
+      VALID_SMART_REPLY_MODES,
+    ),
+  );
+  assignDefined(
     result,
     "classifierModel",
     parseModelConfig(row.smart_reply_classifier_model),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "chatBotModel",
     parseModelConfig(row.smart_reply_chat_bot_model),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "ambientConfidenceThreshold",
-    row.smart_reply_ambient_confidence_threshold,
+    pickFiniteNumber(row.smart_reply_ambient_confidence_threshold),
   );
-  assignIfNotNull(result, "debounceMs", row.smart_reply_debounce_ms);
-  assignIfNotNull(result, "maxDebounceMs", row.smart_reply_max_debounce_ms);
-  assignIfNotNull(
+  assignDefined(
+    result,
+    "debounceMs",
+    pickFiniteNumber(row.smart_reply_debounce_ms),
+  );
+  assignDefined(
+    result,
+    "maxDebounceMs",
+    pickFiniteNumber(row.smart_reply_max_debounce_ms),
+  );
+  assignDefined(
     result,
     "sessionTtlSeconds",
-    row.smart_reply_session_ttl_seconds,
+    pickFiniteNumber(row.smart_reply_session_ttl_seconds),
   );
-  assignIfNotNull(result, "replyStrategy", row.smart_reply_strategy);
-  assignIfNotNull(
+  assignDefined(
+    result,
+    "replyStrategy",
+    pickEnum<NonNullable<SmartReplyConfig["replyStrategy"]>>(
+      row.smart_reply_strategy,
+      VALID_SMART_REPLY_STRATEGIES,
+    ),
+  );
+  assignDefined(
     result,
     "coalesceWindowMs",
-    row.smart_reply_coalesce_window_ms,
+    pickFiniteNumber(row.smart_reply_coalesce_window_ms),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "silenceDurationMinutes",
-    row.smart_reply_silence_duration_minutes,
+    pickFiniteNumber(row.smart_reply_silence_duration_minutes),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "ambientRateLimitSeconds",
-    row.smart_reply_ambient_rate_limit_seconds,
+    pickFiniteNumber(row.smart_reply_ambient_rate_limit_seconds),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "ambientSnapshotLimit",
-    row.smart_reply_ambient_snapshot_limit,
+    pickFiniteNumber(row.smart_reply_ambient_snapshot_limit),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "enableKeywordDismissal",
-    row.smart_reply_enable_keyword_dismissal,
+    pickBoolean(row.smart_reply_enable_keyword_dismissal),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "enableReactionDismissal",
-    row.smart_reply_enable_reaction_dismissal,
+    pickBoolean(row.smart_reply_enable_reaction_dismissal),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "sendTypingBehavior",
-    row.smart_reply_send_typing_behavior,
+    pickEnum<NonNullable<SmartReplyConfig["sendTypingBehavior"]>>(
+      row.smart_reply_send_typing_behavior,
+      VALID_SEND_TYPING_BEHAVIORS,
+    ),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "threadAutoListen",
-    row.smart_reply_thread_auto_listen,
+    pickBoolean(row.smart_reply_thread_auto_listen),
   );
-  assignIfNotNull(result, "optOutTopicTag", row.smart_reply_opt_out_topic_tag);
+  assignDefined(
+    result,
+    "optOutTopicTag",
+    pickString(row.smart_reply_opt_out_topic_tag),
+  );
   return nonEmptyOrUndefined(result);
 }
 
@@ -562,18 +657,18 @@ function extractRoastConfig(
   row: DirectusGuildConfigRaw,
 ): RoastFeatureConfig | undefined {
   const result: RoastFeatureConfig = {};
-  assignIfNotNull(result, "enabled", row.roast_enabled);
-  assignIfNotNull(
+  assignDefined(result, "enabled", pickBoolean(row.roast_enabled));
+  assignDefined(
     result,
     "defaultLocale",
     normalizeLocale(row.roast_default_locale),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "localeOverride",
     normalizeLocale(row.roast_locale_override),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "maxIntensity",
     pickEnum<NonNullable<RoastFeatureConfig["maxIntensity"]>>(
@@ -581,67 +676,83 @@ function extractRoastConfig(
       VALID_ROAST_INTENSITIES,
     ),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "allowedChannelIds",
     parseStringArray(row.roast_allowed_channel_ids),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "ignoredChannelIds",
     parseStringArray(row.roast_ignored_channel_ids),
   );
-  assignIfNotNull(result, "maxPerDay", pickFiniteNumber(row.roast_max_per_day));
-  assignIfNotNull(
+  assignDefined(result, "maxPerDay", pickFiniteNumber(row.roast_max_per_day));
+  assignDefined(
     result,
     "targetShieldCooldownSeconds",
     pickFiniteNumber(row.roast_target_shield_cooldown_seconds),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "callerCooldownSeconds",
     pickFiniteNumber(row.roast_caller_cooldown_seconds),
   );
-  assignIfNotNull(result, "allowCounterRoast", row.roast_allow_counter_roast);
+  assignDefined(
+    result,
+    "allowCounterRoast",
+    pickBoolean(row.roast_allow_counter_roast),
+  );
   return nonEmptyOrUndefined(result);
 }
 
 function extractModerationConfig(
   row: DirectusGuildConfigRaw,
 ): ModerationCapabilityConfig | undefined {
-  if (row.moderation_enabled == null) {
+  const enabled = pickBoolean(row.moderation_enabled);
+  if (enabled === undefined) {
     return undefined;
   }
-  return { enabled: row.moderation_enabled };
+  return { enabled };
 }
 
 function extractVoiceBouncerConfig(
   row: DirectusGuildConfigRaw,
 ): VoiceBouncerCapabilityConfig | undefined {
   const result: VoiceBouncerCapabilityConfig = {};
-  assignIfNotNull(result, "enabled", row.voice_bouncer_enabled);
-  assignIfNotNull(
+  assignDefined(result, "enabled", pickBoolean(row.voice_bouncer_enabled));
+  assignDefined(
     result,
     "tagOnlyVoiceChannelIds",
     parseStringArray(row.voice_bouncer_tag_only_channel_ids),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "tagOnlyCategoryIds",
     parseStringArray(row.voice_bouncer_tag_only_category_ids),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "exemptRoleIds",
     parseStringArray(row.voice_bouncer_exempt_role_ids),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "fallbackChannelId",
-    row.voice_bouncer_fallback_channel_id,
+    pickString(row.voice_bouncer_fallback_channel_id),
   );
-  assignIfNotNull(result, "action", row.voice_bouncer_action);
-  assignIfNotNull(result, "warningMessage", row.voice_bouncer_warning_message);
+  assignDefined(
+    result,
+    "action",
+    pickEnum<NonNullable<VoiceBouncerCapabilityConfig["action"]>>(
+      row.voice_bouncer_action,
+      VALID_VOICE_BOUNCER_ACTIONS,
+    ),
+  );
+  assignDefined(
+    result,
+    "warningMessage",
+    pickString(row.voice_bouncer_warning_message),
+  );
   return nonEmptyOrUndefined(result);
 }
 
@@ -649,36 +760,48 @@ function extractMatchmakingConfig(
   row: DirectusGuildConfigRaw,
 ): MatchmakingCapabilityConfig | undefined {
   const result: MatchmakingCapabilityConfig = {};
-  assignIfNotNull(result, "enabled", row.matchmaking_enabled);
-  assignIfNotNull(
+  assignDefined(result, "enabled", pickBoolean(row.matchmaking_enabled));
+  assignDefined(
     result,
     "lobbyVoiceChannelId",
-    row.matchmaking_lobby_channel_id,
+    pickString(row.matchmaking_lobby_channel_id),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "team1VoiceChannelId",
-    row.matchmaking_team1_channel_id,
+    pickString(row.matchmaking_team1_channel_id),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "team2VoiceChannelId",
-    row.matchmaking_team2_channel_id,
+    pickString(row.matchmaking_team2_channel_id),
   );
-  assignIfNotNull(result, "matchCategoryId", row.matchmaking_category_id);
-  assignIfNotNull(
+  assignDefined(
     result,
-    "mapPool",
-    parseStringArray(row.matchmaking_map_pool),
+    "matchCategoryId",
+    pickString(row.matchmaking_category_id),
   );
-  assignIfNotNull(result, "defaultKFactor", row.matchmaking_default_k_factor);
-  assignIfNotNull(result, "initialElo", row.matchmaking_initial_elo);
-  assignIfNotNull(
+  assignDefined(result, "mapPool", parseStringArray(row.matchmaking_map_pool));
+  assignDefined(
+    result,
+    "defaultKFactor",
+    pickFiniteNumber(row.matchmaking_default_k_factor),
+  );
+  assignDefined(
+    result,
+    "initialElo",
+    pickFiniteNumber(row.matchmaking_initial_elo),
+  );
+  assignDefined(
     result,
     "scoreReportingTimeoutMinutes",
-    row.matchmaking_score_timeout_minutes,
+    pickFiniteNumber(row.matchmaking_score_timeout_minutes),
   );
-  assignIfNotNull(result, "autoMovePlayers", row.matchmaking_auto_move_players);
+  assignDefined(
+    result,
+    "autoMovePlayers",
+    pickBoolean(row.matchmaking_auto_move_players),
+  );
   return nonEmptyOrUndefined(result);
 }
 
@@ -686,7 +809,7 @@ function extractValorantConfig(
   row: DirectusGuildConfigRaw,
 ): ValorantCapabilityConfig | undefined {
   const result: ValorantCapabilityConfig = {};
-  assignIfNotNull(result, "enabled", row.valorant_enabled);
+  assignDefined(result, "enabled", pickBoolean(row.valorant_enabled));
   assignDefined(result, "features", extractValorantFeaturesFromRaw(row));
   return nonEmptyOrUndefined(result);
 }
@@ -695,43 +818,63 @@ function extractVoiceCompanionConfig(
   row: DirectusGuildConfigRaw,
 ): VoiceCompanionCapabilityConfig | undefined {
   const result: VoiceCompanionCapabilityConfig = {};
-  assignIfNotNull(result, "enabled", row.voice_companion_enabled);
-  assignIfNotNull(
+  assignDefined(result, "enabled", pickBoolean(row.voice_companion_enabled));
+  assignDefined(
     result,
     "autoJoinChannelId",
-    row.voice_companion_auto_join_channel_id,
+    pickString(row.voice_companion_auto_join_channel_id),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "inactivityTimeoutMinutes",
-    row.voice_companion_inactivity_timeout_minutes,
+    pickFiniteNumber(row.voice_companion_inactivity_timeout_minutes),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "emptyChannelGraceSeconds",
-    row.voice_companion_empty_channel_grace_seconds,
+    pickFiniteNumber(row.voice_companion_empty_channel_grace_seconds),
   );
-  assignIfNotNull(result, "modelId", row.voice_companion_model_id);
-  assignIfNotNull(result, "voiceName", row.voice_companion_voice_name);
-  assignIfNotNull(
+  assignDefined(
+    result,
+    "modelId",
+    pickEnum<NonNullable<VoiceCompanionCapabilityConfig["modelId"]>>(
+      row.voice_companion_model_id,
+      VALID_VOICE_COMPANION_MODEL_IDS,
+    ),
+  );
+  assignDefined(
+    result,
+    "voiceName",
+    pickEnum<NonNullable<VoiceCompanionCapabilityConfig["voiceName"]>>(
+      row.voice_companion_voice_name,
+      VALID_VOICE_COMPANION_VOICE_NAMES,
+    ),
+  );
+  assignDefined(
     result,
     "systemInstruction",
-    row.voice_companion_system_instruction,
+    pickString(row.voice_companion_system_instruction),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "energyThreshold",
-    row.voice_companion_energy_threshold,
+    pickFiniteNumber(row.voice_companion_energy_threshold),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "bargeInSensitivity",
-    row.voice_companion_barge_in_sensitivity,
+    pickEnum<NonNullable<VoiceCompanionCapabilityConfig["bargeInSensitivity"]>>(
+      row.voice_companion_barge_in_sensitivity,
+      VALID_VOICE_COMPANION_BARGE_IN,
+    ),
   );
-  assignIfNotNull(
+  assignDefined(
     result,
     "participationMode",
-    row.voice_companion_participation_mode,
+    pickEnum<NonNullable<VoiceCompanionCapabilityConfig["participationMode"]>>(
+      row.voice_companion_participation_mode,
+      VALID_VOICE_COMPANION_PARTICIPATION,
+    ),
   );
   return nonEmptyOrUndefined(result);
 }
@@ -745,21 +888,28 @@ export function mapDirectusRowToBotGuildConfig(
   const result: BotGuildConfig = {
     replyChannelIds: parseStringArray(row.reply_channel_ids) ?? [],
     ignoredChannelIds: parseStringArray(row.ignored_channel_ids) ?? [],
-    respondToMentions: row.respond_to_mentions ?? false,
+    respondToMentions: pickBoolean(row.respond_to_mentions) ?? false,
   };
 
-  assignIfNotNull(result, "botName", row.bot_name);
-  assignIfNotNull(result, "lockName", row.lock_name);
-  assignIfNotNull(result, "personalization", row.personalization);
-  assignIfNotNull(result, "personalizationMode", row.personalization_mode);
-  assignIfNotNull(result, "systemInstruction", row.system_instruction);
-  assignIfNotNull(result, "replyDelay", row.reply_delay);
-  assignIfNotNull(
+  assignDefined(result, "botName", pickString(row.bot_name));
+  assignDefined(result, "lockName", pickBoolean(row.lock_name));
+  assignDefined(result, "personalization", pickString(row.personalization));
+  assignDefined(
     result,
-    "localeOverride",
-    normalizeLocale(row.locale_override),
+    "personalizationMode",
+    pickEnum<NonNullable<BotGuildConfig["personalizationMode"]>>(
+      row.personalization_mode,
+      VALID_PERSONALIZATION_MODES,
+    ),
   );
-  assignIfNotNull(result, "chatBotModel", parseModelConfig(row.chat_bot_model));
+  assignDefined(
+    result,
+    "systemInstruction",
+    pickString(row.system_instruction),
+  );
+  assignDefined(result, "replyDelay", pickFiniteNumber(row.reply_delay));
+  assignDefined(result, "localeOverride", normalizeLocale(row.locale_override));
+  assignDefined(result, "chatBotModel", parseModelConfig(row.chat_bot_model));
 
   assignDefined(result, "tools", extractToolsConfig(row));
   assignDefined(result, "smartReply", extractSmartReplyConfig(row));
@@ -1192,6 +1342,140 @@ function cloneGuildMembers(source: GuildMembersConfig): GuildMembersConfig {
   return cloned;
 }
 
+function mergeSubObject<T extends object>(
+  fallback: T | undefined,
+  incoming: T | undefined,
+): T | undefined {
+  if (!incoming) {
+    return fallback;
+  }
+  return fallback ? { ...fallback, ...incoming } : incoming;
+}
+
+function mergeValorantFeatures(
+  fallback: ValorantFeaturesConfig | undefined,
+  incoming: ValorantFeaturesConfig | undefined,
+): ValorantFeaturesConfig | undefined {
+  if (!incoming) {
+    return fallback;
+  }
+  if (!fallback) {
+    return incoming;
+  }
+  const merged: ValorantFeaturesConfig = { ...fallback };
+  assignDefined(
+    merged,
+    "compare",
+    mergeSubObject(fallback.compare, incoming.compare),
+  );
+  assignDefined(
+    merged,
+    "statsSummary",
+    mergeSubObject(fallback.statsSummary, incoming.statsSummary),
+  );
+  assignDefined(
+    merged,
+    "autoRecap",
+    mergeSubObject(fallback.autoRecap, incoming.autoRecap),
+  );
+  assignDefined(
+    merged,
+    "liveScouting",
+    mergeSubObject(fallback.liveScouting, incoming.liveScouting),
+  );
+  assignDefined(
+    merged,
+    "rankRoleSync",
+    mergeSubObject(fallback.rankRoleSync, incoming.rankRoleSync),
+  );
+  assignDefined(
+    merged,
+    "tiltProtection",
+    mergeSubObject(fallback.tiltProtection, incoming.tiltProtection),
+  );
+  return nonEmptyOrUndefined(merged);
+}
+
+function mergeValorantConfig(
+  fallback: ValorantCapabilityConfig | undefined,
+  incoming: ValorantCapabilityConfig | undefined,
+): ValorantCapabilityConfig | undefined {
+  if (!incoming) {
+    return fallback;
+  }
+  if (!fallback) {
+    return incoming;
+  }
+  const merged: ValorantCapabilityConfig = { ...fallback };
+  assignDefined(merged, "enabled", incoming.enabled);
+  assignDefined(
+    merged,
+    "features",
+    mergeValorantFeatures(fallback.features, incoming.features),
+  );
+  return nonEmptyOrUndefined(merged);
+}
+
+function mergeGuildRowOverFallback(
+  fallback: BotGuildConfig,
+  row: DirectusGuildConfigRaw,
+): BotGuildConfig {
+  const mapped = mapDirectusRowToBotGuildConfig(row);
+  const merged: BotGuildConfig = {
+    ...fallback,
+    replyChannelIds:
+      parseStringArray(row.reply_channel_ids) ?? fallback.replyChannelIds,
+    ignoredChannelIds:
+      parseStringArray(row.ignored_channel_ids) ?? fallback.ignoredChannelIds,
+    respondToMentions:
+      pickBoolean(row.respond_to_mentions) ?? fallback.respondToMentions,
+  };
+
+  assignDefined(merged, "botName", mapped.botName);
+  assignDefined(merged, "lockName", mapped.lockName);
+  assignDefined(merged, "personalization", mapped.personalization);
+  assignDefined(merged, "personalizationMode", mapped.personalizationMode);
+  assignDefined(merged, "systemInstruction", mapped.systemInstruction);
+  assignDefined(merged, "replyDelay", mapped.replyDelay);
+  assignDefined(merged, "localeOverride", mapped.localeOverride);
+  assignDefined(merged, "chatBotModel", mapped.chatBotModel);
+
+  assignDefined(merged, "tools", mergeSubObject(fallback.tools, mapped.tools));
+  assignDefined(
+    merged,
+    "smartReply",
+    mergeSubObject(fallback.smartReply, mapped.smartReply),
+  );
+  assignDefined(merged, "roast", mergeSubObject(fallback.roast, mapped.roast));
+  assignDefined(
+    merged,
+    "moderation",
+    mergeSubObject(fallback.moderation, mapped.moderation),
+  );
+  assignDefined(
+    merged,
+    "voiceBouncer",
+    mergeSubObject(fallback.voiceBouncer, mapped.voiceBouncer),
+  );
+  assignDefined(
+    merged,
+    "matchmaking",
+    mergeSubObject(fallback.matchmaking, mapped.matchmaking),
+  );
+  assignDefined(
+    merged,
+    "valorant",
+    mergeValorantConfig(fallback.valorant, mapped.valorant),
+  );
+  assignDefined(
+    merged,
+    "voiceCompanion",
+    mergeSubObject(fallback.voiceCompanion, mapped.voiceCompanion),
+  );
+
+  return merged;
+}
+
 function applyGuildRow(
   row: DirectusGuildConfigRaw,
   bots: BotsConfig,
@@ -1208,11 +1492,13 @@ function applyGuildRow(
   if (!Object.hasOwn(bots, botId)) {
     setSafeProperty(bots, botId, { guilds: {} });
   }
-  setSafeProperty(
-    bots[botId].guilds,
-    row.guild_id,
-    mapDirectusRowToBotGuildConfig(row),
-  );
+  const existingFallback = Object.hasOwn(bots[botId].guilds, row.guild_id)
+    ? bots[botId].guilds[row.guild_id]
+    : undefined;
+  const resolvedGuildConfig = existingFallback
+    ? mergeGuildRowOverFallback(existingFallback, row)
+    : mapDirectusRowToBotGuildConfig(row);
+  setSafeProperty(bots[botId].guilds, row.guild_id, resolvedGuildConfig);
 
   const parsedEmojis = parseGuildEmojisMap(row.guild_emojis);
   if (parsedEmojis !== undefined) {

@@ -849,4 +849,105 @@ describe("Directus Config Mapper", () => {
     expect("reply_channel_ids" in partialPayload).toBe(false);
     expect("respond_to_mentions" in partialPayload).toBe(false);
   });
+
+  it("should preserve fallback guild fields when a Directus row is partially populated", () => {
+    const fallbackWithDetails: AppConfigData =
+      structuredClone(BASE_FALLBACK_CONFIG);
+    fallbackWithDetails.bots.chatBot.guilds["fallback-guild"] = {
+      botName: "FallbackBot",
+      replyChannelIds: ["ch-fb-1", "ch-fb-2"],
+      ignoredChannelIds: ["ch-ign-1"],
+      respondToMentions: true,
+      smartReply: {
+        enabled: true,
+        mode: "ambient_intent",
+        debounceMs: 1200,
+      },
+      valorant: {
+        enabled: true,
+        features: {
+          compare: { enabled: true },
+          statsSummary: { enabled: true, defaultPeriod: "current_act" },
+        },
+      },
+    };
+
+    const partialDirectusRow: DirectusGuildConfigRaw = {
+      id: "row-partial-override",
+      bot_id: "chatBot",
+      guild_id: "fallback-guild",
+      reply_channel_ids: null,
+      respond_to_mentions: null,
+      valorant_compare_enabled: false,
+    };
+
+    const mapped = mapDirectusToAppConfig(
+      null,
+      [partialDirectusRow],
+      fallbackWithDetails,
+    );
+    const guild = mapped.bots.chatBot.guilds["fallback-guild"];
+
+    expect(guild.botName).toBe("FallbackBot");
+    expect(guild.replyChannelIds).toEqual(["ch-fb-1", "ch-fb-2"]);
+    expect(guild.ignoredChannelIds).toEqual(["ch-ign-1"]);
+    expect(guild.respondToMentions).toBe(true);
+    expect(guild.smartReply).toEqual({
+      enabled: true,
+      mode: "ambient_intent",
+      debounceMs: 1200,
+    });
+    expect(guild.valorant).toEqual({
+      enabled: true,
+      features: {
+        compare: { enabled: false },
+        statsSummary: { enabled: true, defaultPeriod: "current_act" },
+      },
+    });
+  });
+
+  it("should reject non-finite numbers, invalid booleans, and invalid enums across all guild capability groups", () => {
+    const malformedRow: DirectusGuildConfigRaw = {
+      id: "row-bad-types",
+      guild_id: "guild-bad-types",
+      respond_to_mentions: "yes" as unknown as boolean,
+      reply_delay: Number.NaN,
+      personalization_mode:
+        "invalid_mode" as unknown as DirectusGuildConfigRaw["personalization_mode"],
+      smart_reply_enabled: "true" as unknown as boolean,
+      smart_reply_mode:
+        "bad_mode" as unknown as DirectusGuildConfigRaw["smart_reply_mode"],
+      smart_reply_debounce_ms: "500" as unknown as number,
+      smart_reply_strategy:
+        "unknown" as unknown as DirectusGuildConfigRaw["smart_reply_strategy"],
+      smart_reply_send_typing_behavior:
+        "invalid" as unknown as DirectusGuildConfigRaw["smart_reply_send_typing_behavior"],
+      voice_bouncer_action:
+        "ban" as unknown as DirectusGuildConfigRaw["voice_bouncer_action"],
+      matchmaking_default_k_factor: Number.POSITIVE_INFINITY,
+      matchmaking_score_timeout_minutes: "10" as unknown as number,
+      valorant_stats_default_period:
+        "weekly" as unknown as DirectusGuildConfigRaw["valorant_stats_default_period"],
+      valorant_tilt_consecutive_losses_threshold: Number.NaN,
+      voice_companion_inactivity_timeout_minutes: "15" as unknown as number,
+      voice_companion_model_id:
+        "bad-model" as unknown as DirectusGuildConfigRaw["voice_companion_model_id"],
+      voice_companion_voice_name:
+        "UnknownVoice" as unknown as DirectusGuildConfigRaw["voice_companion_voice_name"],
+      voice_companion_barge_in_sensitivity:
+        "extreme" as unknown as DirectusGuildConfigRaw["voice_companion_barge_in_sensitivity"],
+      voice_companion_participation_mode:
+        "always" as unknown as DirectusGuildConfigRaw["voice_companion_participation_mode"],
+    };
+
+    const mapped = mapDirectusRowToBotGuildConfig(malformedRow);
+    expect(mapped.respondToMentions).toBe(false);
+    expect(mapped.replyDelay).toBeUndefined();
+    expect(mapped.personalizationMode).toBeUndefined();
+    expect(mapped.smartReply).toBeUndefined();
+    expect(mapped.voiceBouncer).toBeUndefined();
+    expect(mapped.matchmaking).toBeUndefined();
+    expect(mapped.valorant).toBeUndefined();
+    expect(mapped.voiceCompanion).toBeUndefined();
+  });
 });
