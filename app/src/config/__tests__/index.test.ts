@@ -644,4 +644,256 @@ describe("Config", () => {
       ).toEqual(["ch-b-concurrent"]);
     });
   });
+
+  describe("multi-bot guild config isolation and validation", () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    afterEach(() => {
+      Config.getInstance().stopAutoRefresh();
+    });
+
+    it("isolates chatBot and policeBot updates for the same guild in directus mode", async () => {
+      vi.spyOn(guildConfigRepository, "fetchAllConfigs").mockResolvedValue({
+        systemConfig: { id: "sys-1" },
+        guildConfigs: [
+          {
+            id: "row-chat",
+            bot_id: "chatBot",
+            guild_id: "guild-shared",
+            reply_channel_ids: ["ch-chat-initial"],
+            respond_to_mentions: true,
+          },
+          {
+            id: "row-police",
+            bot_id: "policeBot",
+            guild_id: "guild-shared",
+            moderation_enabled: true,
+          },
+        ],
+      });
+
+      const config = Config.getInstance();
+      await config.init({ configSource: "directus", refreshIntervalMs: 0 });
+
+      config.updateBotGuildConfig(
+        "guild-shared",
+        {
+          replyChannelIds: ["ch-police-updated"],
+          ignoredChannelIds: ["ch-ignored"],
+          respondToMentions: false,
+          moderation: { enabled: false },
+        },
+        "policeBot",
+      );
+
+      // policeBot updated while chatBot remained completely isolated
+      expect(config.getBotGuildConfig("policeBot", "guild-shared")).toEqual({
+        replyChannelIds: ["ch-police-updated"],
+        ignoredChannelIds: ["ch-ignored"],
+        respondToMentions: false,
+        moderation: { enabled: false },
+      });
+      expect(
+        config.getBotGuildConfig("chatBot", "guild-shared")?.replyChannelIds,
+      ).toEqual(["ch-chat-initial"]);
+      expect(
+        config.getBotGuildConfig("chatBot", "guild-shared")?.respondToMentions,
+      ).toBe(true);
+
+      // Default botId parameter targets chatBot without disturbing policeBot
+      config.updateBotGuildConfig("guild-shared", {
+        replyChannelIds: ["ch-chat-default-updated"],
+        ignoredChannelIds: [],
+        respondToMentions: false,
+      });
+
+      const allBots = config.getConfigValue(ConfigParameter.bots);
+      expect(allBots.chatBot.guilds["guild-shared"]?.replyChannelIds).toEqual([
+        "ch-chat-default-updated",
+      ]);
+      expect(allBots.policeBot.guilds["guild-shared"]?.moderation).toEqual({
+        enabled: false,
+      });
+    });
+
+    it("isolates chatBot and policeBot overrides in local mode without mutating localConfig", async () => {
+      const config = Config.getInstance();
+      await config.init({ useLocalConfigOnly: true });
+      const localBaseline = structuredClone(config.getLocalConfig());
+
+      config.updateBotGuildConfig(
+        "guild-local-iso",
+        {
+          replyChannelIds: ["ch-chat-local"],
+          ignoredChannelIds: [],
+          respondToMentions: true,
+        },
+        "chatBot",
+      );
+      config.updateBotGuildConfig(
+        "guild-local-iso",
+        {
+          replyChannelIds: [],
+          ignoredChannelIds: ["ch-police-ignored"],
+          respondToMentions: false,
+          moderation: { enabled: true },
+        },
+        "policeBot",
+      );
+
+      expect(
+        config.getBotGuildConfig("chatBot", "guild-local-iso")?.replyChannelIds,
+      ).toEqual(["ch-chat-local"]);
+      expect(
+        config.getBotGuildConfig("policeBot", "guild-local-iso")?.moderation,
+      ).toEqual({ enabled: true });
+
+      const bots = config.getConfigValue(ConfigParameter.bots);
+      expect(bots.chatBot.guilds["guild-local-iso"]?.replyChannelIds).toEqual([
+        "ch-chat-local",
+      ]);
+      expect(
+        bots.policeBot.guilds["guild-local-iso"]?.ignoredChannelIds,
+      ).toEqual(["ch-police-ignored"]);
+      expect(config.getLocalConfig()).toEqual(localBaseline);
+    });
+
+    it("clears stale overrides per (botId, guildId) on reload while preserving unrelated bot overrides", async () => {
+      let resolveReload!: (val: {
+        systemConfig: null;
+        guildConfigs: {
+          id: string;
+          bot_id: string;
+          guild_id: string;
+          reply_channel_ids?: string[];
+          respond_to_mentions?: boolean;
+          moderation_enabled?: boolean;
+        }[];
+      }) => void;
+
+      const reloadPromise = new Promise<{
+        systemConfig: null;
+        guildConfigs: {
+          id: string;
+          bot_id: string;
+          guild_id: string;
+          reply_channel_ids?: string[];
+          respond_to_mentions?: boolean;
+          moderation_enabled?: boolean;
+        }[];
+      }>((resolve) => {
+        resolveReload = resolve;
+      });
+
+      vi.spyOn(guildConfigRepository, "fetchAllConfigs")
+        .mockResolvedValueOnce({
+          systemConfig: null,
+          guildConfigs: [
+            {
+              id: "r-chat",
+              bot_id: "chatBot",
+              guild_id: "guild-reload-iso",
+              reply_channel_ids: ["ch-chat-1"],
+              respond_to_mentions: true,
+            },
+            {
+              id: "r-police",
+              bot_id: "policeBot",
+              guild_id: "guild-reload-iso",
+              moderation_enabled: false,
+            },
+          ],
+        })
+        .mockReturnValueOnce(reloadPromise);
+
+      const config = Config.getInstance();
+      await config.init({ configSource: "directus", refreshIntervalMs: 0 });
+
+      // Stale override on chatBot before reload starts
+      config.updateBotGuildConfig(
+        "guild-reload-iso",
+        {
+          replyChannelIds: ["ch-chat-stale"],
+          ignoredChannelIds: [],
+          respondToMentions: false,
+        },
+        "chatBot",
+      );
+
+      const pendingLoad = config.loadConfig();
+
+      // Concurrent override on policeBot for the SAME guildId while reload is in flight
+      config.updateBotGuildConfig(
+        "guild-reload-iso",
+        {
+          replyChannelIds: [],
+          ignoredChannelIds: [],
+          respondToMentions: false,
+          moderation: { enabled: true },
+        },
+        "policeBot",
+      );
+
+      resolveReload({
+        systemConfig: null,
+        guildConfigs: [
+          {
+            id: "r-chat",
+            bot_id: "chatBot",
+            guild_id: "guild-reload-iso",
+            reply_channel_ids: ["ch-chat-fresh"],
+            respond_to_mentions: true,
+          },
+          {
+            id: "r-police",
+            bot_id: "policeBot",
+            guild_id: "guild-reload-iso",
+            moderation_enabled: false,
+          },
+        ],
+      });
+
+      await pendingLoad;
+
+      // chatBot stale override was cleared; policeBot concurrent override survived
+      expect(
+        config.getBotGuildConfig("chatBot", "guild-reload-iso")
+          ?.replyChannelIds,
+      ).toEqual(["ch-chat-fresh"]);
+      expect(
+        config.getBotGuildConfig("policeBot", "guild-reload-iso")?.moderation
+          ?.enabled,
+      ).toBe(true);
+    });
+
+    it.each(["__proto__", "constructor", "prototype", ""])(
+      "rejects unsafe botId and guildId (%j) in updateBotGuildConfig and getBotGuildConfig",
+      async (unsafeKey) => {
+        const config = Config.getInstance();
+        await config.init({ useLocalConfigOnly: true });
+
+        const dummyConfig = {
+          replyChannelIds: [],
+          ignoredChannelIds: [],
+          respondToMentions: false,
+        };
+
+        expect(() =>
+          config.updateBotGuildConfig("guild-safe", dummyConfig, unsafeKey),
+        ).toThrow(/Invalid botId/);
+        expect(() =>
+          config.updateBotGuildConfig(unsafeKey, dummyConfig, "policeBot"),
+        ).toThrow(/Invalid guildId/);
+
+        expect(
+          config.getBotGuildConfig(unsafeKey, "guild-safe"),
+        ).toBeUndefined();
+        expect(
+          config.getBotGuildConfig("policeBot", unsafeKey),
+        ).toBeUndefined();
+      },
+    );
+  });
 });

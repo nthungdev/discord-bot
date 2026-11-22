@@ -19,6 +19,7 @@ import type {
   AiProviderConfig,
   AiSafetySettingsConfig,
   BotGuildConfig,
+  BotGuildsConfig,
   BotsConfig,
   CheckInLeaderboardConfig,
   GuildEmojisConfig,
@@ -133,6 +134,33 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
 };
 
 export const DEFAULT_CONFIG_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_BOT_ID = "chatBot";
+
+interface GuildOverrideEntry {
+  botId: string;
+  guildId: string;
+  config: BotGuildConfig;
+}
+
+function buildGuildOverrideKey(botId: string, guildId: string): string {
+  return JSON.stringify([botId, guildId]);
+}
+
+function setSafeProperty<T extends object>(
+  target: T,
+  key: string,
+  value: unknown,
+): void {
+  if (!isSafeRecordKey(key)) {
+    return;
+  }
+  Object.defineProperty(target, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
 
 export type ConfigSource = "directus" | "remote-config" | "local";
 
@@ -182,7 +210,7 @@ export class Config {
   private ttlMs: number = DEFAULT_CONFIG_REFRESH_INTERVAL_MS;
   private localOnly: boolean = false;
   private configSource: ConfigSource = "remote-config";
-  private inMemoryGuildOverrides: Map<string, BotGuildConfig> = new Map();
+  private inMemoryGuildOverrides: Map<string, GuildOverrideEntry> = new Map();
   private overrideGenerations: Map<string, number> = new Map();
   private inFlightLoad: Promise<void> | null = null;
   private loadGeneration: number = 0;
@@ -293,10 +321,13 @@ export class Config {
         guildConfigs,
         this.getLocalConfig(),
       );
-      for (const [gId, startVersion] of overrideVersionsAtStart.entries()) {
-        if (this.overrideGenerations.get(gId) === startVersion) {
-          this.inMemoryGuildOverrides.delete(gId);
-          this.overrideGenerations.delete(gId);
+      for (const [
+        overrideKey,
+        startVersion,
+      ] of overrideVersionsAtStart.entries()) {
+        if (this.overrideGenerations.get(overrideKey) === startVersion) {
+          this.inMemoryGuildOverrides.delete(overrideKey);
+          this.overrideGenerations.delete(overrideKey);
         }
       }
       this.lastFetchedAt = Date.now();
@@ -394,36 +425,42 @@ export class Config {
   }
 
   private applyGuildOverrides(bots: BotsConfig): BotsConfig {
-    if (this.inMemoryGuildOverrides.size === 0 || !bots?.chatBot?.guilds) {
+    if (this.inMemoryGuildOverrides.size === 0 || !bots) {
       return bots;
     }
-    const updatedChatBotGuilds: Record<string, BotGuildConfig> = {
-      ...bots.chatBot.guilds,
-    };
-    for (const [gId, gConfig] of this.inMemoryGuildOverrides.entries()) {
-      if (!isSafeRecordKey(gId)) {
+    const updatedBots: BotsConfig = { ...bots };
+    const clonedGuildMaps = new Map<string, BotGuildsConfig>();
+
+    for (const {
+      botId,
+      guildId,
+      config,
+    } of this.inMemoryGuildOverrides.values()) {
+      if (!(isSafeRecordKey(botId) && isSafeRecordKey(guildId))) {
         continue;
       }
-      const existing = Object.hasOwn(updatedChatBotGuilds, gId)
-        ? updatedChatBotGuilds[gId]
+      const baseBot = Object.hasOwn(updatedBots, botId)
+        ? updatedBots[botId]
         : undefined;
-      Object.defineProperty(updatedChatBotGuilds, gId, {
-        value: {
-          ...existing,
-          ...gConfig,
-        },
-        writable: true,
-        enumerable: true,
-        configurable: true,
+      let targetGuilds = clonedGuildMaps.get(botId);
+      if (!targetGuilds) {
+        targetGuilds = { ...(baseBot?.guilds ?? {}) };
+        clonedGuildMaps.set(botId, targetGuilds);
+        setSafeProperty(updatedBots, botId, {
+          ...baseBot,
+          guilds: targetGuilds,
+        });
+      }
+      const existing = Object.hasOwn(targetGuilds, guildId)
+        ? targetGuilds[guildId]
+        : undefined;
+      setSafeProperty(targetGuilds, guildId, {
+        ...existing,
+        ...config,
       });
     }
-    return {
-      ...bots,
-      chatBot: {
-        ...bots.chatBot,
-        guilds: updatedChatBotGuilds,
-      },
-    };
+
+    return updatedBots;
   }
 
   private getBotsConfig(): BotsConfig {
@@ -521,36 +558,45 @@ export class Config {
   public updateBotGuildConfig(
     guildId: string,
     updatedConfig: BotGuildConfig,
+    botId = DEFAULT_BOT_ID,
   ): void {
+    if (!isSafeRecordKey(botId)) {
+      throw new Error("Invalid botId for configuration update.");
+    }
     if (!isSafeRecordKey(guildId)) {
       throw new Error("Invalid guildId for configuration update.");
     }
-    this.inMemoryGuildOverrides.set(guildId, updatedConfig);
-    this.overrideGenerations.set(
+
+    const overrideKey = buildGuildOverrideKey(botId, guildId);
+    this.inMemoryGuildOverrides.set(overrideKey, {
+      botId,
       guildId,
-      (this.overrideGenerations.get(guildId) ?? 0) + 1,
+      config: updatedConfig,
+    });
+    this.overrideGenerations.set(
+      overrideKey,
+      (this.overrideGenerations.get(overrideKey) ?? 0) + 1,
     );
 
     if (this.directusSnapshot) {
-      const existingChatBot = this.directusSnapshot.bots?.chatBot ?? {
-        guilds: {},
+      const existingBots = this.directusSnapshot.bots ?? ({} as BotsConfig);
+      const existingBot = Object.hasOwn(existingBots, botId)
+        ? existingBots[botId]
+        : undefined;
+      const updatedGuilds: BotGuildsConfig = {
+        ...(existingBot?.guilds ?? {}),
       };
-      const updatedGuilds = { ...existingChatBot.guilds };
-      Object.defineProperty(updatedGuilds, guildId, {
-        value: updatedConfig,
-        writable: true,
-        enumerable: true,
-        configurable: true,
+      setSafeProperty(updatedGuilds, guildId, updatedConfig);
+
+      const updatedBots: BotsConfig = { ...existingBots };
+      setSafeProperty(updatedBots, botId, {
+        ...existingBot,
+        guilds: updatedGuilds,
       });
+
       this.directusSnapshot = {
         ...this.directusSnapshot,
-        bots: {
-          ...this.directusSnapshot.bots,
-          chatBot: {
-            ...existingChatBot,
-            guilds: updatedGuilds,
-          },
-        },
+        bots: updatedBots,
       };
     }
   }
@@ -565,8 +611,11 @@ export class Config {
     if (!(isSafeRecordKey(botId) && isSafeRecordKey(guildId))) {
       return undefined;
     }
-    if (botId === "chatBot" && this.inMemoryGuildOverrides.has(guildId)) {
-      return this.inMemoryGuildOverrides.get(guildId);
+    const override = this.inMemoryGuildOverrides.get(
+      buildGuildOverrideKey(botId, guildId),
+    );
+    if (override) {
+      return override.config;
     }
     const bots = this.getConfigValue(ConfigParameter.bots);
     if (!(bots && Object.hasOwn(bots, botId))) {

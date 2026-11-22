@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  AlertCircle,
   CheckCircle,
   ExternalLink,
   Flame,
@@ -22,6 +23,33 @@ interface GuildsExplorerProps {
   canManage: boolean;
 }
 
+const DEFAULT_GUILD_CONFIG: BotGuildConfig = {
+  replyChannelIds: [],
+  ignoredChannelIds: [],
+  respondToMentions: true,
+  systemInstruction: "",
+  tools: { googleSearch: true, discord: true },
+  smartReply: {
+    enabled: true,
+    mode: "ambient_intent",
+    ambientConfidenceThreshold: 0.75,
+  },
+  roast: {
+    enabled: true,
+    defaultLocale: "vi",
+    maxIntensity: "savage",
+    allowedChannelIds: [],
+    ignoredChannelIds: [],
+    targetShieldCooldownSeconds: 300,
+    callerCooldownSeconds: 60,
+    allowCounterRoast: true,
+  },
+};
+
+function createDefaultGuildConfig(): BotGuildConfig {
+  return structuredClone(DEFAULT_GUILD_CONFIG);
+}
+
 export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
   guilds,
   onDeployCommand,
@@ -33,33 +61,15 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
   );
   const [deploying, setDeploying] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string>("");
   const [savingConfig, setSavingConfig] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"channels" | "persona" | "smartReply" | "roast">("channels");
 
   // Active Guild Config Form State
-  const [guildConfig, setGuildConfig] = useState<BotGuildConfig>({
-    replyChannelIds: [],
-    ignoredChannelIds: [],
-    respondToMentions: true,
-    systemInstruction: "",
-    tools: { googleSearch: true, discord: true },
-    smartReply: {
-      enabled: true,
-      mode: "ambient_intent",
-      ambientConfidenceThreshold: 0.75,
-    },
-    roast: {
-      enabled: true,
-      defaultLocale: "vi",
-      maxIntensity: "savage",
-      allowedChannelIds: [],
-      ignoredChannelIds: [],
-      targetShieldCooldownSeconds: 300,
-      callerCooldownSeconds: 60,
-      allowCounterRoast: true,
-    },
-  });
+  const [guildConfig, setGuildConfig] = useState<BotGuildConfig>(
+    createDefaultGuildConfig,
+  );
 
   const selectedGuild = guilds.find((g) => g.id === selectedGuildId) || guilds[0];
 
@@ -72,8 +82,17 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
   }, []);
 
   useEffect(() => {
-    if (selectedGuild) {
-      api.getGuildConfig(selectedGuild.id).then((res) => {
+    if (!selectedGuild) {
+      return;
+    }
+    let active = true;
+    setErrorMessage(null);
+    api
+      .getGuildConfig(selectedGuild.id)
+      .then((res) => {
+        if (!active) {
+          return;
+        }
         if (res.ok && res.config) {
           setGuildConfig({
             replyChannelIds: res.config.replyChannelIds || [],
@@ -97,19 +116,52 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
               allowCounterRoast: true,
             },
           });
+        } else {
+          setGuildConfig(createDefaultGuildConfig());
         }
+      })
+      .catch((err) => {
+        if (!active) {
+          return;
+        }
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Failed to load guild configuration.";
+        setErrorMessage(msg);
+        setGuildConfig(createDefaultGuildConfig());
       });
-    }
+
+    return () => {
+      active = false;
+    };
   }, [selectedGuild?.id]);
 
   const handleSaveConfig = async () => {
     if (!selectedGuild) return;
     setSavingConfig(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
     try {
-      await api.updateGuildConfig(selectedGuild.id, guildConfig);
-      setSuccessMessage(`Configuration for '${selectedGuild.name}' saved and live-reloaded!`);
+      const res = await api.updateGuildConfig(selectedGuild.id, guildConfig);
+      if (res.persistedTo === "directus") {
+        setSuccessMessage(
+          `Configuration for '${selectedGuild.name}' persisted to Directus and live-reloaded!`,
+        );
+      } else {
+        const modeLabel =
+          res.persistedTo === "remote-config" ? "remote-config" : "local";
+        setSuccessMessage(
+          `Configuration for '${selectedGuild.name}' updated in memory (${modeLabel} mode — changes are not persisted to Directus).`,
+        );
+      }
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to save guild configuration.";
+      setErrorMessage(msg);
       console.error("Failed to save guild config:", err);
     } finally {
       setSavingConfig(false);
@@ -222,6 +274,16 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
         <div className="p-3 bg-discord-green/10 border border-discord-green/20 rounded-xl text-xs text-discord-green flex items-center gap-2">
           <CheckCircle className="w-4 h-4 shrink-0" />
           {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="p-3 bg-discord-red/10 border border-discord-red/20 rounded-xl text-xs text-discord-red flex items-center gap-2"
+        >
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {errorMessage}
         </div>
       )}
 

@@ -2,6 +2,9 @@ import type {
   ActivityLogEvent,
   BotGuildConfig,
   BotRuntimeMetrics,
+  ConfigReloadResponse,
+  ConfigResponse,
+  ConfigSource,
   DashboardStats,
   JoinedGuildDetail,
   StoredChatMessage,
@@ -44,18 +47,33 @@ export const api = {
     request<{ ok: boolean; guilds: JoinedGuildDetail[]; inviteUrl: string }>("/guilds"),
   getInviteUrl: () =>
     request<{ ok: boolean; inviteUrl: string }>("/guilds/invite-url"),
-  getGuildConfig: (guildId: string) =>
-    request<{ ok: boolean; guildId: string; config: BotGuildConfig }>(
-      `/guilds/${guildId}/config`,
-    ),
-  updateGuildConfig: (guildId: string, updates: Partial<BotGuildConfig>) =>
-    request<{ ok: boolean; message: string; config: BotGuildConfig }>(
-      `/guilds/${guildId}/config`,
-      {
-        method: "PUT",
-        body: JSON.stringify(updates),
-      },
-    ),
+  getGuildConfig: (guildId: string, botId?: string) => {
+    const query = botId ? `?botId=${encodeURIComponent(botId)}` : "";
+    return request<{
+      ok: boolean;
+      botId?: string;
+      guildId: string;
+      config: BotGuildConfig;
+    }>(`/guilds/${guildId}/config${query}`);
+  },
+  updateGuildConfig: (
+    guildId: string,
+    updates: Partial<BotGuildConfig>,
+    botId?: string,
+  ) => {
+    const query = botId ? `?botId=${encodeURIComponent(botId)}` : "";
+    return request<{
+      ok: boolean;
+      botId?: string;
+      guildId?: string;
+      persistedTo?: ConfigSource;
+      message: string;
+      config: BotGuildConfig;
+    }>(`/guilds/${guildId}/config${query}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+  },
   deployGuildCommands: (guildId: string) =>
     request<{ ok: boolean; message: string }>(
       `/guilds/${guildId}/deploy-commands`,
@@ -86,8 +104,9 @@ export const api = {
 
 
   // Config
-  getConfig: () => request<{ ok: boolean; config: Record<string, unknown> }>("/config"),
-  reloadConfig: () => request<{ ok: boolean; message: string }>("/config/reload", { method: "POST" }),
+  getConfig: (): Promise<ConfigResponse> => request<ConfigResponse>("/config"),
+  reloadConfig: (): Promise<ConfigReloadResponse> =>
+    request<ConfigReloadResponse>("/config/reload", { method: "POST" }),
 
   // Memory
   getChannelHistory: (botId: string, channelId: string) =>
