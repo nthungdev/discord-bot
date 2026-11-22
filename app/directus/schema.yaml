@@ -106,6 +106,32 @@ collections:
       versioning: false
     schema:
       name: bot_roast_presets
+  - collection: bot_system_config
+    meta:
+      accountability: all
+      archive_app_filter: true
+      archive_field: null
+      archive_value: null
+      autosave_revision_interval: null
+      collapse: open
+      collection: bot_system_config
+      color: null
+      display_template: null
+      group: null
+      hidden: false
+      icon: tune
+      item_duplication_fields: null
+      note: Global bot system configuration
+      preview_url: null
+      singleton: true
+      sort: null
+      sort_field: null
+      status: active
+      translations: null
+      unarchive_value: null
+      versioning: false
+    schema:
+      name: bot_system_config
   - collection: bot_user_profiles
     meta:
       accountability: all
@@ -175,6 +201,75 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
+    field: group_core_identity
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_core_identity
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: badge
+        start: open
+      readonly: false
+      required: false
+      searchable: true
+      sort: 2
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: bot_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: bot_id
+      group: group_core_identity
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: true
+      searchable: true
+      sort: 3
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: bot_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: chatBot
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
     field: guild_id
     type: string
     meta:
@@ -183,7 +278,7 @@ fields:
       display: null
       display_options: null
       field: guild_id
-      group: null
+      group: group_core_identity
       hidden: false
       interface: input
       note: null
@@ -191,7 +286,7 @@ fields:
       readonly: false
       required: true
       searchable: true
-      sort: 2
+      sort: 4
       special: null
       translations: null
       validation: null
@@ -223,7 +318,7 @@ fields:
       display: null
       display_options: null
       field: guild_name
-      group: null
+      group: group_core_identity
       hidden: false
       interface: input
       note: null
@@ -231,7 +326,7 @@ fields:
       readonly: false
       required: false
       searchable: true
-      sort: 3
+      sort: 5
       special: null
       translations: null
       validation: null
@@ -255,34 +350,34 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
-    field: enable_ai_roast
-    type: boolean
+    field: bot_name
+    type: string
     meta:
       collection: bot_guild_configs
       conditions: null
       display: null
       display_options: null
-      field: enable_ai_roast
-      group: null
+      field: bot_name
+      group: group_core_identity
       hidden: false
-      interface: boolean
+      interface: input
       note: null
       options: null
       readonly: false
       required: false
       searchable: true
-      sort: 4
+      sort: 6
       special: null
       translations: null
       validation: null
       validation_message: null
       width: full
     schema:
-      name: enable_ai_roast
+      name: bot_name
       table: bot_guild_configs
-      data_type: boolean
-      default_value: true
-      max_length: null
+      data_type: character varying
+      default_value: null
+      max_length: 255
       numeric_precision: null
       numeric_scale: null
       is_nullable: true
@@ -295,15 +390,15 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
-    field: enable_bouncergon
+    field: lock_name
     type: boolean
     meta:
       collection: bot_guild_configs
       conditions: null
       display: null
       display_options: null
-      field: enable_bouncergon
-      group: null
+      field: lock_name
+      group: group_core_identity
       hidden: false
       interface: boolean
       note: null
@@ -311,14 +406,14 @@ fields:
       readonly: false
       required: false
       searchable: true
-      sort: 5
+      sort: 7
       special: null
       translations: null
       validation: null
       validation_message: null
       width: full
     schema:
-      name: enable_bouncergon
+      name: lock_name
       table: bot_guild_configs
       data_type: boolean
       default_value: false
@@ -335,33 +430,80 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
-    field: default_locale
-    type: string
+    field: personalization
+    type: text
     meta:
       collection: bot_guild_configs
       conditions: null
       display: null
       display_options: null
-      field: default_locale
-      group: null
+      field: personalization
+      group: group_core_identity
       hidden: false
-      interface: select-dropdown
+      interface: input-multiline
       note: null
       options: null
       readonly: false
       required: false
       searchable: true
-      sort: 6
+      sort: 8
       special: null
       translations: null
       validation: null
       validation_message: null
       width: full
     schema:
-      name: default_locale
+      name: personalization
+      table: bot_guild_configs
+      data_type: text
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: personalization_mode
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: personalization_mode
+      group: group_core_identity
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Overwrite Identity
+            value: overwrite_identity
+          - text: Extend
+            value: extend
+          - text: Overwrite All
+            value: overwrite_all
+      readonly: false
+      required: false
+      searchable: true
+      sort: 9
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: personalization_mode
       table: bot_guild_configs
       data_type: character varying
-      default_value: vi
+      default_value: overwrite_identity
       max_length: 255
       numeric_precision: null
       numeric_scale: null
@@ -375,15 +517,55 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
-    field: max_roasts_per_day
+    field: system_instruction
+    type: text
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: system_instruction
+      group: group_core_identity
+      hidden: false
+      interface: input-multiline
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 10
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: system_instruction
+      table: bot_guild_configs
+      data_type: text
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: reply_delay
     type: integer
     meta:
       collection: bot_guild_configs
       conditions: null
       display: null
       display_options: null
-      field: max_roasts_per_day
-      group: null
+      field: reply_delay
+      group: group_core_identity
       hidden: false
       interface: input
       note: null
@@ -391,14 +573,791 @@ fields:
       readonly: false
       required: false
       searchable: true
-      sort: 7
+      sort: 11
       special: null
       translations: null
       validation: null
       validation_message: null
       width: full
     schema:
-      name: max_roasts_per_day
+      name: reply_delay
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 5000
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: locale_override
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: locale_override
+      group: group_core_identity
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Vietnamese (vi)
+            value: vi
+          - text: English (en-US)
+            value: en-US
+        allowNone: true
+      readonly: false
+      required: false
+      searchable: true
+      sort: 12
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: locale_override
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: reply_channel_ids
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: reply_channel_ids
+      group: group_core_identity
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 13
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: reply_channel_ids
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: ignored_channel_ids
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: ignored_channel_ids
+      group: group_core_identity
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 14
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ignored_channel_ids
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: respond_to_mentions
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: respond_to_mentions
+      group: group_core_identity
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 15
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: respond_to_mentions
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: chat_bot_model
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: chat_bot_model
+      group: group_core_identity
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 16
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: chat_bot_model
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: tools_google_search
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: tools_google_search
+      group: group_core_identity
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 17
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: tools_google_search
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: tools_discord
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: tools_discord
+      group: group_core_identity
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 18
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: tools_discord
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_smart_reply
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_smart_reply
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: forum
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 19
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: smart_reply_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_enabled
+      group: group_smart_reply
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 20
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: false
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_mode
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_mode
+      group: group_smart_reply
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Disabled
+            value: disabled
+          - text: "Mentions & Vocative"
+            value: mentions_and_vocative
+          - text: Ambient Intent
+            value: ambient_intent
+      readonly: false
+      required: false
+      searchable: true
+      sort: 21
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_mode
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: mentions_and_vocative
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_classifier_model
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_classifier_model
+      group: group_smart_reply
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 22
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_classifier_model
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_chat_bot_model
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_chat_bot_model
+      group: group_smart_reply
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 23
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_chat_bot_model
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_ambient_confidence_threshold
+    type: float
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_ambient_confidence_threshold
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 24
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_ambient_confidence_threshold
+      table: bot_guild_configs
+      data_type: real
+      default_value: 0.75
+      max_length: null
+      numeric_precision: 24
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_debounce_ms
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_debounce_ms
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 25
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_debounce_ms
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 3500
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_max_debounce_ms
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_max_debounce_ms
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 26
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_max_debounce_ms
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 8000
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_session_ttl_seconds
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_session_ttl_seconds
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 27
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_session_ttl_seconds
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 45
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_strategy
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_strategy
+      group: group_smart_reply
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Independent
+            value: independent
+          - text: Coalesced
+            value: coalesced
+          - text: Hybrid
+            value: hybrid
+      readonly: false
+      required: false
+      searchable: true
+      sort: 28
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_strategy
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: hybrid
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_coalesce_window_ms
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_coalesce_window_ms
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 29
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_coalesce_window_ms
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 1500
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_silence_duration_minutes
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_silence_duration_minutes
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 30
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_silence_duration_minutes
       table: bot_guild_configs
       data_type: integer
       default_value: 10
@@ -415,15 +1374,509 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
-    field: allowed_channel_ids
+    field: smart_reply_ambient_rate_limit_seconds
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_ambient_rate_limit_seconds
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 31
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_ambient_rate_limit_seconds
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 120
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_ambient_snapshot_limit
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_ambient_snapshot_limit
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 32
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_ambient_snapshot_limit
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 5
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_enable_keyword_dismissal
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_enable_keyword_dismissal
+      group: group_smart_reply
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 33
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_enable_keyword_dismissal
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_enable_reaction_dismissal
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_enable_reaction_dismissal
+      group: group_smart_reply
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 34
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_enable_reaction_dismissal
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_send_typing_behavior
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_send_typing_behavior
+      group: group_smart_reply
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Immediate for All
+            value: immediate_for_all
+          - text: Deferred for Ambient
+            value: deferred_for_ambient
+          - text: Disabled
+            value: disabled
+      readonly: false
+      required: false
+      searchable: true
+      sort: 35
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_send_typing_behavior
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: deferred_for_ambient
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_thread_auto_listen
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_thread_auto_listen
+      group: group_smart_reply
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 36
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_thread_auto_listen
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: smart_reply_opt_out_topic_tag
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: smart_reply_opt_out_topic_tag
+      group: group_smart_reply
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 37
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: smart_reply_opt_out_topic_tag
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: "[no-bot]"
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_roast
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_roast
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: local_fire_department
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 38
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: roast_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_enabled
+      group: group_roast
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 39
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_default_locale
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_default_locale
+      group: group_roast
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Vietnamese (vi)
+            value: vi
+          - text: English (en-US)
+            value: en-US
+      readonly: false
+      required: false
+      searchable: true
+      sort: 40
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_default_locale
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: vi
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_locale_override
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_locale_override
+      group: group_roast
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Vietnamese (vi)
+            value: vi
+          - text: English (en-US)
+            value: en-US
+        allowNone: true
+      readonly: false
+      required: false
+      searchable: true
+      sort: 41
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_locale_override
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_max_intensity
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_max_intensity
+      group: group_roast
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Mild
+            value: mild
+          - text: Medium
+            value: medium
+          - text: Savage
+            value: savage
+      readonly: false
+      required: false
+      searchable: true
+      sort: 42
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_max_intensity
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: savage
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_allowed_channel_ids
     type: json
     meta:
       collection: bot_guild_configs
       conditions: null
       display: null
       display_options: null
-      field: allowed_channel_ids
-      group: null
+      field: roast_allowed_channel_ids
+      group: group_roast
       hidden: false
       interface: tags
       note: null
@@ -431,7 +1884,7 @@ fields:
       readonly: false
       required: false
       searchable: true
-      sort: 8
+      sort: 43
       special:
         - cast-json
       translations: null
@@ -439,10 +1892,666 @@ fields:
       validation_message: null
       width: full
     schema:
-      name: allowed_channel_ids
+      name: roast_allowed_channel_ids
       table: bot_guild_configs
       data_type: json
       default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_ignored_channel_ids
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_ignored_channel_ids
+      group: group_roast
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 44
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_ignored_channel_ids
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_max_per_day
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_max_per_day
+      group: group_roast
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 45
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_max_per_day
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 10
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_target_shield_cooldown_seconds
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_target_shield_cooldown_seconds
+      group: group_roast
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 46
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_target_shield_cooldown_seconds
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 300
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_caller_cooldown_seconds
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_caller_cooldown_seconds
+      group: group_roast
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 47
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_caller_cooldown_seconds
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 60
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: roast_allow_counter_roast
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: roast_allow_counter_roast
+      group: group_roast
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 48
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: roast_allow_counter_roast
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_moderation
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_moderation
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: shield
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 49
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: moderation_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: moderation_enabled
+      group: group_moderation
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 50
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: moderation_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: false
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_voice_bouncer
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_voice_bouncer
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: record_voice_over
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 51
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_enabled
+      group: group_voice_bouncer
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 52
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: false
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_tag_only_channel_ids
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_tag_only_channel_ids
+      group: group_voice_bouncer
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 53
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_tag_only_channel_ids
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_tag_only_category_ids
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_tag_only_category_ids
+      group: group_voice_bouncer
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 54
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_tag_only_category_ids
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_exempt_role_ids
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_exempt_role_ids
+      group: group_voice_bouncer
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 55
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_exempt_role_ids
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_fallback_channel_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_fallback_channel_id
+      group: group_voice_bouncer
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 56
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_fallback_channel_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_action
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_action
+      group: group_voice_bouncer
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Disconnect
+            value: disconnect
+          - text: Move to Fallback
+            value: move
+      readonly: false
+      required: false
+      searchable: true
+      sort: 57
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_action
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: disconnect
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_bouncer_warning_message
+    type: text
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_bouncer_warning_message
+      group: group_voice_bouncer
+      hidden: false
+      interface: input-multiline
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 58
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_bouncer_warning_message
+      table: bot_guild_configs
+      data_type: text
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_matchmaking
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_matchmaking
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: sports_esports
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 59
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: matchmaking_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_enabled
+      group: group_matchmaking
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 60
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: false
       max_length: null
       numeric_precision: null
       numeric_scale: null
@@ -464,7 +2573,7 @@ fields:
       display: null
       display_options: null
       field: matchmaking_lobby_channel_id
-      group: null
+      group: group_matchmaking
       hidden: false
       interface: input
       note: null
@@ -472,7 +2581,7 @@ fields:
       readonly: false
       required: false
       searchable: true
-      sort: 9
+      sort: 61
       special: null
       translations: null
       validation: null
@@ -484,6 +2593,1655 @@ fields:
       data_type: character varying
       default_value: null
       max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_team1_channel_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_team1_channel_id
+      group: group_matchmaking
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 62
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_team1_channel_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_team2_channel_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_team2_channel_id
+      group: group_matchmaking
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 63
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_team2_channel_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_category_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_category_id
+      group: group_matchmaking
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 64
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_category_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_map_pool
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_map_pool
+      group: group_matchmaking
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 65
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_map_pool
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_default_k_factor
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_default_k_factor
+      group: group_matchmaking
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 66
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_default_k_factor
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 32
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_initial_elo
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_initial_elo
+      group: group_matchmaking
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 67
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_initial_elo
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 1000
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_score_timeout_minutes
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_score_timeout_minutes
+      group: group_matchmaking
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 68
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_score_timeout_minutes
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 120
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: matchmaking_auto_move_players
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: matchmaking_auto_move_players
+      group: group_matchmaking
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 69
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: matchmaking_auto_move_players
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_valorant
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_valorant
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: videogame_asset
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 70
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: valorant_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 71
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_compare_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_compare_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 72
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_compare_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_stats_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_stats_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 73
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_stats_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_stats_default_period
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_stats_default_period
+      group: group_valorant
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Recent 20
+            value: recent_20
+          - text: Current Act
+            value: current_act
+          - text: All Time
+            value: all_time
+      readonly: false
+      required: false
+      searchable: true
+      sort: 74
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_stats_default_period
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: recent_20
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_auto_recap_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_auto_recap_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 75
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_auto_recap_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_auto_recap_channel_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_auto_recap_channel_id
+      group: group_valorant
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 76
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_auto_recap_channel_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_auto_recap_min_tier_alert
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_auto_recap_min_tier_alert
+      group: group_valorant
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 77
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_auto_recap_min_tier_alert
+      table: bot_guild_configs
+      data_type: integer
+      default_value: null
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_auto_recap_sportscaster_banter
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_auto_recap_sportscaster_banter
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 78
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_auto_recap_sportscaster_banter
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_live_scouting_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_live_scouting_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 79
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_live_scouting_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_live_scouting_channel_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_live_scouting_channel_id
+      group: group_valorant
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 80
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_live_scouting_channel_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_live_scouting_alert_on_game_start
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_live_scouting_alert_on_game_start
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 81
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_live_scouting_alert_on_game_start
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_rank_role_sync_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_rank_role_sync_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 82
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_rank_role_sync_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: false
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_rank_role_mappings
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_rank_role_mappings
+      group: group_valorant
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 83
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_rank_role_mappings
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_tilt_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_tilt_enabled
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 84
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_tilt_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_tilt_consecutive_losses_threshold
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_tilt_consecutive_losses_threshold
+      group: group_valorant
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 85
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_tilt_consecutive_losses_threshold
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 3
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_tilt_night_owl_hour_start
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_tilt_night_owl_hour_start
+      group: group_valorant
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 86
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_tilt_night_owl_hour_start
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 1
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_tilt_night_owl_hour_end
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_tilt_night_owl_hour_end
+      group: group_valorant
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 87
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_tilt_night_owl_hour_end
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 5
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: valorant_tilt_dm_alert
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: valorant_tilt_dm_alert
+      group: group_valorant
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 88
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: valorant_tilt_dm_alert
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: true
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_voice_companion
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_voice_companion
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: headset_mic
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 89
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: voice_companion_enabled
+    type: boolean
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_enabled
+      group: group_voice_companion
+      hidden: false
+      interface: boolean
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 90
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_enabled
+      table: bot_guild_configs
+      data_type: boolean
+      default_value: false
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_auto_join_channel_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_auto_join_channel_id
+      group: group_voice_companion
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 91
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_auto_join_channel_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_inactivity_timeout_minutes
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_inactivity_timeout_minutes
+      group: group_voice_companion
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 92
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_inactivity_timeout_minutes
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 15
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_empty_channel_grace_seconds
+    type: integer
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_empty_channel_grace_seconds
+      group: group_voice_companion
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 93
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_empty_channel_grace_seconds
+      table: bot_guild_configs
+      data_type: integer
+      default_value: 60
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_model_id
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_model_id
+      group: group_voice_companion
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Gemini 3.8 Live
+            value: gemini-3.8-live
+      readonly: false
+      required: false
+      searchable: true
+      sort: 94
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_model_id
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: gemini-3.8-live
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_voice_name
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_voice_name
+      group: group_voice_companion
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Puck
+            value: Puck
+          - text: Charon
+            value: Charon
+          - text: Kore
+            value: Kore
+          - text: Fenrir
+            value: Fenrir
+          - text: Aoede
+            value: Aoede
+      readonly: false
+      required: false
+      searchable: true
+      sort: 95
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_voice_name
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: Aoede
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_system_instruction
+    type: text
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_system_instruction
+      group: group_voice_companion
+      hidden: false
+      interface: input-multiline
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 96
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_system_instruction
+      table: bot_guild_configs
+      data_type: text
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_energy_threshold
+    type: float
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_energy_threshold
+      group: group_voice_companion
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 97
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_energy_threshold
+      table: bot_guild_configs
+      data_type: real
+      default_value: 0.012
+      max_length: null
+      numeric_precision: 24
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_barge_in_sensitivity
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_barge_in_sensitivity
+      group: group_voice_companion
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: High
+            value: high
+          - text: Normal
+            value: normal
+          - text: Low
+            value: low
+      readonly: false
+      required: false
+      searchable: true
+      sort: 98
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_barge_in_sensitivity
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: normal
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: voice_companion_participation_mode
+    type: string
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: voice_companion_participation_mode
+      group: group_voice_companion
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Ambient
+            value: ambient
+          - text: Addressed Only
+            value: addressed_only
+          - text: Push to Talk
+            value: push_to_talk
+      readonly: false
+      required: false
+      searchable: true
+      sort: 99
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: voice_companion_participation_mode
+      table: bot_guild_configs
+      data_type: character varying
+      default_value: ambient
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: group_guild_metadata
+    type: alias
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: group_guild_metadata
+      group: null
+      hidden: false
+      interface: group-detail
+      note: null
+      options:
+        headerIcon: dataset
+        start: closed
+      readonly: false
+      required: false
+      searchable: true
+      sort: 100
+      special:
+        - alias
+        - no-data
+        - group
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema: null
+  - collection: bot_guild_configs
+    field: guild_emojis
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: guild_emojis
+      group: group_guild_metadata
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 101
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: guild_emojis
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_guild_configs
+    field: guild_members
+    type: json
+    meta:
+      collection: bot_guild_configs
+      conditions: null
+      display: null
+      display_options: null
+      field: guild_members
+      group: group_guild_metadata
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 102
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: guild_members
+      table: bot_guild_configs
+      data_type: json
+      default_value: null
+      max_length: null
       numeric_precision: null
       numeric_scale: null
       is_nullable: true
@@ -1421,6 +5179,463 @@ fields:
       has_auto_increment: false
       foreign_key_table: null
       foreign_key_column: null
+  - collection: bot_system_config
+    field: id
+    type: uuid
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: id
+      group: null
+      hidden: true
+      interface: null
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 1
+      special:
+        - uuid
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: id
+      table: bot_system_config
+      data_type: uuid
+      default_value: gen_random_uuid()
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: false
+      is_unique: true
+      is_indexed: false
+      is_primary_key: true
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_provider
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_provider
+      group: null
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Antigravity
+            value: antigravity
+          - text: Google GenAI
+            value: google-genai
+          - text: Vertex AI
+            value: vertex
+      readonly: false
+      required: false
+      searchable: true
+      sort: 2
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_provider
+      table: bot_system_config
+      data_type: character varying
+      default_value: google-genai
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_model_id
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_model_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 3
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_model_id
+      table: bot_system_config
+      data_type: character varying
+      default_value: gemini-3.6-flash
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_api_endpoint
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_api_endpoint
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 4
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_api_endpoint
+      table: bot_system_config
+      data_type: character varying
+      default_value: us-central1-aiplatform.googleapis.com
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_project_id
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_project_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 5
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_project_id
+      table: bot_system_config
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_location_id
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_location_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 6
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_location_id
+      table: bot_system_config
+      data_type: character varying
+      default_value: us-central1
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_max_output_tokens
+    type: integer
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_max_output_tokens
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 7
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_max_output_tokens
+      table: bot_system_config
+      data_type: integer
+      default_value: 8192
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_max_conversation_history
+    type: integer
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_max_conversation_history
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 8
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_max_conversation_history
+      table: bot_system_config
+      data_type: integer
+      default_value: 60
+      max_length: null
+      numeric_precision: 32
+      numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: ai_safety_settings
+    type: json
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: ai_safety_settings
+      group: null
+      hidden: false
+      interface: input-code
+      note: null
+      options:
+        language: json
+      readonly: false
+      required: false
+      searchable: true
+      sort: 9
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: ai_safety_settings
+      table: bot_system_config
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: memory_store_type
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: memory_store_type
+      group: null
+      hidden: false
+      interface: select-dropdown
+      note: null
+      options:
+        choices:
+          - text: Directus
+            value: directus
+          - text: Local
+            value: local
+          - text: Firestore
+            value: firestore
+      readonly: false
+      required: false
+      searchable: true
+      sort: 10
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: memory_store_type
+      table: bot_system_config
+      data_type: character varying
+      default_value: firestore
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_system_config
+    field: check_in_leaderboard
+    type: string
+    meta:
+      collection: bot_system_config
+      conditions: null
+      display: null
+      display_options: null
+      field: check_in_leaderboard
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 11
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: check_in_leaderboard
+      table: bot_system_config
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
   - collection: bot_user_profiles
     field: id
     type: uuid
@@ -1573,6 +5788,207 @@ fields:
       max_length: null
       numeric_precision: 32
       numeric_scale: 0
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_user_profiles
+    field: opted_out_guild_ids
+    type: json
+    meta:
+      collection: bot_user_profiles
+      conditions: null
+      display: null
+      display_options: null
+      field: opted_out_guild_ids
+      group: null
+      hidden: false
+      interface: tags
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 5
+      special:
+        - cast-json
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: opted_out_guild_ids
+      table: bot_user_profiles
+      data_type: json
+      default_value: null
+      max_length: null
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_user_profiles
+    field: riot_id
+    type: string
+    meta:
+      collection: bot_user_profiles
+      conditions: null
+      display: null
+      display_options: null
+      field: riot_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 6
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: riot_id
+      table: bot_user_profiles
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_user_profiles
+    field: riot_region
+    type: string
+    meta:
+      collection: bot_user_profiles
+      conditions: null
+      display: null
+      display_options: null
+      field: riot_region
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 7
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: riot_region
+      table: bot_user_profiles
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_user_profiles
+    field: riot_puuid
+    type: string
+    meta:
+      collection: bot_user_profiles
+      conditions: null
+      display: null
+      display_options: null
+      field: riot_puuid
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 8
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: riot_puuid
+      table: bot_user_profiles
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
+      is_nullable: true
+      is_unique: false
+      is_indexed: false
+      is_primary_key: false
+      is_generated: false
+      generation_expression: null
+      has_auto_increment: false
+      foreign_key_table: null
+      foreign_key_column: null
+  - collection: bot_user_profiles
+    field: last_known_match_id
+    type: string
+    meta:
+      collection: bot_user_profiles
+      conditions: null
+      display: null
+      display_options: null
+      field: last_known_match_id
+      group: null
+      hidden: false
+      interface: input
+      note: null
+      options: null
+      readonly: false
+      required: false
+      searchable: true
+      sort: 9
+      special: null
+      translations: null
+      validation: null
+      validation_message: null
+      width: full
+    schema:
+      name: last_known_match_id
+      table: bot_user_profiles
+      data_type: character varying
+      default_value: null
+      max_length: 255
+      numeric_precision: null
+      numeric_scale: null
       is_nullable: true
       is_unique: false
       is_indexed: false
