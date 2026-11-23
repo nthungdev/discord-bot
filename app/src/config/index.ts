@@ -1,9 +1,14 @@
+import fs from "node:fs";
+import path from "node:path";
 import {
   getRemoteConfig,
   type ServerTemplate,
 } from "firebase-admin/remote-config";
-import fs from "fs";
-import path from "path";
+import {
+  isSafeRecordKey,
+  mapDirectusToAppConfig,
+} from "../infrastructure/directus/config-mapper";
+import { guildConfigRepository } from "../infrastructure/repositories";
 import type {
   AiApiEndpointConfig,
   AiLocationIdConfig,
@@ -13,6 +18,7 @@ import type {
   AiProjectIdConfig,
   AiProviderConfig,
   AiSafetySettingsConfig,
+  BotGuildConfig,
   BotsConfig,
   CheckInLeaderboardConfig,
   GuildEmojisConfig,
@@ -128,18 +134,58 @@ export const loadLocalConfig = (customPath?: string): AppConfigData => {
 
 export const DEFAULT_CONFIG_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
+export type ConfigSource = "directus" | "remote-config" | "local";
+
+const VALID_CONFIG_SOURCES: ReadonlySet<string> = new Set<ConfigSource>([
+  "directus",
+  "remote-config",
+  "local",
+]);
+
+function isValidConfigSource(value: string | undefined): value is ConfigSource {
+  return typeof value === "string" && VALID_CONFIG_SOURCES.has(value);
+}
+
+/**
+ * Resolves the authoritative configuration source from explicit options and environment variables.
+ */
+export function resolveConfigSource(options?: {
+  useLocalConfigOnly?: boolean;
+  configSource?: ConfigSource;
+}): ConfigSource {
+  if (
+    options?.useLocalConfigOnly === true ||
+    process.env.USE_CONFIG_FILE === "true" ||
+    process.env.USE_CONFIG_FILE === "1"
+  ) {
+    return "local";
+  }
+  if (options?.configSource && isValidConfigSource(options.configSource)) {
+    return options.configSource;
+  }
+  if (isValidConfigSource(process.env.CONFIG_SOURCE)) {
+    return process.env.CONFIG_SOURCE;
+  }
+  if (process.env.DIRECTUS_URL && process.env.DIRECTUS_BOT_TOKEN) {
+    return "directus";
+  }
+  return "remote-config";
+}
+
 export class Config {
   private static instance: Config;
   private template: ServerTemplate | null = null;
   private localConfig: AppConfigData | null = null;
+  private directusSnapshot: AppConfigData | null = null;
   private lastFetchedAt: number = 0;
   private refreshIntervalTimer: NodeJS.Timeout | null = null;
   private ttlMs: number = DEFAULT_CONFIG_REFRESH_INTERVAL_MS;
   private localOnly: boolean = false;
-  private inMemoryGuildOverrides: Map<
-    string,
-    import("./types").BotGuildConfig
-  > = new Map();
+  private configSource: ConfigSource = "remote-config";
+  private inMemoryGuildOverrides: Map<string, BotGuildConfig> = new Map();
+  private overrideGenerations: Map<string, number> = new Map();
+  private inFlightLoad: Promise<void> | null = null;
+  private loadGeneration: number = 0;
 
   private constructor() {}
 
@@ -154,66 +200,123 @@ export class Config {
     return this.localOnly;
   }
 
+  public getConfigSource(): ConfigSource {
+    return this.configSource;
+  }
+
   public getLastFetchedAt(): number {
     return this.lastFetchedAt;
   }
 
+  /**
+   * Initializes the configuration service using Directus, Firebase Remote Config, or local config.json.
+   */
   async init(options?: {
     refreshIntervalMs?: number;
     useLocalConfigOnly?: boolean;
-  }) {
+    configSource?: ConfigSource;
+  }): Promise<void> {
     this.localConfig = loadLocalConfig();
+    this.loadGeneration += 1;
+    this.inFlightLoad = null;
+    this.directusSnapshot = null;
+    this.template = null;
+    this.inMemoryGuildOverrides.clear();
+    this.overrideGenerations.clear();
+
     if (options?.refreshIntervalMs !== undefined) {
       this.ttlMs = options.refreshIntervalMs;
     }
 
-    this.localOnly =
-      options?.useLocalConfigOnly ??
-      (process.env.USE_CONFIG_FILE === "true" ||
-        process.env.USE_CONFIG_FILE === "1");
+    this.configSource = resolveConfigSource(options);
+    this.localOnly = this.configSource === "local";
 
-    if (this.localOnly) {
+    if (this.configSource === "local") {
+      this.stopAutoRefresh();
       console.info(
         "[Config] Using local configuration file only (Remote Config omitted).",
       );
       return;
     }
 
+    if (this.configSource === "directus") {
+      await this.loadDirectusConfig();
+      this.startAutoRefresh();
+      return;
+    }
+
+    await this.initRemoteConfigTemplate();
+    this.startAutoRefresh();
+  }
+
+  private async initRemoteConfigTemplate(): Promise<void> {
+    const local = this.getLocalConfig();
     try {
       const rc = getRemoteConfig();
       this.template = await rc.getServerTemplate({
         defaultConfig: {
-          guildEmojis: JSON.stringify(this.localConfig.guildEmojis),
-          guildMembers: JSON.stringify(this.localConfig.guildMembers),
-          bots: JSON.stringify(this.localConfig.bots),
-          checkInLeaderboard: this.localConfig.checkInLeaderboard,
-          aiApiEndpoint: this.localConfig.aiApiEndpoint,
-          aiProjectId: this.localConfig.aiProjectId,
-          aiModelId: this.localConfig.aiModelId,
-          aiLocationId: this.localConfig.aiLocationId,
-          aiProvider: this.localConfig.aiProvider,
-          aiMaxOutputTokens: this.localConfig.aiMaxOutputTokens,
-          aiSafetySettings: JSON.stringify(this.localConfig.aiSafetySettings),
-          aiMaxConversationHistory: this.localConfig.aiMaxConversationHistory,
-          memoryStoreType: this.localConfig.memoryStoreType,
+          guildEmojis: JSON.stringify(local.guildEmojis),
+          guildMembers: JSON.stringify(local.guildMembers),
+          bots: JSON.stringify(local.bots),
+          checkInLeaderboard: local.checkInLeaderboard,
+          aiApiEndpoint: local.aiApiEndpoint,
+          aiProjectId: local.aiProjectId,
+          aiModelId: local.aiModelId,
+          aiLocationId: local.aiLocationId,
+          aiProvider: local.aiProvider,
+          aiMaxOutputTokens: local.aiMaxOutputTokens,
+          aiSafetySettings: JSON.stringify(local.aiSafetySettings),
+          aiMaxConversationHistory: local.aiMaxConversationHistory,
+          memoryStoreType: local.memoryStoreType,
         },
       });
       this.lastFetchedAt = Date.now();
     } catch (error) {
       console.warn(
         "Failed to initialize Server Remote Config template, using local config fallback:",
-        error,
+        error instanceof Error ? error.message : String(error),
       );
     }
-    this.startAutoRefresh();
   }
 
-  startAutoRefresh() {
+  private async loadDirectusConfig(): Promise<void> {
+    const startGen = this.loadGeneration;
+    const overrideVersionsAtStart = new Map(this.overrideGenerations);
+    try {
+      const { systemConfig, guildConfigs } =
+        await guildConfigRepository.fetchAllConfigs();
+      if (startGen !== this.loadGeneration) {
+        return;
+      }
+      this.directusSnapshot = mapDirectusToAppConfig(
+        systemConfig,
+        guildConfigs,
+        this.getLocalConfig(),
+      );
+      for (const [gId, startVersion] of overrideVersionsAtStart.entries()) {
+        if (this.overrideGenerations.get(gId) === startVersion) {
+          this.inMemoryGuildOverrides.delete(gId);
+          this.overrideGenerations.delete(gId);
+        }
+      }
+      this.lastFetchedAt = Date.now();
+    } catch (error) {
+      console.warn(
+        "[Config] Failed to fetch Directus config, retaining fallback:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  startAutoRefresh(): void {
     this.stopAutoRefresh();
     if (this.ttlMs > 0) {
       this.refreshIntervalTimer = setInterval(() => {
         this.loadConfig().catch((err) => {
-          console.error("Auto-refreshing Server Remote Config failed:", err);
+          console.error(
+            "Auto-refreshing config failed:",
+            err instanceof Error ? err.message : String(err),
+          );
         });
       }, this.ttlMs);
       if (this.refreshIntervalTimer.unref) {
@@ -222,16 +325,16 @@ export class Config {
     }
   }
 
-  stopAutoRefresh() {
+  stopAutoRefresh(): void {
     if (this.refreshIntervalTimer) {
       clearInterval(this.refreshIntervalTimer);
       this.refreshIntervalTimer = null;
     }
   }
 
-  /** Fetch latest config version */
-  async loadConfig() {
-    if (this.localOnly) {
+  private async executeLoadConfig(): Promise<void> {
+    if (this.configSource === "directus") {
+      await this.loadDirectusConfig();
       return;
     }
     try {
@@ -245,9 +348,26 @@ export class Config {
     } catch (error) {
       console.warn(
         "Failed to fetch/reload Server Remote Config template, using fallback:",
-        error,
+        error instanceof Error ? error.message : String(error),
       );
     }
+  }
+
+  /** Fetch latest config version, deduplicating concurrent reloads */
+  async loadConfig(): Promise<void> {
+    if (this.localOnly || this.configSource === "local") {
+      return;
+    }
+    if (this.inFlightLoad) {
+      return this.inFlightLoad;
+    }
+    const loadPromise = this.executeLoadConfig().finally(() => {
+      if (this.inFlightLoad === loadPromise) {
+        this.inFlightLoad = null;
+      }
+    });
+    this.inFlightLoad = loadPromise;
+    return loadPromise;
   }
 
   private getConfig() {
@@ -277,16 +397,40 @@ export class Config {
     if (this.inMemoryGuildOverrides.size === 0 || !bots?.chatBot?.guilds) {
       return bots;
     }
+    const updatedChatBotGuilds: Record<string, BotGuildConfig> = {
+      ...bots.chatBot.guilds,
+    };
     for (const [gId, gConfig] of this.inMemoryGuildOverrides.entries()) {
-      bots.chatBot.guilds[gId] = {
-        ...bots.chatBot.guilds[gId],
-        ...gConfig,
-      };
+      if (!isSafeRecordKey(gId)) {
+        continue;
+      }
+      const existing = Object.hasOwn(updatedChatBotGuilds, gId)
+        ? updatedChatBotGuilds[gId]
+        : undefined;
+      Object.defineProperty(updatedChatBotGuilds, gId, {
+        value: {
+          ...existing,
+          ...gConfig,
+        },
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     }
-    return bots;
+    return {
+      ...bots,
+      chatBot: {
+        ...bots.chatBot,
+        guilds: updatedChatBotGuilds,
+      },
+    };
   }
 
   private getBotsConfig(): BotsConfig {
+    if (this.configSource === "directus") {
+      const snapshot = this.directusSnapshot ?? this.getLocalConfig();
+      return this.applyGuildOverrides(snapshot.bots);
+    }
     const fallback = this.getLocalConfig()[
       ConfigParameter.bots
     ] as unknown as BotsConfig;
@@ -330,6 +474,11 @@ export class Config {
       return this.getBotsConfig() as never;
     }
 
+    if (this.configSource === "directus") {
+      const snapshot = this.directusSnapshot ?? this.getLocalConfig();
+      return snapshot[key] as never;
+    }
+
     const config = this.getConfig();
     if (!config) {
       return this.getLocalConfig()[key] as never;
@@ -367,40 +516,66 @@ export class Config {
 
   /**
    * Updates or sets an authoritative in-memory override for a guild configuration.
-   * Survives evaluate() cycles under Server Remote Config and updates localConfig.
+   * Survives evaluate() cycles without mutating `localConfig`, and updates `directusSnapshot` if present.
    */
   public updateBotGuildConfig(
     guildId: string,
-    updatedConfig: import("./types").BotGuildConfig,
+    updatedConfig: BotGuildConfig,
   ): void {
-    this.inMemoryGuildOverrides.set(guildId, updatedConfig);
-    if (!this.localConfig) {
-      this.localConfig = loadLocalConfig();
+    if (!isSafeRecordKey(guildId)) {
+      throw new Error("Invalid guildId for configuration update.");
     }
-    if (!this.localConfig.bots) {
-      this.localConfig.bots = {
-        chatBot: { guilds: {} },
-        policeBot: { guilds: {} },
+    this.inMemoryGuildOverrides.set(guildId, updatedConfig);
+    this.overrideGenerations.set(
+      guildId,
+      (this.overrideGenerations.get(guildId) ?? 0) + 1,
+    );
+
+    if (this.directusSnapshot) {
+      const existingChatBot = this.directusSnapshot.bots?.chatBot ?? {
+        guilds: {},
+      };
+      const updatedGuilds = { ...existingChatBot.guilds };
+      Object.defineProperty(updatedGuilds, guildId, {
+        value: updatedConfig,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+      this.directusSnapshot = {
+        ...this.directusSnapshot,
+        bots: {
+          ...this.directusSnapshot.bots,
+          chatBot: {
+            ...existingChatBot,
+            guilds: updatedGuilds,
+          },
+        },
       };
     }
-    if (!this.localConfig.bots.chatBot) {
-      this.localConfig.bots.chatBot = { guilds: {} };
-    }
-    if (!this.localConfig.bots.chatBot.guilds) {
-      this.localConfig.bots.chatBot.guilds = {};
-    }
-    this.localConfig.bots.chatBot.guilds[guildId] = updatedConfig;
   }
 
+  /**
+   * Synchronously resolves a bot's configuration for a specific guild, guarding against prototype lookups.
+   */
   getBotGuildConfig(
     botId: string,
     guildId: string,
-  ): import("./types").BotGuildConfig | undefined {
+  ): BotGuildConfig | undefined {
+    if (!(isSafeRecordKey(botId) && isSafeRecordKey(guildId))) {
+      return undefined;
+    }
     if (botId === "chatBot" && this.inMemoryGuildOverrides.has(guildId)) {
       return this.inMemoryGuildOverrides.get(guildId);
     }
     const bots = this.getConfigValue(ConfigParameter.bots);
-    const bot = bots?.[botId as keyof BotsConfig];
-    return bot?.guilds?.[guildId];
+    if (!(bots && Object.hasOwn(bots, botId))) {
+      return undefined;
+    }
+    const bot = bots[botId as keyof BotsConfig];
+    if (!(bot?.guilds && Object.hasOwn(bot.guilds, guildId))) {
+      return undefined;
+    }
+    return bot.guilds[guildId];
   }
 }

@@ -1,5 +1,11 @@
 import crypto from "node:crypto";
-import { type Request, type Response, Router } from "express";
+import {
+  type NextFunction,
+  type Request,
+  type Response,
+  Router,
+} from "express";
+import { Config } from "../../../../config";
 import {
   guildConfigRepository,
   roastPresetRepository,
@@ -8,27 +14,47 @@ import {
 const webhookRouter = Router();
 
 function getInternalWebhookSecret(): string {
-  return process.env.INTERNAL_WEBHOOK_SECRET || "";
+  return (process.env.INTERNAL_WEBHOOK_SECRET || "").trim();
 }
 
 function isSecretValid(providedSecret: unknown): boolean {
   const expectedSecret = getInternalWebhookSecret();
-  if (
-    typeof providedSecret !== "string" ||
-    !expectedSecret ||
-    expectedSecret.length === 0
-  ) {
+  if (typeof providedSecret !== "string" || expectedSecret.length === 0) {
     return false;
   }
-  const providedBuffer = Buffer.from(providedSecret);
-  const expectedBuffer = Buffer.from(expectedSecret);
-  if (providedBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+  const providedDigest = crypto
+    .createHash("sha256")
+    .update(providedSecret)
+    .digest();
+  const expectedDigest = crypto
+    .createHash("sha256")
+    .update(expectedSecret)
+    .digest();
+  return crypto.timingSafeEqual(providedDigest, expectedDigest);
 }
 
-function invalidateGuilds(keys: unknown, payload?: Record<string, unknown>) {
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeLogField(value: unknown): string {
+  if (typeof value !== "string") {
+    return "unknown";
+  }
+  let sanitized = "";
+  for (const ch of value) {
+    const code = ch.charCodeAt(0);
+    if (code >= 32 && code !== 127) {
+      sanitized += ch;
+    }
+  }
+  return sanitized;
+}
+
+function invalidateGuilds(
+  keys: unknown,
+  payload?: Record<string, unknown>,
+): void {
   if (payload?.guild_id && typeof payload.guild_id === "string") {
     guildConfigRepository.invalidate(payload.guild_id);
     return;
@@ -44,7 +70,10 @@ function invalidateGuilds(keys: unknown, payload?: Record<string, unknown>) {
   }
 }
 
-function invalidatePresets(keys: unknown, payload?: Record<string, unknown>) {
+function invalidatePresets(
+  keys: unknown,
+  payload?: Record<string, unknown>,
+): void {
   if (payload?.preset_name && typeof payload.preset_name === "string") {
     roastPresetRepository.invalidate(payload.preset_name);
     return;
@@ -60,28 +89,57 @@ function invalidatePresets(keys: unknown, payload?: Record<string, unknown>) {
   }
 }
 
-webhookRouter.post("/cache-invalidate", (req: Request, res: Response) => {
-  const secret = req.headers["x-webhook-secret"];
-
-  if (!isSecretValid(secret)) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+async function reloadRuntimeConfig(): Promise<void> {
+  try {
+    await Config.getInstance().loadConfig();
+  } catch (error) {
+    console.warn(
+      "[WebhookReceiver] Failed to reload runtime config after webhook:",
+      error instanceof Error ? error.message : String(error),
+    );
   }
+}
 
-  const { collection, keys, event, payload, item } = req.body || {};
-  const record = payload || item;
+/**
+ * Handles Directus webhook cache invalidation and live runtime config reload events.
+ */
+webhookRouter.post(
+  "/cache-invalidate",
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const secret = req.headers["x-webhook-secret"];
 
-  console.log(
-    `[WebhookReceiver] Received cache-invalidate event: ${event} on collection: ${collection}`,
-  );
+      if (!isSecretValid(secret)) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
 
-  if (collection === "bot_guild_configs") {
-    invalidateGuilds(keys, record);
-  } else if (collection === "bot_roast_presets") {
-    invalidatePresets(keys, record);
-  }
+      const body = isPlainRecord(req.body) ? req.body : {};
+      const { collection, keys, event, payload, item } = body;
+      const record = isPlainRecord(payload)
+        ? payload
+        : isPlainRecord(item)
+          ? item
+          : undefined;
 
-  res.status(204).send();
-});
+      console.log(
+        `[WebhookReceiver] Received cache-invalidate event: ${sanitizeLogField(event)} on collection: ${sanitizeLogField(collection)}`,
+      );
+
+      if (collection === "bot_guild_configs") {
+        invalidateGuilds(keys, record);
+        await reloadRuntimeConfig();
+      } else if (collection === "bot_system_config") {
+        await reloadRuntimeConfig();
+      } else if (collection === "bot_roast_presets") {
+        invalidatePresets(keys, record);
+      }
+
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default webhookRouter;

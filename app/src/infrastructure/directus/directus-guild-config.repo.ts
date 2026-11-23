@@ -1,248 +1,37 @@
-import { createItem, readItems, updateItem } from "@directus/sdk";
-import type { ValorantFeaturesConfig } from "../../config/types";
+import {
+  createItem,
+  readItems,
+  readSingleton,
+  updateItem,
+  updateSingleton,
+} from "@directus/sdk";
+import type { AppConfigData } from "../../config";
+import type {
+  BotGuildConfig,
+  ValorantFeaturesConfig,
+} from "../../config/types";
 import {
   DEFAULT_GUILD_CONFIG,
   type GuildConfig,
 } from "../../domain/models/guild-config";
 import type { IGuildConfigRepository } from "../../domain/repositories/guild-config.repository";
 import { directusClient } from "./client";
-import type { DirectusGuildConfigRaw } from "./types";
+import {
+  extractValorantFeaturesFromRaw,
+  flattenValorantFeaturesToRaw,
+  isSafeRecordKey,
+  mapAppConfigToDirectusSystemPayload,
+  mapBotGuildConfigToDirectusPayload,
+  mapPartialBotGuildConfigToDirectusPayload,
+} from "./config-mapper";
+import type { DirectusGuildConfigRaw, DirectusSystemConfigRaw } from "./types";
+
+export { extractValorantFeaturesFromRaw, flattenValorantFeaturesToRaw };
 
 const DEFAULT_BOT_ID = "chatBot";
 const DEFAULT_ROAST_LOCALE = "vi";
 const DEFAULT_ROAST_MAX_PER_DAY = 10;
 const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
-
-function extractCompareConfig(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig["compare"] | undefined {
-  if (raw.valorant_compare_enabled == null) {
-    return undefined;
-  }
-  return { enabled: raw.valorant_compare_enabled };
-}
-
-function extractStatsSummaryConfig(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig["statsSummary"] | undefined {
-  const result: NonNullable<ValorantFeaturesConfig["statsSummary"]> = {};
-  if (raw.valorant_stats_enabled != null) {
-    result.enabled = raw.valorant_stats_enabled;
-  }
-  if (raw.valorant_stats_default_period != null) {
-    result.defaultPeriod = raw.valorant_stats_default_period;
-  }
-  return Object.keys(result).length > 0 ? result : undefined;
-}
-
-function extractAutoRecapConfig(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig["autoRecap"] | undefined {
-  const result: NonNullable<ValorantFeaturesConfig["autoRecap"]> = {};
-  if (raw.valorant_auto_recap_enabled != null) {
-    result.enabled = raw.valorant_auto_recap_enabled;
-  }
-  if (raw.valorant_auto_recap_channel_id != null) {
-    result.channelId = raw.valorant_auto_recap_channel_id;
-  }
-  if (raw.valorant_auto_recap_min_tier_alert != null) {
-    result.minTierAlert = raw.valorant_auto_recap_min_tier_alert;
-  }
-  if (raw.valorant_auto_recap_sportscaster_banter != null) {
-    result.sportscasterBanter = raw.valorant_auto_recap_sportscaster_banter;
-  }
-  return Object.keys(result).length > 0 ? result : undefined;
-}
-
-function extractLiveScoutingConfig(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig["liveScouting"] | undefined {
-  const result: NonNullable<ValorantFeaturesConfig["liveScouting"]> = {};
-  if (raw.valorant_live_scouting_enabled != null) {
-    result.enabled = raw.valorant_live_scouting_enabled;
-  }
-  if (raw.valorant_live_scouting_channel_id != null) {
-    result.channelId = raw.valorant_live_scouting_channel_id;
-  }
-  if (raw.valorant_live_scouting_alert_on_game_start != null) {
-    result.alertOnGameStart = raw.valorant_live_scouting_alert_on_game_start;
-  }
-  return Object.keys(result).length > 0 ? result : undefined;
-}
-
-function extractRankRoleSyncConfig(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig["rankRoleSync"] | undefined {
-  const result: NonNullable<ValorantFeaturesConfig["rankRoleSync"]> = {};
-  if (raw.valorant_rank_role_sync_enabled != null) {
-    result.enabled = raw.valorant_rank_role_sync_enabled;
-  }
-  if (raw.valorant_rank_role_mappings != null) {
-    result.roleMappings = raw.valorant_rank_role_mappings;
-  }
-  return Object.keys(result).length > 0 ? result : undefined;
-}
-
-function extractTiltProtectionConfig(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig["tiltProtection"] | undefined {
-  const result: NonNullable<ValorantFeaturesConfig["tiltProtection"]> = {};
-  if (raw.valorant_tilt_enabled != null) {
-    result.enabled = raw.valorant_tilt_enabled;
-  }
-  if (raw.valorant_tilt_consecutive_losses_threshold != null) {
-    result.consecutiveLossesThreshold =
-      raw.valorant_tilt_consecutive_losses_threshold;
-  }
-  if (raw.valorant_tilt_night_owl_hour_start != null) {
-    result.nightOwlHourStart = raw.valorant_tilt_night_owl_hour_start;
-  }
-  if (raw.valorant_tilt_night_owl_hour_end != null) {
-    result.nightOwlHourEnd = raw.valorant_tilt_night_owl_hour_end;
-  }
-  if (raw.valorant_tilt_dm_alert != null) {
-    result.dmAlert = raw.valorant_tilt_dm_alert;
-  }
-  return Object.keys(result).length > 0 ? result : undefined;
-}
-
-/**
- * Reconstructs a nested `ValorantFeaturesConfig` from flattened `valorant_*` Directus columns.
- */
-export function extractValorantFeaturesFromRaw(
-  raw: DirectusGuildConfigRaw,
-): ValorantFeaturesConfig | undefined {
-  const features: ValorantFeaturesConfig = {};
-  const compare = extractCompareConfig(raw);
-  if (compare) {
-    features.compare = compare;
-  }
-  const statsSummary = extractStatsSummaryConfig(raw);
-  if (statsSummary) {
-    features.statsSummary = statsSummary;
-  }
-  const autoRecap = extractAutoRecapConfig(raw);
-  if (autoRecap) {
-    features.autoRecap = autoRecap;
-  }
-  const liveScouting = extractLiveScoutingConfig(raw);
-  if (liveScouting) {
-    features.liveScouting = liveScouting;
-  }
-  const rankRoleSync = extractRankRoleSyncConfig(raw);
-  if (rankRoleSync) {
-    features.rankRoleSync = rankRoleSync;
-  }
-  const tiltProtection = extractTiltProtectionConfig(raw);
-  if (tiltProtection) {
-    features.tiltProtection = tiltProtection;
-  }
-  return Object.keys(features).length > 0 ? features : undefined;
-}
-
-function assignDefined<K extends keyof DirectusGuildConfigRaw>(
-  target: Partial<DirectusGuildConfigRaw>,
-  key: K,
-  value: DirectusGuildConfigRaw[K] | undefined,
-): void {
-  if (value !== undefined) {
-    target[key] = value;
-  }
-}
-
-/**
- * Decomposes a nested `ValorantFeaturesConfig` into flattened `valorant_*` Directus columns.
- */
-export function flattenValorantFeaturesToRaw(
-  features?: ValorantFeaturesConfig,
-): Partial<DirectusGuildConfigRaw> {
-  if (!features) {
-    return {};
-  }
-  const payload: Partial<DirectusGuildConfigRaw> = {};
-  assignDefined(payload, "valorant_compare_enabled", features.compare?.enabled);
-  assignDefined(
-    payload,
-    "valorant_stats_enabled",
-    features.statsSummary?.enabled,
-  );
-  assignDefined(
-    payload,
-    "valorant_stats_default_period",
-    features.statsSummary?.defaultPeriod,
-  );
-  assignDefined(
-    payload,
-    "valorant_auto_recap_enabled",
-    features.autoRecap?.enabled,
-  );
-  assignDefined(
-    payload,
-    "valorant_auto_recap_channel_id",
-    features.autoRecap?.channelId,
-  );
-  assignDefined(
-    payload,
-    "valorant_auto_recap_min_tier_alert",
-    features.autoRecap?.minTierAlert,
-  );
-  assignDefined(
-    payload,
-    "valorant_auto_recap_sportscaster_banter",
-    features.autoRecap?.sportscasterBanter,
-  );
-  assignDefined(
-    payload,
-    "valorant_live_scouting_enabled",
-    features.liveScouting?.enabled,
-  );
-  assignDefined(
-    payload,
-    "valorant_live_scouting_channel_id",
-    features.liveScouting?.channelId,
-  );
-  assignDefined(
-    payload,
-    "valorant_live_scouting_alert_on_game_start",
-    features.liveScouting?.alertOnGameStart,
-  );
-  assignDefined(
-    payload,
-    "valorant_rank_role_sync_enabled",
-    features.rankRoleSync?.enabled,
-  );
-  assignDefined(
-    payload,
-    "valorant_rank_role_mappings",
-    features.rankRoleSync?.roleMappings,
-  );
-  assignDefined(
-    payload,
-    "valorant_tilt_enabled",
-    features.tiltProtection?.enabled,
-  );
-  assignDefined(
-    payload,
-    "valorant_tilt_consecutive_losses_threshold",
-    features.tiltProtection?.consecutiveLossesThreshold,
-  );
-  assignDefined(
-    payload,
-    "valorant_tilt_night_owl_hour_start",
-    features.tiltProtection?.nightOwlHourStart,
-  );
-  assignDefined(
-    payload,
-    "valorant_tilt_night_owl_hour_end",
-    features.tiltProtection?.nightOwlHourEnd,
-  );
-  assignDefined(
-    payload,
-    "valorant_tilt_dm_alert",
-    features.tiltProtection?.dmAlert,
-  );
-  return payload;
-}
 
 /**
  * Maps a raw flattened Directus `bot_guild_configs` record into a domain `GuildConfig`.
@@ -377,6 +166,199 @@ export class DirectusGuildConfigRepository implements IGuildConfigRepository {
     } catch (error) {
       console.error(
         `[GuildConfigRepo] Failed to persist Valorant config to Directus for guild ${guildId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Fetches the global `bot_system_config` singleton and all `bot_guild_configs` rows.
+   */
+  async fetchAllConfigs(): Promise<{
+    systemConfig: DirectusSystemConfigRaw | null;
+    guildConfigs: DirectusGuildConfigRaw[];
+  }> {
+    const [rawSystem, rawGuilds] = await Promise.all([
+      directusClient.request(readSingleton("bot_system_config")),
+      directusClient.request(readItems("bot_guild_configs", { limit: -1 })),
+    ]);
+
+    if (!Array.isArray(rawGuilds)) {
+      throw new Error(
+        "Invalid Directus response: bot_guild_configs did not return an array.",
+      );
+    }
+
+    const systemConfig =
+      rawSystem &&
+      typeof rawSystem === "object" &&
+      !Array.isArray(rawSystem) &&
+      Object.keys(rawSystem).length > 0
+        ? (rawSystem as DirectusSystemConfigRaw)
+        : null;
+
+    const guildConfigs = rawGuilds as DirectusGuildConfigRaw[];
+
+    this.idToGuildMap.clear();
+    for (const row of guildConfigs) {
+      if (row.id && row.guild_id) {
+        this.idToGuildMap.set(String(row.id), row.guild_id);
+      }
+    }
+
+    return { systemConfig, guildConfigs };
+  }
+
+  private buildGuildConfigFilter(effectiveBotId: string, guildId: string) {
+    return effectiveBotId === DEFAULT_BOT_ID
+      ? {
+          _and: [
+            { guild_id: { _eq: guildId } },
+            {
+              _or: [
+                { bot_id: { _eq: effectiveBotId } },
+                { bot_id: { _null: true } },
+              ],
+            },
+          ],
+        }
+      : {
+          _and: [
+            { guild_id: { _eq: guildId } },
+            { bot_id: { _eq: effectiveBotId } },
+          ],
+        };
+  }
+
+  private validateBotAndGuildId(
+    botId: string,
+    guildId: string,
+  ): { effectiveBotId: string; guildId: string } {
+    if (!isSafeRecordKey(guildId)) {
+      throw new Error("Invalid guildId for Directus guild config.");
+    }
+    const effectiveBotId = botId || DEFAULT_BOT_ID;
+    if (!isSafeRecordKey(effectiveBotId)) {
+      throw new Error("Invalid botId for Directus guild config.");
+    }
+    return { effectiveBotId, guildId };
+  }
+
+  /**
+   * Upserts a full `BotGuildConfig` row for `(botId, guildId)` into `bot_guild_configs`.
+   */
+  async upsertBotGuildConfig(
+    botId: string,
+    guildId: string,
+    config: BotGuildConfig,
+  ): Promise<void> {
+    const { effectiveBotId } = this.validateBotAndGuildId(botId, guildId);
+    const filter = this.buildGuildConfigFilter(effectiveBotId, guildId);
+
+    try {
+      const items = await directusClient.request(
+        readItems("bot_guild_configs", {
+          filter,
+          limit: 1,
+        }),
+      );
+
+      const existing = items?.[0];
+      const payload = mapBotGuildConfigToDirectusPayload(
+        effectiveBotId,
+        guildId,
+        config,
+      );
+
+      if (existing?.id) {
+        await directusClient.request(
+          updateItem("bot_guild_configs", existing.id, payload),
+        );
+      } else {
+        await directusClient.request(createItem("bot_guild_configs", payload));
+      }
+      this.invalidate(guildId);
+    } catch (error) {
+      console.error(
+        `[GuildConfigRepo] Failed to upsert bot guild config to Directus for ${effectiveBotId}/${guildId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Patches only the defined fields of a partial `BotGuildConfig` onto Directus without overwriting unrelated columns.
+   */
+  async patchBotGuildConfig(
+    botId: string,
+    guildId: string,
+    partial: Partial<BotGuildConfig>,
+  ): Promise<void> {
+    const { effectiveBotId } = this.validateBotAndGuildId(botId, guildId);
+    const partialPayload = mapPartialBotGuildConfigToDirectusPayload(partial);
+    if (Object.keys(partialPayload).length === 0) {
+      return;
+    }
+
+    const filter = this.buildGuildConfigFilter(effectiveBotId, guildId);
+
+    try {
+      const items = await directusClient.request(
+        readItems("bot_guild_configs", {
+          filter,
+          limit: 1,
+        }),
+      );
+
+      const existing = items?.[0];
+      if (existing?.id) {
+        await directusClient.request(
+          updateItem("bot_guild_configs", existing.id, partialPayload),
+        );
+      } else {
+        const fullConfig: BotGuildConfig = {
+          replyChannelIds: [],
+          ignoredChannelIds: [],
+          respondToMentions: false,
+          ...partial,
+        };
+        const createPayload = mapBotGuildConfigToDirectusPayload(
+          effectiveBotId,
+          guildId,
+          fullConfig,
+        );
+        await directusClient.request(
+          createItem("bot_guild_configs", createPayload),
+        );
+      }
+      this.invalidate(guildId);
+    } catch (error) {
+      console.error(
+        `[GuildConfigRepo] Failed to patch bot guild config in Directus for ${effectiveBotId}/${guildId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Updates the `bot_system_config` singleton in Directus with partial `AppConfigData` system fields.
+   */
+  async upsertSystemConfig(partial: Partial<AppConfigData>): Promise<void> {
+    const payload = mapAppConfigToDirectusSystemPayload(partial);
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    try {
+      await directusClient.request(
+        updateSingleton("bot_system_config", payload),
+      );
+    } catch (error) {
+      console.error(
+        "[GuildConfigRepo] Failed to upsert system config to Directus:",
         error instanceof Error ? error.message : String(error),
       );
       throw error;
