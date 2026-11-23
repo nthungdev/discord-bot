@@ -1,15 +1,81 @@
 import React, { useState } from "react";
-import { Check, Code, RefreshCw, Save, Sliders } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Code,
+  ExternalLink,
+  RefreshCw,
+  Save,
+  Sliders,
+} from "lucide-react";
+import type { ConfigSource } from "../types";
 
 interface ConfigEditorProps {
   config: Record<string, unknown>;
+  source?: ConfigSource;
+  lastFetchedAt?: number;
+  directusUrl?: string | null;
   onReload: () => Promise<void>;
 }
 
-export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onReload }) => {
+const SOURCE_BADGE_META: Record<
+  ConfigSource,
+  { label: string; badgeClass: string }
+> = {
+  directus: {
+    label: "Directus",
+    badgeClass:
+      "bg-discord-green/10 text-discord-green border border-discord-green/30",
+  },
+  "remote-config": {
+    label: "Remote Config",
+    badgeClass:
+      "bg-discord-yellow/10 text-discord-yellow border border-discord-yellow/30",
+  },
+  local: {
+    label: "Local",
+    badgeClass:
+      "bg-discord-muted/10 text-discord-muted border border-white/10",
+  },
+};
+
+function getSafeDirectusUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) {
+    return null;
+  }
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.username || parsed.password) {
+      return null;
+    }
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? rawUrl
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatLastSynced(lastFetchedAt: number | undefined): string {
+  if (!lastFetchedAt || lastFetchedAt <= 0) {
+    return "Not synced yet";
+  }
+  return new Date(lastFetchedAt).toLocaleString();
+}
+
+export const ConfigEditor: React.FC<ConfigEditorProps> = ({
+  config,
+  source = "remote-config",
+  lastFetchedAt = 0,
+  directusUrl = null,
+  onReload,
+}) => {
   const [jsonMode, setJsonMode] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const sourceMeta = SOURCE_BADGE_META[source] ?? SOURCE_BADGE_META.local;
+  const safeDirectusUrl = getSafeDirectusUrl(directusUrl);
 
   const handleReload = async () => {
     setReloading(true);
@@ -28,17 +94,40 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onReload }) 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Configuration Management
-          </h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Configuration Management
+            </h2>
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${sourceMeta.badgeClass}`}
+            >
+              {sourceMeta.label}
+            </span>
+          </div>
           <p className="text-xs text-discord-muted">
-            Inspect and synchronize Firebase Remote Config & dynamic runtime parameters
+            Inspect and synchronize Directus control plane &amp; dynamic runtime parameters
           </p>
+          <div className="flex items-center gap-1.5 text-[11px] text-discord-muted">
+            <Clock className="w-3 h-3" />
+            <span>Last synced: {formatLastSynced(lastFetchedAt)}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {safeDirectusUrl && (
+            <a
+              href={safeDirectusUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-discord-dark text-white border border-white/10 hover:bg-discord-darker text-xs font-semibold transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-discord-green" />
+              Directus Admin UI
+            </a>
+          )}
+
           <button
             onClick={() => setJsonMode(!jsonMode)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
@@ -57,7 +146,7 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onReload }) 
             className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-discord-blurple text-white text-xs font-semibold hover:bg-discord-blurple-hover transition-colors disabled:opacity-50 shadow-md shadow-discord-blurple/20"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${reloading ? "animate-spin" : ""}`} />
-            {reloading ? "Reloading..." : "Reload Remote Config"}
+            {reloading ? "Reloading..." : "Reload Config"}
           </button>
         </div>
       </div>

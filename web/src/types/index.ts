@@ -141,6 +141,23 @@ export interface JoinedGuildDetail {
   botConfig?: BotGuildConfig;
 }
 
+export type ConfigSource = "directus" | "remote-config" | "local";
+
+export interface ConfigResponse {
+  ok: boolean;
+  config: Record<string, unknown>;
+  source: ConfigSource;
+  lastFetchedAt: number;
+  directusUrl: string | null;
+}
+
+export interface ConfigReloadResponse {
+  ok: boolean;
+  message: string;
+  source: ConfigSource;
+  lastFetchedAt: number;
+}
+
 export interface StoredChatMessage {
   author: "bot" | "user";
   content: string;

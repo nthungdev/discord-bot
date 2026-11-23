@@ -19,6 +19,7 @@ import { api, subscribeToEvents } from "./lib/api";
 import type {
   ActivityLogEvent,
   BotRuntimeMetrics,
+  ConfigSource,
   DashboardStats,
   JoinedGuildDetail,
   UserSession,
@@ -30,6 +31,9 @@ export const App: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [bots, setBots] = useState<BotRuntimeMetrics[]>([]);
   const [config, setConfig] = useState<Record<string, unknown>>({});
+  const [configSource, setConfigSource] = useState<ConfigSource>("remote-config");
+  const [configLastFetchedAt, setConfigLastFetchedAt] = useState<number>(0);
+  const [directusUrl, setDirectusUrl] = useState<string | null>(null);
   const [guilds, setGuilds] = useState<JoinedGuildDetail[]>([]);
   const [events, setEvents] = useState<ActivityLogEvent[]>([]);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -53,6 +57,9 @@ export const App: React.FC = () => {
       }
       if (configRes.status === "fulfilled") {
         setConfig(configRes.value.config || {});
+        setConfigSource(configRes.value.source || "remote-config");
+        setConfigLastFetchedAt(configRes.value.lastFetchedAt || 0);
+        setDirectusUrl(configRes.value.directusUrl ?? null);
       }
     } finally {
       setLoading(false);
@@ -126,9 +133,14 @@ export const App: React.FC = () => {
   };
 
   const handleReloadConfig = async () => {
-    await api.reloadConfig();
+    const reloadRes = await api.reloadConfig();
     const configRes = await api.getConfig();
-    setConfig(configRes.config);
+    setConfig(configRes.config || {});
+    setConfigSource(configRes.source || reloadRes.source || "remote-config");
+    setConfigLastFetchedAt(
+      configRes.lastFetchedAt ?? reloadRes.lastFetchedAt ?? 0,
+    );
+    setDirectusUrl(configRes.directusUrl ?? null);
   };
 
   const handleLogout = async () => {
@@ -303,7 +315,13 @@ export const App: React.FC = () => {
 
           {/* TAB 3: CONFIG EDITOR */}
           {currentTab === "config" && (
-            <ConfigEditor config={config} onReload={handleReloadConfig} />
+            <ConfigEditor
+              config={config}
+              source={configSource}
+              lastFetchedAt={configLastFetchedAt}
+              directusUrl={directusUrl}
+              onReload={handleReloadConfig}
+            />
           )}
 
           {/* TAB 4: GUILDS & COMMANDS */}
