@@ -64,9 +64,11 @@ services:
       DIRECTUS_URL: ${DIRECTUS_URL:-http://directus:8055}
       DIRECTUS_BOT_TOKEN: ${DIRECTUS_BOT_TOKEN:?DIRECTUS_BOT_TOKEN must be set in environment or .env.production}
       INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:?INTERNAL_WEBHOOK_SECRET must be set in environment or .env.production}
+      WEBHOOK_RECEIVER_URL: ${WEBHOOK_RECEIVER_URL:-http://server:3001/api/v1/webhooks/cache-invalidate}
       AUTO_DEPLOY_COMMAND_GUILDS: ${AUTO_DEPLOY_COMMAND_GUILDS:-}
       ANTIGRAVITY_CONFIG_DIR: ${ANTIGRAVITY_CONFIG_DIR:-/root/.gemini/antigravity-cli}
-      USE_CONFIG_FILE: ${USE_CONFIG_FILE:-true}
+      CONFIG_SOURCE: ${CONFIG_SOURCE:-directus}
+      USE_CONFIG_FILE: ${USE_CONFIG_FILE:-false}
     volumes:
       - ./config.json:/app/config.json:ro
       - ./service-account.json:/app/service-account.json:ro
