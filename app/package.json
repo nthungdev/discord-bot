@@ -25,7 +25,8 @@
     "docker-prod": "docker compose -f compose.yaml -f compose.production.yaml up -d",
     "sync-config": "ts-node src/scripts/syncRemoteConfig.ts",
     "deploy-commands": "ts-node src/scripts/deployCommands.ts",
-    "directus:setup": "ts-node src/scripts/setupDirectus.ts"
+    "directus:setup": "ts-node src/scripts/setupDirectus.ts",
+    "directus:migrate-config": "ts-node src/scripts/migrateConfigToDirectus.ts"
   },
   "engines": {
     "node": ">=22",

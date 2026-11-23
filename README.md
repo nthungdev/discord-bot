@@ -21,7 +21,7 @@ A self-hosted platform for running multiple Discord bots from one server: a Gemi
 - **Discord OAuth2 Single Sign-On (SSO)**: Secure operator login with capability-based Role-Based Access Control (`SUPER_ADMIN`, `GUILD_ADMIN`, `VIEWER`).
 - **Dynamic Bot Orchestrator (`BotManager`)**: Runtime bot instance registration, token encryption vault (`AES-256-GCM`), and 1-click lifecycle controls (Start, Stop, Restart) without restarting the server.
 - **Real-Time Telemetry & Event Streaming (SSE)**: Live Gateway WebSocket latency/ping tracking, heap memory metrics, message counters, and streaming activity feed.
-- **Visual Remote Config Editor**: Inspect and live-reload Firebase Remote Config parameters, Smart Reply policies, AI model parameters, guild custom emojis, and guild rosters.
+- **Visual Config & Control Plane**: Inspect and live-reload bot configuration from Directus (primary control plane) or Firebase Remote Config, including Smart Reply policies, AI model parameters, guild custom emojis, and guild rosters.
 - **Guild Explorer & 1-Click Slash Command Deployer**: Inspect server topologies, voice/text channels, and deploy Discord application commands with a single click.
 - **Conversation Memory Inspector**: Browse active conversation sessions, inspect dialogue turns with actor attribution, and clear memory caches.
 
@@ -62,9 +62,12 @@ discord-bot/
 - **Node.js**: `v22.0.0` or higher
 - **pnpm**: `v10.0.0` or higher (`npm install -g pnpm`)
 - **Discord Application**: Client ID, Client Secret, and Bot Tokens from the [Discord Developer Portal](https://discord.com/developers/applications).
+- **Control Plane (Choose either)**:
+  - **Directus (Primary Control Plane — Recommended)**: Self-hosted Directus + PostgreSQL via `compose.directus-dev.yaml`, using `app/config.json` as local fallback. No Firebase account or `service-account.json` required.
+  - **Local `app/config.json` or Firebase Remote Config (Optional)**: Set `USE_CONFIG_FILE=true` for local-only mode, or provide `service-account.json` when using Firebase Remote Config / Firestore / Vertex AI.
 - **AI Engine (Choose either)**:
   - **Option A (Google One AI Pro Subscription via Antigravity - Recommended)**: Zero API cost utilizing your Google One subscription quota via the Google Antigravity CLI (`agy`). No `GEMINI_API_KEY` or `service-account.json` required.
-  - **Option B (Direct Gemini API / Google Cloud Vertex AI)**: With Gemini API enabled, `GEMINI_API_KEY`, or a `service-account.json` credential.
+  - **Option B (Direct Gemini API / Google Cloud Vertex AI)**: With `GEMINI_API_KEY`, or `service-account.json` when using Vertex AI (`aiProvider: "vertex"`).
 
 ---
 
@@ -210,17 +213,18 @@ pnpm --prefix app docker-prod
 > [!TIP]
 > **Running Antigravity in Docker Containers**: Mount your authenticated `~/.gemini` credentials directory into the container (`volumes: [ "~/.gemini:/root/.gemini:ro" ]`) so the bot can access your Google One AI Pro session with zero token costs.
 
-### Directus control plane (optional)
+### Directus Primary Control Plane
 
-Guild settings, roast presets, user opt-outs, and audit logs can be stored in [Directus](https://directus.io/) instead of local memory:
+[Directus](https://directus.io/) serves as the primary control plane for global system settings (`bot_system_config`), per-guild policies (`bot_guild_configs`), roast presets, user opt-outs, and audit logs, with `app/config.json` as fallback and optional Firebase (only initialized when `CONFIG_SOURCE=remote-config`, `MEMORY_STORE_TYPE=firestore`, or `aiProvider=vertex`):
 
 ```bash
 cp .env.directus.example .env
 docker compose -f compose.directus-dev.yaml up -d
-pnpm --prefix app directus:setup     # provisions collections, RBAC, service token, webhook
+pnpm --prefix app directus:setup           # provisions collections, RBAC, service token, webhook flow
+pnpm --prefix app directus:migrate-config  # idempotently migrates app/config.json into Directus
 ```
 
-Then set `MEMORY_STORE_TYPE=directus` in `app/.env.development`. Full setup, schema, and teardown steps: [Directus Control Plane Guide](docs/directus-control-plane.md).
+Set `DIRECTUS_URL`, `DIRECTUS_BOT_TOKEN`, `USE_CONFIG_FILE=false`, and `MEMORY_STORE_TYPE=directus` in `app/.env.development`. Full setup, migration flags (`--config`, `--dry-run`, `--force`), schema, and teardown steps: [Directus Control Plane Guide](docs/directus-control-plane.md).
 
 ---
 
