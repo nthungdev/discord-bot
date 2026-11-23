@@ -6,7 +6,7 @@ export interface GuildConfig {
   defaultLocale: "vi" | "en";
   maxRoastsPerDay: number;
   allowedChannelIds: Set<string>;
-  scmsVoiceChannelId?: string;
+  matchmakingLobbyChannelId?: string;
   valorantEnabled?: boolean;
   valorantFeatures?: import("../../config/types").ValorantFeaturesConfig;
 }

@@ -17,7 +17,7 @@ function mapRawToGuildConfig(
     defaultLocale: raw.default_locale === "en" ? "en" : "vi",
     maxRoastsPerDay: raw.max_roasts_per_day ?? 10,
     allowedChannelIds: new Set<string>(raw.allowed_channel_ids || []),
-    scmsVoiceChannelId: raw.scms_voice_channel_id ?? undefined,
+    matchmakingLobbyChannelId: raw.matchmaking_lobby_channel_id ?? undefined,
     valorantEnabled: raw.valorant_enabled ?? true,
     valorantFeatures: raw.valorant_features ?? undefined,
   };

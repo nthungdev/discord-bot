@@ -131,7 +131,7 @@ const COLLECTIONS = [
         meta: { interface: "tags" },
       },
       {
-        field: "scms_voice_channel_id",
+        field: "matchmaking_lobby_channel_id",
         type: "string",
         meta: { interface: "input" },
       },

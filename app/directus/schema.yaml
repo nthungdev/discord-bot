@@ -456,14 +456,14 @@ fields:
       foreign_key_table: null
       foreign_key_column: null
   - collection: bot_guild_configs
-    field: scms_voice_channel_id
+    field: matchmaking_lobby_channel_id
     type: string
     meta:
       collection: bot_guild_configs
       conditions: null
       display: null
       display_options: null
-      field: scms_voice_channel_id
+      field: matchmaking_lobby_channel_id
       group: null
       hidden: false
       interface: input
@@ -479,7 +479,7 @@ fields:
       validation_message: null
       width: full
     schema:
-      name: scms_voice_channel_id
+      name: matchmaking_lobby_channel_id
       table: bot_guild_configs
       data_type: character varying
       default_value: null
