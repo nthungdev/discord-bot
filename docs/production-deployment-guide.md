@@ -130,6 +130,8 @@ DIRECTUS_PUBLIC_URL=https://directus.yourdomain.com
 # ==============================================================================
 # Bot & Directus Integration (Internal Docker Networking)
 # ==============================================================================
+CONFIG_SOURCE=directus
+USE_CONFIG_FILE=false
 MEMORY_STORE_TYPE=directus
 DIRECTUS_URL=http://directus:8055
 DIRECTUS_BOT_TOKEN=generate_random_32_char_service_token
