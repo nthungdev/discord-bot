@@ -89,7 +89,7 @@ const DEFAULT_APP_CONFIG: AppConfigData = {
   checkInLeaderboard: "",
   aiSafetySettings: { safetySettings: [] },
   aiProjectId: "",
-  aiModelId: "gemini-3.6-flash",
+  aiModelId: "gemini-4-hydrogen",
   aiMaxOutputTokens: 8192,
   aiLocationId: "us-central1",
   aiProvider: "google-genai",

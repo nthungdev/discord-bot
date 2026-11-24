@@ -815,7 +815,7 @@ describe("migrateConfigToDirectus", () => {
             data: {
               id: "sys-default",
               ai_provider: "google-genai",
-              ai_model_id: "gemini-3.6-flash",
+              ai_model_id: "gemini-4-hydrogen",
               ai_api_endpoint: "us-central1-aiplatform.googleapis.com",
               ai_location_id: "us-central1",
               ai_max_output_tokens: 8192,

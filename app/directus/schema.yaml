@@ -5294,7 +5294,7 @@ fields:
       name: ai_model_id
       table: bot_system_config
       data_type: character varying
-      default_value: gemini-3.6-flash
+      default_value: gemini-4-hydrogen
       max_length: 255
       numeric_precision: null
       numeric_scale: null

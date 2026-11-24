@@ -111,10 +111,10 @@ cp app/config.example.json app/config.json
   ```json
   {
     "aiProvider": "antigravity",
-    "aiModelId": "gemini-3.8-flash-low"
+    "aiModelId": "gemini-4-hydrogen-low"
   }
   ```
-  *(Supported models: `gemini-3.8-flash-low`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-high`, `gemini-4-argon-low`, `claude-sonnet-5-5-low`, etc. No `GEMINI_API_KEY` or `service-account.json` required!)*
+  *(Supported models: `gemini-4-hydrogen-low`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-high`, `gemini-4-hydrogen-xhigh`, `gemini-4-argon-low`, `gemini-4-neon-medium`, `gemini-4-carbon-medium`, `claude-sonnet-5-5-low`, etc. No `GEMINI_API_KEY` or `service-account.json` required!)*
 
 #### Option B: Direct Gemini API / Google Cloud Vertex AI
 - Place your Google Cloud Service Account JSON file at `app/service-account.json` (or set `GEMINI_API_KEY` in `app/.env.development`).
@@ -122,7 +122,7 @@ cp app/config.example.json app/config.json
   ```json
   {
     "aiProvider": "google-genai",
-    "aiModelId": "gemini-3.6-flash"
+    "aiModelId": "gemini-4-hydrogen"
   }
   ```
 

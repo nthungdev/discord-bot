@@ -1,3 +1,5 @@
+import type { ModelConfig, SupportedGenAiModel } from "../genAi/types";
+
 export interface GuildEmojisConfig {
   [guildId: string]: {
     /**
@@ -21,8 +23,6 @@ export interface BotGuildToolsConfig {
   googleSearch?: boolean;
   discord?: boolean;
 }
-
-import type { ModelConfig } from "../genAi/types";
 
 export interface SmartReplyConfig {
   enabled?: boolean;
@@ -213,7 +213,7 @@ export interface AiSafetySettingsConfig {
 export type CheckInLeaderboardConfig = string;
 export type AiApiEndpointConfig = string;
 export type AiProjectIdConfig = string;
-export type AiModelIdConfig = string;
+export type AiModelIdConfig = SupportedGenAiModel;
 export type AiLocationIdConfig = string;
 export type AiProviderConfig = "google-genai" | "vertex" | "antigravity";
 

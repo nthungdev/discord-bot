@@ -196,7 +196,7 @@ export const COLLECTIONS: DirectusCollectionDefinition[] = [
       {
         field: "ai_model_id",
         type: "string",
-        schema: { default_value: "gemini-3.6-flash" },
+        schema: { default_value: "gemini-4-hydrogen" },
         meta: { interface: "input" },
       },
       {
