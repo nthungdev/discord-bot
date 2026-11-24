@@ -344,6 +344,60 @@ export class DirectusGuildConfigRepository implements IGuildConfigRepository {
   }
 
   /**
+   * Persists custom emoji mappings across all `bot_guild_configs` rows for a guild.
+   * Creates a default `chatBot` row if none exist yet.
+   */
+  async upsertGuildEmojis(
+    guildId: string,
+    emojis: Record<string, string[]>,
+  ): Promise<void> {
+    if (!isSafeRecordKey(guildId)) {
+      throw new Error("Invalid guildId for Directus guild emojis.");
+    }
+
+    try {
+      const items = await directusClient.request(
+        readItems("bot_guild_configs", {
+          filter: { guild_id: { _eq: guildId } },
+          limit: -1,
+        }),
+      );
+
+      const rowsWithId = Array.isArray(items)
+        ? items.filter((item) => Boolean(item.id))
+        : [];
+
+      if (rowsWithId.length > 0) {
+        await Promise.all(
+          rowsWithId.map((item) =>
+            directusClient.request(
+              updateItem("bot_guild_configs", item.id, {
+                guild_emojis: emojis,
+              }),
+            ),
+          ),
+        );
+      } else {
+        await directusClient.request(
+          createItem("bot_guild_configs", {
+            guild_id: guildId,
+            bot_id: DEFAULT_BOT_ID,
+            guild_emojis: emojis,
+          }),
+        );
+      }
+
+      this.invalidate(guildId);
+    } catch (error) {
+      console.error(
+        `[GuildConfigRepo] Failed to upsert guild emojis to Directus for guild ${guildId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Updates the `bot_system_config` singleton in Directus with partial `AppConfigData` system fields.
    */
   async upsertSystemConfig(partial: Partial<AppConfigData>): Promise<void> {

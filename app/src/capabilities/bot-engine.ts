@@ -24,6 +24,13 @@ import { ValorantCapability } from "./valorant-capability";
 import { VoiceBouncerCapability } from "./voice-bouncer-capability";
 import { VoiceCompanionCapability } from "./voice-companion-capability";
 
+export interface GuildCustomEmojiInfo {
+  id: string;
+  name: string;
+  animated: boolean;
+  url: string;
+}
+
 /**
  * Unified Discord Bot Engine
  * Coordinates Discord Gateway connection, capability registration, and event pipeline dispatch.
@@ -277,6 +284,31 @@ export class DiscordBotEngine {
         channels,
       };
     });
+  }
+
+  /**
+   * Returns live custom emojis cached for a Discord guild, sorted alphabetically by name.
+   */
+  public getGuildEmojis(guildId: string): GuildCustomEmojiInfo[] {
+    const guild = this.client.guilds.cache.get(guildId);
+    if (!guild) {
+      return [];
+    }
+
+    const emojis: GuildCustomEmojiInfo[] = [];
+    for (const emoji of guild.emojis.cache.values()) {
+      if (!emoji.name) {
+        continue;
+      }
+      emojis.push({
+        id: emoji.id,
+        name: emoji.name,
+        animated: Boolean(emoji.animated),
+        url: emoji.imageURL(),
+      });
+    }
+
+    return emojis.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private handleClientReady = (readyClient: Client<true>): void => {

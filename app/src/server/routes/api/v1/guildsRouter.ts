@@ -1,9 +1,13 @@
 import { Router } from "express";
-import { Config } from "../../../../config";
+import { Config, ConfigParameter } from "../../../../config";
 import type { BotGuildConfig } from "../../../../config/types";
 import { isSafeRecordKey } from "../../../../infrastructure/directus/config-mapper";
 import { guildConfigRepository } from "../../../../infrastructure/repositories";
 import { getBotManager } from "../../../../services/bot-manager";
+import {
+  type GuildCustomEmojiInfo,
+  suggestEmojiMappings,
+} from "../../../../services/emoji-mapper";
 import auth, {
   requireCapability,
   requireGuildPermission,
@@ -11,6 +15,17 @@ import auth, {
 
 const DEFAULT_BOT_ID = "chatBot";
 const BOT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+const MAX_EMOJI_KEY_LENGTH = 32;
+const MAX_CUSTOM_EMOJI_NAME_LENGTH = 100;
+const EMOJI_WRITE_SCOPE_KEY = "guildEmojis";
+
+type AiSuggestScope = "unmapped" | "selected" | "all";
+
+const VALID_AI_SUGGEST_SCOPES = new Set<AiSuggestScope>([
+  "unmapped",
+  "selected",
+  "all",
+]);
 
 const DEEP_MERGE_SUBCONFIG_KEYS = new Set<string>([
   "tools",
@@ -299,6 +314,134 @@ async function serializeGuildWrite<T>(
   }
 }
 
+function getGuildEmojiMapping(guildId: string): Record<string, string[]> {
+  const allGuildEmojis = Config.getInstance().getConfigValue(
+    ConfigParameter.guildEmojis,
+  );
+  if (allGuildEmojis && Object.hasOwn(allGuildEmojis, guildId)) {
+    return allGuildEmojis[guildId];
+  }
+  return {};
+}
+
+function findOrphanedEmojiNames(
+  mapping: Record<string, string[]>,
+  liveEmojis: readonly GuildCustomEmojiInfo[],
+): string[] {
+  const liveNames = new Set(liveEmojis.map((emoji) => emoji.name));
+  const orphaned = new Set<string>();
+  for (const customNames of Object.values(mapping)) {
+    for (const customName of customNames) {
+      if (!liveNames.has(customName)) {
+        orphaned.add(customName);
+      }
+    }
+  }
+  return Array.from(orphaned);
+}
+
+function validateAndSanitizeEmojiNames(
+  rawNames: unknown,
+  emojiKey: string,
+): { names?: string[]; error?: string } {
+  if (!Array.isArray(rawNames)) {
+    return {
+      error: `Mapping value for '${emojiKey}' must be an array of non-empty strings.`,
+    };
+  }
+  const deduplicated = new Set<string>();
+  for (const item of rawNames) {
+    if (typeof item !== "string") {
+      return {
+        error: `Mapping value for '${emojiKey}' must contain only strings.`,
+      };
+    }
+    const trimmed = item.trim();
+    if (trimmed.length === 0 || trimmed.length > MAX_CUSTOM_EMOJI_NAME_LENGTH) {
+      return {
+        error: `Custom emoji names for '${emojiKey}' must be non-empty strings of at most ${MAX_CUSTOM_EMOJI_NAME_LENGTH} characters.`,
+      };
+    }
+    deduplicated.add(trimmed);
+  }
+  return { names: Array.from(deduplicated) };
+}
+
+function validateAndSanitizeEmojiMapping(rawMapping: unknown): {
+  mapping?: Record<string, string[]>;
+  error?: string;
+} {
+  if (!isPlainObject(rawMapping)) {
+    return { error: "Field 'mapping' must be a plain JSON object." };
+  }
+
+  const sanitized: Record<string, string[]> = {};
+  for (const [rawKey, rawValue] of Object.entries(rawMapping)) {
+    if (!isSafeRecordKey(rawKey)) {
+      continue;
+    }
+    const trimmedKey = rawKey.trim();
+    if (
+      trimmedKey.length === 0 ||
+      trimmedKey.length > MAX_EMOJI_KEY_LENGTH ||
+      !isSafeRecordKey(trimmedKey)
+    ) {
+      return {
+        error: `Emoji mapping keys must be safe non-empty strings of at most ${MAX_EMOJI_KEY_LENGTH} characters.`,
+      };
+    }
+
+    const { names, error } = validateAndSanitizeEmojiNames(
+      rawValue,
+      trimmedKey,
+    );
+    if (error) {
+      return { error };
+    }
+    if (!names || names.length === 0) {
+      continue;
+    }
+
+    Object.defineProperty(sanitized, trimmedKey, {
+      value: names,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  }
+
+  return { mapping: sanitized };
+}
+
+function isValidAiSuggestScope(value: unknown): value is AiSuggestScope {
+  return (
+    typeof value === "string" &&
+    VALID_AI_SUGGEST_SCOPES.has(value as AiSuggestScope)
+  );
+}
+
+function filterTargetEmojisForSuggestion(
+  liveEmojis: readonly GuildCustomEmojiInfo[],
+  existingMapping: Record<string, string[]>,
+  scope: AiSuggestScope,
+  customEmojiNames?: readonly string[],
+): GuildCustomEmojiInfo[] {
+  if (scope === "all") {
+    return [...liveEmojis];
+  }
+  if (scope === "selected") {
+    const selectedSet = new Set(customEmojiNames ?? []);
+    return liveEmojis.filter((emoji) => selectedSet.has(emoji.name));
+  }
+  const mappedNames = new Set<string>();
+  for (const names of Object.values(existingMapping)) {
+    for (const name of names) {
+      mappedNames.add(name);
+    }
+  }
+  return liveEmojis.filter((emoji) => !mappedNames.has(emoji.name));
+}
+
 const guildsRouter = Router();
 
 guildsRouter.use(auth);
@@ -460,6 +603,195 @@ guildsRouter.put(
         persistedTo: result.configSource,
         message,
         config: result.updatedGuildConfig,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Get live Discord custom emojis, current emoji mapping, and orphaned mapped emoji names for a guild.
+ */
+guildsRouter.get(
+  "/:guildId/emojis",
+  requireCapability("guild:read"),
+  requireGuildPermission("guildId"),
+  async (req, res, next) => {
+    const { guildId } = req.params;
+    if (!isSafeRecordKey(guildId)) {
+      res.status(400).json({ ok: false, message: "Invalid guildId." });
+      return;
+    }
+
+    try {
+      const emojis = await getBotManager().getGuildEmojis(guildId);
+      const mapping = getGuildEmojiMapping(guildId);
+      const orphanedEmojis = findOrphanedEmojiNames(mapping, emojis);
+
+      res.json({
+        ok: true,
+        guildId,
+        emojis,
+        mapping,
+        orphanedEmojis,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Update custom emoji mappings for a guild, persisting to Directus when active and triggering immediate live reload.
+ */
+guildsRouter.put(
+  "/:guildId/emojis",
+  requireCapability("guild:manage_channels"),
+  requireGuildPermission("guildId"),
+  async (req, res, next) => {
+    const { guildId } = req.params;
+    if (!isSafeRecordKey(guildId)) {
+      res.status(400).json({ ok: false, message: "Invalid guildId." });
+      return;
+    }
+    if (!isPlainObject(req.body)) {
+      res.status(400).json({
+        ok: false,
+        message: "Request body must be a JSON object.",
+      });
+      return;
+    }
+
+    const { mapping: sanitizedMapping, error: validationError } =
+      validateAndSanitizeEmojiMapping(req.body.mapping);
+    if (validationError || !sanitizedMapping) {
+      res.status(400).json({
+        ok: false,
+        message: validationError ?? "Invalid emoji mapping payload.",
+      });
+      return;
+    }
+
+    try {
+      const result = await serializeGuildWrite(
+        EMOJI_WRITE_SCOPE_KEY,
+        guildId,
+        async () => {
+          const configService = Config.getInstance();
+          const configSource = configService.getConfigSource();
+          if (configSource === "directus") {
+            await guildConfigRepository.upsertGuildEmojis(
+              guildId,
+              sanitizedMapping,
+            );
+          }
+
+          configService.updateGuildEmojis(guildId, sanitizedMapping);
+          return { configSource };
+        },
+      );
+
+      const message =
+        result.configSource === "directus"
+          ? `Emoji mapping for guild '${guildId}' persisted to Directus and live-reloaded.`
+          : `Emoji mapping for guild '${guildId}' updated in memory (${result.configSource} mode).`;
+
+      res.json({
+        ok: true,
+        guildId,
+        persistedTo: result.configSource,
+        mapping: sanitizedMapping,
+        message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Generate AI-powered standard-to-custom emoji mapping suggestions for a guild.
+ */
+guildsRouter.post(
+  "/:guildId/emojis/ai-suggest",
+  requireCapability("guild:manage_channels"),
+  requireGuildPermission("guildId"),
+  async (req, res, next) => {
+    const { guildId } = req.params;
+    if (!isSafeRecordKey(guildId)) {
+      res.status(400).json({ ok: false, message: "Invalid guildId." });
+      return;
+    }
+
+    const body = req.body ?? {};
+    if (!isPlainObject(body)) {
+      res.status(400).json({
+        ok: false,
+        message: "Request body must be a JSON object.",
+      });
+      return;
+    }
+
+    const rawScope = body.scope ?? "unmapped";
+    if (!isValidAiSuggestScope(rawScope)) {
+      res.status(400).json({
+        ok: false,
+        message: "Invalid scope. Must be one of: unmapped, selected, all.",
+      });
+      return;
+    }
+
+    let selectedEmojiNames: string[] | undefined;
+    if (rawScope === "selected") {
+      const rawNames = body.customEmojiNames;
+      if (
+        !Array.isArray(rawNames) ||
+        rawNames.length === 0 ||
+        !rawNames.every(
+          (name) => typeof name === "string" && name.trim().length > 0,
+        )
+      ) {
+        res.status(400).json({
+          ok: false,
+          message:
+            "Field 'customEmojiNames' must be a non-empty array of strings when scope is 'selected'.",
+        });
+        return;
+      }
+      selectedEmojiNames = rawNames.map((name) => name.trim());
+    }
+
+    try {
+      const liveEmojis = await getBotManager().getGuildEmojis(guildId);
+      const existingMapping = getGuildEmojiMapping(guildId);
+      const targets = filterTargetEmojisForSuggestion(
+        liveEmojis,
+        existingMapping,
+        rawScope,
+        selectedEmojiNames,
+      );
+
+      if (targets.length === 0) {
+        res.json({
+          ok: true,
+          guildId,
+          suggestions: [],
+          analyzedCount: 0,
+        });
+        return;
+      }
+
+      const suggestions = await suggestEmojiMappings({
+        emojis: targets,
+        existingMapping,
+      });
+
+      res.json({
+        ok: true,
+        guildId,
+        suggestions,
+        analyzedCount: targets.length,
       });
     } catch (error) {
       next(error);
