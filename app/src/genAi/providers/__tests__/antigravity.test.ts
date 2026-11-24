@@ -262,10 +262,14 @@ describe("AntigravityGenAi Provider", () => {
       expect(DEFAULT_ANTIGRAVITY_EFFORT).toBe("low");
     });
 
-    it("should allow configured effort to override parsed suffix", () => {
+    it("should allow configured effort to override parsed suffix or suffix-less models", () => {
       const result = parseModelAndEffort("gemini-4-hydrogen-low", "max");
       expect(result.model).toBe("gemini-4-hydrogen");
       expect(result.effort).toBe("max");
+
+      const suffixLess = parseModelAndEffort("gemini-4-hydrogen", "high");
+      expect(suffixLess.model).toBe("gemini-4-hydrogen");
+      expect(suffixLess.effort).toBe("high");
     });
 
     it("should use DEFAULT_ANTIGRAVITY_MODEL and DEFAULT_ANTIGRAVITY_EFFORT when modelId is empty or undefined", () => {
