@@ -19,6 +19,7 @@ import {
   cleanOutputContent,
   cleanupTemporaryAttachments,
   DEFAULT_ALLOWED_ATTACHMENT_DIRS,
+  DEFAULT_ANTIGRAVITY_EFFORT,
   DEFAULT_ANTIGRAVITY_MODEL,
   DEFAULT_ANTIGRAVITY_TIMEOUT_MS,
   DEFAULT_FALLBACK_RESPONSE,
@@ -90,7 +91,7 @@ describe("AntigravityGenAi Provider", () => {
     apiEndpoint: "endpoint",
     projectId: "project-1",
     locationId: "us-central1",
-    modelId: "gemini-3.8-flash-high",
+    modelId: "gemini-4-hydrogen-high",
     maxOutputTokens: 2048,
   };
 
@@ -231,14 +232,14 @@ describe("AntigravityGenAi Provider", () => {
 
   describe("parseModelAndEffort", () => {
     it("should extract base model and effort from modelId with suffix", () => {
-      const result = parseModelAndEffort("gemini-3.8-flash-high");
-      expect(result.model).toBe("gemini-3.8-flash");
+      const result = parseModelAndEffort("gemini-4-hydrogen-high");
+      expect(result.model).toBe("gemini-4-hydrogen");
       expect(result.effort).toBe("high");
     });
 
     it("should support low, medium, xhigh, and max effort suffixes case-insensitively", () => {
-      const low = parseModelAndEffort("gemini-3.8-flash-LOW");
-      expect(low.model).toBe("gemini-3.8-flash");
+      const low = parseModelAndEffort("gemini-4-hydrogen-LOW");
+      expect(low.model).toBe("gemini-4-hydrogen");
       expect(low.effort).toBe("low");
 
       const med = parseModelAndEffort("gemini-4-argon-MEDIUM");
@@ -254,44 +255,78 @@ describe("AntigravityGenAi Provider", () => {
       expect(max.effort).toBe("max");
     });
 
-    it("should keep model as-is when no effort suffix is present", () => {
-      const result = parseModelAndEffort("gemini-3.8-flash");
-      expect(result.model).toBe("gemini-3.8-flash");
-      expect(result.effort).toBeUndefined();
+    it("should default effort to low when no effort suffix is present", () => {
+      const result = parseModelAndEffort("gemini-4-hydrogen");
+      expect(result.model).toBe("gemini-4-hydrogen");
+      expect(result.effort).toBe(DEFAULT_ANTIGRAVITY_EFFORT);
+      expect(DEFAULT_ANTIGRAVITY_EFFORT).toBe("low");
     });
 
     it("should allow configured effort to override parsed suffix", () => {
-      const result = parseModelAndEffort("gemini-3.8-flash-low", "max");
-      expect(result.model).toBe("gemini-3.8-flash");
+      const result = parseModelAndEffort("gemini-4-hydrogen-low", "max");
+      expect(result.model).toBe("gemini-4-hydrogen");
       expect(result.effort).toBe("max");
     });
 
-    it("should use DEFAULT_ANTIGRAVITY_MODEL when modelId is empty or undefined", () => {
-      expect(parseModelAndEffort("").model).toBe(DEFAULT_ANTIGRAVITY_MODEL);
-      expect(parseModelAndEffort(undefined).model).toBe(
-        DEFAULT_ANTIGRAVITY_MODEL,
-      );
+    it("should use DEFAULT_ANTIGRAVITY_MODEL and DEFAULT_ANTIGRAVITY_EFFORT when modelId is empty or undefined", () => {
+      expect(DEFAULT_ANTIGRAVITY_MODEL).toBe("gemini-4-hydrogen");
+      expect(DEFAULT_ANTIGRAVITY_EFFORT).toBe("low");
+      expect(parseModelAndEffort("")).toEqual({
+        model: DEFAULT_ANTIGRAVITY_MODEL,
+        effort: DEFAULT_ANTIGRAVITY_EFFORT,
+      });
+      expect(parseModelAndEffort(undefined)).toEqual({
+        model: DEFAULT_ANTIGRAVITY_MODEL,
+        effort: DEFAULT_ANTIGRAVITY_EFFORT,
+      });
     });
 
-    it("should map legacy or standard Gemini models to Antigravity models", () => {
+    it("should parse Gemini 4 lineup models and effort suffixes", () => {
+      expect(parseModelAndEffort("gemini-4-hydrogen-low")).toEqual({
+        model: "gemini-4-hydrogen",
+        effort: "low",
+      });
+      expect(parseModelAndEffort("gemini-4-neon-xhigh")).toEqual({
+        model: "gemini-4-neon",
+        effort: "xhigh",
+      });
+      expect(parseModelAndEffort("gemini-4-carbon-high")).toEqual({
+        model: "gemini-4-carbon",
+        effort: "high",
+      });
+    });
+
+    it("should map legacy or deprecated Gemini models to Gemini 4 Antigravity models", () => {
       const flash = parseModelAndEffort("gemini-3-flash-preview");
-      expect(flash.model).toBe("gemini-3.8-flash");
+      expect(flash.model).toBe("gemini-4-hydrogen");
       expect(flash.effort).toBe("low");
 
       const classifier = parseModelAndEffort("gemini-2.5-flash");
-      expect(classifier.model).toBe("gemini-3.8-flash");
+      expect(classifier.model).toBe("gemini-4-hydrogen");
       expect(classifier.effort).toBe("low");
 
       const lite = parseModelAndEffort("gemini-3.5-flash-lite");
-      expect(lite.model).toBe("gemini-3.8-flash");
+      expect(lite.model).toBe("gemini-4-hydrogen");
       expect(lite.effort).toBe("low");
+
+      const deprecated36 = parseModelAndEffort("gemini-3.6-flash");
+      expect(deprecated36.model).toBe("gemini-4-hydrogen");
+      expect(deprecated36.effort).toBe("low");
+
+      const deprecated37 = parseModelAndEffort("gemini-3.7-flash");
+      expect(deprecated37.model).toBe("gemini-4-hydrogen");
+      expect(deprecated37.effort).toBe("low");
+
+      const deprecated38 = parseModelAndEffort("gemini-3.8-flash");
+      expect(deprecated38.model).toBe("gemini-4-hydrogen");
+      expect(deprecated38.effort).toBe("low");
 
       const pro = parseModelAndEffort("gemini-1.5-pro");
       expect(pro.model).toBe("gemini-4-argon");
       expect(pro.effort).toBe("medium");
 
       const withEffort = parseModelAndEffort("gemini-2.5-flash-high");
-      expect(withEffort.model).toBe("gemini-3.8-flash");
+      expect(withEffort.model).toBe("gemini-4-hydrogen");
       expect(withEffort.effort).toBe("high");
     });
 
@@ -1894,7 +1929,7 @@ describe("AntigravityGenAi Provider", () => {
 
       const provider = new AntigravityGenAi({
         ...baseConfig,
-        modelId: "gemini-3.8-flash-low",
+        modelId: "gemini-4-hydrogen-low",
       });
 
       const response: AiPromptResponse = await provider.generate({
@@ -1904,7 +1939,7 @@ describe("AntigravityGenAi Provider", () => {
       expect(response.content).toBe("Hello! How can I assist you today?");
       expect(response.data).toEqual({
         provider: "antigravity",
-        model: "gemini-3.8-flash",
+        model: "gemini-4-hydrogen",
         effort: "low",
       });
     });
