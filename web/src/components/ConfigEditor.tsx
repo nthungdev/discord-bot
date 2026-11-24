@@ -197,7 +197,7 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({
               <div className="flex justify-between items-center py-2 border-b border-white/5">
                 <span className="text-discord-muted">Default AI Model</span>
                 <span className="font-semibold text-discord-green bg-discord-darkest px-2.5 py-1 rounded-md border border-white/5">
-                  {String(config.aiModelId || "gemini-2.0-flash")}
+                  {String(config.aiModelId || "gemini-4-hydrogen")}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/5">

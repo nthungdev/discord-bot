@@ -12,7 +12,8 @@ import type {
 } from "../../types";
 import type { GenAi, GenAiConfig } from "../types";
 
-export const DEFAULT_ANTIGRAVITY_MODEL = "gemini-3.8-flash";
+export const DEFAULT_ANTIGRAVITY_MODEL = "gemini-4-hydrogen";
+export const DEFAULT_ANTIGRAVITY_EFFORT = "low";
 export const DEFAULT_ANTIGRAVITY_TIMEOUT_MS = 180_000;
 export const DEFAULT_TOOL_ITERATION_TIMEOUT_MS = 90_000;
 export const MAX_AGY_BUFFER_BYTES = 10 * 1024 * 1024; // 10MB DoS buffer guard
@@ -73,14 +74,19 @@ const TOOL_CALL_TAG_REGEX = /<tool_call>([\s\S]*?)<\/tool_call>/i;
 export const LEGACY_GEMINI_MODEL_MAP: Readonly<
   Record<string, { model: string; defaultEffort?: string }>
 > = {
-  "gemini-2.5-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
-  "gemini-3-flash-preview": { model: "gemini-3.8-flash", defaultEffort: "low" },
-  "gemini-3.5-flash-lite": { model: "gemini-3.8-flash", defaultEffort: "low" },
-  "gemini-3.5-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
-  "gemini-3.6-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
-  "gemini-1.5-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-2.5-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
+  "gemini-3-flash-preview": {
+    model: "gemini-4-hydrogen",
+    defaultEffort: "low",
+  },
+  "gemini-3.5-flash-lite": { model: "gemini-4-hydrogen", defaultEffort: "low" },
+  "gemini-3.5-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
+  "gemini-3.6-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
+  "gemini-3.7-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
+  "gemini-3.8-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
+  "gemini-1.5-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
   "gemini-1.5-pro": { model: "gemini-4-argon", defaultEffort: "medium" },
-  "gemini-2.0-flash": { model: "gemini-3.8-flash", defaultEffort: "low" },
+  "gemini-2.0-flash": { model: "gemini-4-hydrogen", defaultEffort: "low" },
 };
 
 export const STANDARD_SYSTEM_ENV_VARS: ReadonlySet<string> = new Set([
@@ -233,13 +239,16 @@ export function parseModelAndEffort(
   if (legacyMapping) {
     return {
       model: legacyMapping.model,
-      effort: parsedEffort || legacyMapping.defaultEffort,
+      effort:
+        parsedEffort ||
+        legacyMapping.defaultEffort ||
+        DEFAULT_ANTIGRAVITY_EFFORT,
     };
   }
 
   return {
     model: baseModel,
-    effort: parsedEffort,
+    effort: parsedEffort || DEFAULT_ANTIGRAVITY_EFFORT,
   };
 }
 
