@@ -22,7 +22,7 @@ export interface BotGuildToolsConfig {
   discord?: boolean;
 }
 
-import type { ModelConfig } from "../genAi/types";
+import type { ModelConfig, SupportedGenAiModel } from "../genAi/types";
 
 export interface SmartReplyConfig {
   enabled?: boolean;
@@ -213,7 +213,7 @@ export interface AiSafetySettingsConfig {
 export type CheckInLeaderboardConfig = string;
 export type AiApiEndpointConfig = string;
 export type AiProjectIdConfig = string;
-export type AiModelIdConfig = string;
+export type AiModelIdConfig = SupportedGenAiModel;
 export type AiLocationIdConfig = string;
 export type AiProviderConfig = "google-genai" | "vertex" | "antigravity";
 
