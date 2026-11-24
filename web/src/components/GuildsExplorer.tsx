@@ -9,11 +9,13 @@ import {
   Send,
   Server,
   Shield,
+  Smile,
   Sparkles,
   Users,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { BotGuildConfig, JoinedGuildDetail } from "../types";
+import { EmojiMappingTab } from "./EmojiMappingTab";
 
 interface GuildsExplorerProps {
   guilds: JoinedGuildDetail[];
@@ -64,7 +66,9 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string>("");
   const [savingConfig, setSavingConfig] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"channels" | "persona" | "smartReply" | "roast">("channels");
+  const [activeTab, setActiveTab] = useState<
+    "channels" | "persona" | "smartReply" | "roast" | "emojis"
+  >("channels");
 
   // Active Guild Config Form State
   const [guildConfig, setGuildConfig] = useState<BotGuildConfig>(
@@ -378,7 +382,7 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
             </div>
 
             {/* Settings Tabs */}
-            <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/5 pb-2">
               <button
                 onClick={() => setActiveTab("channels")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -422,6 +426,17 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
               >
                 <Flame className="w-3.5 h-3.5 text-orange-400" />
                 AI Roast / Chan
+              </button>
+              <button
+                onClick={() => setActiveTab("emojis")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === "emojis"
+                    ? "bg-discord-blurple text-white"
+                    : "text-discord-muted hover:text-white"
+                }`}
+              >
+                <Smile className="w-3.5 h-3.5" />
+                Emoji Mapping
               </button>
             </div>
 
@@ -760,6 +775,10 @@ export const GuildsExplorer: React.FC<GuildsExplorerProps> = ({
                   </div>
                 </div>
               </div>
+            )}
+            {/* Tab 5: Emoji Mapping */}
+            {activeTab === "emojis" && (
+              <EmojiMappingTab guild={selectedGuild} canManage={canManage} />
             )}
           </div>
         )}

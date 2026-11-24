@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+  --scrollbar-thumb: #5c6069;
+  --scrollbar-track: #1e1f22;
+}
+
 @layer base {
   body {
     @apply bg-discord-darkest text-discord-text font-sans;
@@ -11,24 +17,116 @@
   }
 }
 
-/* Custom Discord-styled scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Standard scrollbar styling (WCAG 1.4.11 >= 3:1 contrast thumb vs track) */
+html,
+.scroller {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
 }
-::-webkit-scrollbar-track {
-  background: #2b2d31;
+
+@supports not (scrollbar-color: auto) {
+  html,
+  .scroller {
+    scrollbar-width: auto;
+  }
+
+  html::-webkit-scrollbar,
+  .scroller::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  html::-webkit-scrollbar-thumb,
+  .scroller::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
+
+  html::-webkit-scrollbar-track,
+  .scroller::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
 }
-::-webkit-scrollbar-thumb {
-  background: #1a1b1e;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #111214;
+
+/* Accessible focus rings */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #99a3ff;
+  outline-offset: 2px;
 }
 
 .glass-card {
   background: rgba(43, 45, 49, 0.7);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Native <dialog> top-layer animation, scroll containment, and reduced motion */
+dialog.emoji-dialog {
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  background: #2b2d31;
+  color: #f2f3f5;
+  width: min(480px, calc(100vw - 28px));
+  max-height: min(86vh, 660px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 220ms;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.emoji-dialog {
+    transform: scale(0.94);
+  }
+}
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.emoji-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgb(0 0 0 / 0);
+  backdrop-filter: blur(0px);
+  transition-property: background-color, backdrop-filter, display, overlay;
+  transition-duration: 220ms;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+dialog.emoji-dialog[open]:where(:not([data-closing])) {
+  opacity: 1;
+
+  @starting-style {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transform: scale(1);
+
+    @starting-style {
+      transform: scale(0.94);
+    }
+  }
+
+  &::backdrop {
+    background-color: rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(3px);
+
+    @starting-style {
+      background-color: rgb(0 0 0 / 0);
+      backdrop-filter: blur(0px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.emoji-dialog,
+  dialog.emoji-dialog::backdrop {
+    transition-duration: 100ms;
+  }
 }
