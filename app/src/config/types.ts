@@ -1,3 +1,5 @@
+import type { ModelConfig, SupportedGenAiModel } from "../genAi/types";
+
 export interface GuildEmojisConfig {
   [guildId: string]: {
     /**
@@ -21,8 +23,6 @@ export interface BotGuildToolsConfig {
   googleSearch?: boolean;
   discord?: boolean;
 }
-
-import type { ModelConfig, SupportedGenAiModel } from "../genAi/types";
 
 export interface SmartReplyConfig {
   enabled?: boolean;
