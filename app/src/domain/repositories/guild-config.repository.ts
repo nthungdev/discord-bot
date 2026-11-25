@@ -8,4 +8,8 @@ export interface IGuildConfigRepository {
     valorantEnabled: boolean,
     valorantFeatures?: import("../../config/types").ValorantFeaturesConfig,
   ): Promise<void>;
+  upsertGuildEmojis?(
+    guildId: string,
+    emojis: Record<string, string[]>,
+  ): Promise<void>;
 }

@@ -167,3 +167,41 @@ export interface StoredChatMessage {
   timestamp: number;
 }
 
+export interface GuildCustomEmoji {
+  id: string;
+  name: string;
+  animated: boolean;
+  url: string;
+}
+
+export interface EmojiAiSuggestion {
+  customEmojiName: string;
+  standardEmojis: string[];
+  reason: string;
+}
+
+export type EmojiAiSuggestScope = "unmapped" | "selected" | "all";
+
+export interface GuildEmojisResponse {
+  ok: boolean;
+  guildId: string;
+  emojis: GuildCustomEmoji[];
+  mapping: Record<string, string[]>;
+  orphanedEmojis: string[];
+}
+
+export interface UpdateGuildEmojisResponse {
+  ok: boolean;
+  guildId: string;
+  persistedTo: ConfigSource;
+  mapping: Record<string, string[]>;
+  message: string;
+}
+
+export interface AiEmojiSuggestResponse {
+  ok: boolean;
+  guildId: string;
+  suggestions: EmojiAiSuggestion[];
+  analyzedCount: number;
+}
+

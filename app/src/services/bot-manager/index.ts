@@ -1,5 +1,6 @@
 import {
   type DiscordBotEngine,
+  type GuildCustomEmojiInfo,
   getBotEngine,
 } from "../../capabilities/bot-engine";
 import { deployGuildCommands } from "../../discord/deployCommands";
@@ -166,6 +167,13 @@ export class BotManager {
    */
   async getJoinedGuildDetails(_id?: string): Promise<JoinedGuildDetail[]> {
     return this.engine.getJoinedGuildDetails();
+  }
+
+  /**
+   * Returns live custom emojis for a target guild.
+   */
+  async getGuildEmojis(guildId: string): Promise<GuildCustomEmojiInfo[]> {
+    return this.engine.getGuildEmojis(guildId);
   }
 
   /**

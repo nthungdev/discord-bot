@@ -1,13 +1,17 @@
 import type {
   ActivityLogEvent,
+  AiEmojiSuggestResponse,
   BotGuildConfig,
   BotRuntimeMetrics,
   ConfigReloadResponse,
   ConfigResponse,
   ConfigSource,
   DashboardStats,
+  EmojiAiSuggestScope,
+  GuildEmojisResponse,
   JoinedGuildDetail,
   StoredChatMessage,
+  UpdateGuildEmojisResponse,
   UserSession,
 } from "../types";
 
@@ -79,6 +83,28 @@ export const api = {
       `/guilds/${guildId}/deploy-commands`,
       { method: "POST" },
     ),
+  getGuildEmojis: (guildId: string): Promise<GuildEmojisResponse> =>
+    request<GuildEmojisResponse>(`/guilds/${guildId}/emojis`),
+  updateGuildEmojis: (
+    guildId: string,
+    mapping: Record<string, string[]>,
+  ): Promise<UpdateGuildEmojisResponse> =>
+    request<UpdateGuildEmojisResponse>(`/guilds/${guildId}/emojis`, {
+      method: "PUT",
+      body: JSON.stringify({ mapping }),
+    }),
+  suggestGuildEmojis: (
+    guildId: string,
+    scope: EmojiAiSuggestScope,
+    customEmojiNames?: string[],
+  ): Promise<AiEmojiSuggestResponse> =>
+    request<AiEmojiSuggestResponse>(`/guilds/${guildId}/emojis/ai-suggest`, {
+      method: "POST",
+      body: JSON.stringify({
+        scope,
+        ...(customEmojiNames ? { customEmojiNames } : {}),
+      }),
+    }),
 
   // Bots
   getBots: () => request<{ ok: boolean; bots: BotRuntimeMetrics[] }>("/bots"),

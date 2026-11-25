@@ -212,6 +212,9 @@ export class Config {
   private configSource: ConfigSource = "remote-config";
   private inMemoryGuildOverrides: Map<string, GuildOverrideEntry> = new Map();
   private overrideGenerations: Map<string, number> = new Map();
+  private inMemoryGuildEmojiOverrides: Map<string, Record<string, string[]>> =
+    new Map();
+  private emojiOverrideGenerations: Map<string, number> = new Map();
   private inFlightLoad: Promise<void> | null = null;
   private loadGeneration: number = 0;
 
@@ -251,6 +254,8 @@ export class Config {
     this.template = null;
     this.inMemoryGuildOverrides.clear();
     this.overrideGenerations.clear();
+    this.inMemoryGuildEmojiOverrides.clear();
+    this.emojiOverrideGenerations.clear();
 
     if (options?.refreshIntervalMs !== undefined) {
       this.ttlMs = options.refreshIntervalMs;
@@ -310,6 +315,7 @@ export class Config {
   private async loadDirectusConfig(): Promise<void> {
     const startGen = this.loadGeneration;
     const overrideVersionsAtStart = new Map(this.overrideGenerations);
+    const emojiOverrideVersionsAtStart = new Map(this.emojiOverrideGenerations);
     try {
       const { systemConfig, guildConfigs } =
         await guildConfigRepository.fetchAllConfigs();
@@ -328,6 +334,15 @@ export class Config {
         if (this.overrideGenerations.get(overrideKey) === startVersion) {
           this.inMemoryGuildOverrides.delete(overrideKey);
           this.overrideGenerations.delete(overrideKey);
+        }
+      }
+      for (const [
+        guildId,
+        startVersion,
+      ] of emojiOverrideVersionsAtStart.entries()) {
+        if (this.emojiOverrideGenerations.get(guildId) === startVersion) {
+          this.inMemoryGuildEmojiOverrides.delete(guildId);
+          this.emojiOverrideGenerations.delete(guildId);
         }
       }
       this.lastFetchedAt = Date.now();
@@ -463,6 +478,40 @@ export class Config {
     return updatedBots;
   }
 
+  private applyGuildEmojiOverrides(
+    guildEmojis: GuildEmojisConfig,
+  ): GuildEmojisConfig {
+    if (this.inMemoryGuildEmojiOverrides.size === 0 || !guildEmojis) {
+      return guildEmojis;
+    }
+    const updatedGuildEmojis: GuildEmojisConfig = { ...guildEmojis };
+    for (const [
+      guildId,
+      emojiMapping,
+    ] of this.inMemoryGuildEmojiOverrides.entries()) {
+      if (!isSafeRecordKey(guildId)) {
+        continue;
+      }
+      setSafeProperty(updatedGuildEmojis, guildId, emojiMapping);
+    }
+    return updatedGuildEmojis;
+  }
+
+  private getGuildEmojisConfig(): GuildEmojisConfig {
+    if (this.configSource === "directus") {
+      const snapshot = this.directusSnapshot ?? this.getLocalConfig();
+      return this.applyGuildEmojiOverrides(snapshot.guildEmojis);
+    }
+    const fallback = this.getLocalConfig()[ConfigParameter.guildEmojis];
+    const config = this.getConfig();
+    if (!config) {
+      return this.applyGuildEmojiOverrides(fallback);
+    }
+    const strVal = config.getString(ConfigParameter.guildEmojis);
+    const parsedEmojis = this.parseJsonConfig(strVal, fallback);
+    return this.applyGuildEmojiOverrides(parsedEmojis);
+  }
+
   private getBotsConfig(): BotsConfig {
     if (this.configSource === "directus") {
       const snapshot = this.directusSnapshot ?? this.getLocalConfig();
@@ -509,6 +558,9 @@ export class Config {
                           : AiProjectIdConfig {
     if (key === ConfigParameter.bots) {
       return this.getBotsConfig() as never;
+    }
+    if (key === ConfigParameter.guildEmojis) {
+      return this.getGuildEmojisConfig() as never;
     }
 
     if (this.configSource === "directus") {
@@ -597,6 +649,44 @@ export class Config {
       this.directusSnapshot = {
         ...this.directusSnapshot,
         bots: updatedBots,
+      };
+    }
+  }
+
+  /**
+   * Updates or sets an authoritative in-memory override for a guild's custom emoji mapping.
+   * Survives evaluate() cycles without mutating `localConfig`, and updates `directusSnapshot` if present.
+   */
+  public updateGuildEmojis(
+    guildId: string,
+    emojis: Record<string, string[]>,
+  ): void {
+    if (!isSafeRecordKey(guildId)) {
+      throw new Error("Invalid guildId for emoji configuration update.");
+    }
+
+    const clonedEmojis: Record<string, string[]> = {};
+    for (const [emojiKey, customNames] of Object.entries(emojis)) {
+      if (!isSafeRecordKey(emojiKey)) {
+        continue;
+      }
+      setSafeProperty(clonedEmojis, emojiKey, [...customNames]);
+    }
+
+    this.inMemoryGuildEmojiOverrides.set(guildId, clonedEmojis);
+    this.emojiOverrideGenerations.set(
+      guildId,
+      (this.emojiOverrideGenerations.get(guildId) ?? 0) + 1,
+    );
+
+    if (this.directusSnapshot) {
+      const updatedGuildEmojis: GuildEmojisConfig = {
+        ...(this.directusSnapshot.guildEmojis ?? {}),
+      };
+      setSafeProperty(updatedGuildEmojis, guildId, clonedEmojis);
+      this.directusSnapshot = {
+        ...this.directusSnapshot,
+        guildEmojis: updatedGuildEmojis,
       };
     }
   }
