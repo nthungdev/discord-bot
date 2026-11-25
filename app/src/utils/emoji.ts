@@ -89,14 +89,34 @@ export const getEmojiMap = (
   return resolvedMap;
 };
 
+const VARIATION_SELECTOR_16_PATTERN = /\uFE0F/g;
+
+/**
+ * Strips Unicode Variation Selector-16 (U+FE0F) so emojis with and without
+ * explicit emoji presentation (e.g. `❤` vs `❤️`) resolve consistently.
+ */
+function stripVariationSelector16(value: string): string {
+  return value.replace(VARIATION_SELECTOR_16_PATTERN, "");
+}
+
 /**
  * Replaces standard Unicode emojis in text with the server's custom emojis.
- * Uses grapheme cluster segmentation so multi-codepoint emojis are matched accurately.
+ * Uses grapheme cluster segmentation so multi-codepoint emojis are matched accurately,
+ * and falls back to Variation Selector-16 normalization (`❤` <-> `❤️`).
  */
 export const replaceEmojis = (text: string, emojiMap: EmojiMap): string => {
+  const normalizedMap = new Map<string, readonly EmojiMapEntry[]>();
+  for (const [key, entries] of Object.entries(emojiMap)) {
+    const normalizedKey = stripVariationSelector16(key);
+    if (!normalizedMap.has(normalizedKey)) {
+      normalizedMap.set(normalizedKey, entries);
+    }
+  }
+
   let newText = "";
   for (const { segment } of GRAPHEME_SEGMENTER.segment(text)) {
-    const candidates = emojiMap[segment];
+    const candidates =
+      emojiMap[segment] ?? normalizedMap.get(stripVariationSelector16(segment));
     if (candidates && candidates.length > 0) {
       const randomIndex = Math.floor(Math.random() * candidates.length);
       newText += formatCustomEmojiEntry(candidates[randomIndex]);

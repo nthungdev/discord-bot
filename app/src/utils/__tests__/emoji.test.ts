@@ -142,6 +142,22 @@ describe("emoji utils", () => {
         "Celebrate <a:party:555555555555555555> <a:emoji:666666666666666666>",
       );
     });
+
+    it("should match emojis with or without variation selector-16 (U+FE0F)", () => {
+      const emojiMap: Record<string, ResolvedCustomEmoji[]> = {
+        "❤️": [{ id: "700000000000000001", name: "heart", animated: false }],
+        "☠": [{ id: "700000000000000002", name: "skull", animated: false }],
+      };
+
+      // Text without U+FE0F matches map key with U+FE0F
+      expect(replaceEmojis("Love \u2764 this", emojiMap)).toBe(
+        "Love <:heart:700000000000000001> this",
+      );
+      // Text with U+FE0F matches map key without U+FE0F
+      expect(replaceEmojis("Dead \u2620\uFE0F lol", emojiMap)).toBe(
+        "Dead <:skull:700000000000000002> lol",
+      );
+    });
   });
 
   describe("splitEndingEmojis", () => {
