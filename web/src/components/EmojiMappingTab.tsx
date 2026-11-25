@@ -677,6 +677,28 @@ export const EmojiMappingTab: React.FC<EmojiMappingTabProps> = ({
     [filteredCustomItems],
   );
 
+  // Reset shift-click range anchor when list ordering/filtering changes
+  useEffect(() => {
+    setLastClickedIndex(null);
+  }, [activeFilter, searchQuery, viewMode]);
+
+  // Prune stale selections when emojis are removed or filtered out
+  useEffect(() => {
+    const visibleSet = new Set(visibleSelectableNames);
+    setSelectedNames((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const name of prev) {
+        if (visibleSet.has(name)) {
+          next.add(name);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [visibleSelectableNames]);
+
   // Keyboard shortcuts: Esc clears selection when no dialog is open; Cmd/Ctrl+A selects visible
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -806,10 +828,30 @@ export const EmojiMappingTab: React.FC<EmojiMappingTabProps> = ({
   const handleQueueDirectUnicode = () => {
     const raw = unicodeDirectInput.trim();
     if (!raw) return;
+    const stripVs16 = (val: string) => val.replace(/\uFE0F/g, "");
+    const existingByBase = new Map<string, string>();
+    for (const key of Object.keys(mapping)) {
+      const base = stripVs16(key);
+      if (!existingByBase.has(base)) existingByBase.set(base, key);
+    }
+    const pickerByBase = new Map<string, string>();
+    for (const item of UNICODE_EMOJIS) {
+      const base = stripVs16(item.e);
+      if (!pickerByBase.has(base)) pickerByBase.set(base, item.e);
+    }
+
     const segments = segmentGraphemes(raw)
       .map((s) => s.trim())
-      .filter(Boolean);
-    if (segments.length === 0) return;
+      .filter((s) => /\p{Extended_Pictographic}/u.test(s))
+      .map((s) => {
+        const base = stripVs16(s);
+        return existingByBase.get(base) ?? pickerByBase.get(base) ?? s;
+      });
+
+    if (segments.length === 0) {
+      showStatus("Paste or enter a valid Unicode emoji (e.g. 😂, 🔥, ❤️‍🔥).");
+      return;
+    }
     setUnicodePicked((prev) => {
       const next = new Set(prev);
       for (const seg of segments) next.add(seg);
@@ -874,16 +916,22 @@ export const EmojiMappingTab: React.FC<EmojiMappingTabProps> = ({
   const runAiAutoMap = async (forcedScope?: EmojiAiSuggestScope) => {
     if (!canManage) return;
     const scope = forcedScope || aiScope;
+    let requestScope: EmojiAiSuggestScope = scope;
     let targetNames: string[] | undefined;
     let targetCount = 0;
 
     if (scope === "unmapped") {
-      const unmapped = emojis.filter(
-        (e) => getTagsForCustom(mapping, e.name).length === 0,
-      );
-      targetCount = unmapped.length;
+      const unmappedNames = emojis
+        .filter((e) => getTagsForCustom(mapping, e.name).length === 0)
+        .map((e) => e.name);
+      targetCount = unmappedNames.length;
+      // Send exact unmapped list from local state so unsaved edits match what the server analyzes
+      requestScope = "selected";
+      targetNames = unmappedNames;
     } else if (scope === "selected") {
-      targetNames = Array.from(selectedNames);
+      targetNames = visibleSelectableNames.filter((name) =>
+        selectedNames.has(name),
+      );
       targetCount = targetNames.length;
     } else {
       targetCount = emojis.length;
@@ -905,7 +953,11 @@ export const EmojiMappingTab: React.FC<EmojiMappingTabProps> = ({
     );
 
     try {
-      const res = await api.suggestGuildEmojis(guild.id, scope, targetNames);
+      const res = await api.suggestGuildEmojis(
+        guild.id,
+        requestScope,
+        targetNames,
+      );
       const suggestions: EmojiAiSuggestion[] = res.suggestions || [];
 
       if (suggestions.length === 0) {
@@ -1041,12 +1093,21 @@ export const EmojiMappingTab: React.FC<EmojiMappingTabProps> = ({
   }, [emojis, customSearch]);
 
   const previewNodes = useMemo(() => {
+    const stripVs16 = (val: string) => val.replace(/\uFE0F/g, "");
+    const normalizedMapping = new Map<string, string[]>();
+    for (const [key, names] of Object.entries(mapping)) {
+      const base = stripVs16(key);
+      if (!normalizedMapping.has(base)) {
+        normalizedMapping.set(base, names);
+      }
+    }
+
     const segments = segmentGraphemes(previewText);
     let replaceIdx = 0;
     return segments.map((segment, i) => {
-      const candidates = (mapping[segment] || []).filter((n) =>
-        emojiByName.has(n),
-      );
+      const rawCandidates =
+        mapping[segment] ?? normalizedMapping.get(stripVs16(segment)) ?? [];
+      const candidates = rawCandidates.filter((n) => emojiByName.has(n));
       if (candidates.length > 0) {
         const pickName =
           candidates[(rerollSeed + replaceIdx) % candidates.length];
